@@ -755,6 +755,43 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		discountSantim = 0
 	}
 
+	// GROSS first — the frozen booking contract plus rider-approved additions.
+	// This is the commission basis and the value the promo finalizer adjusts
+	// against (§3.2 receipt-time application); it NEVER includes actual-trip
+	// repricing (FARE INTEGRITY Phase 1).
+	grossRes, err := h.finalFare.Compute(services.FinalFareInput{
+		Snapshot:       snapshot,
+		Stops:          approvedStops,
+		DiscountSantim: 0,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrFareCalcFailed, err)
+	}
+	grossSantim := grossRes.GrossFareSantim // F0 + S + W
+
+	// PHASE 3 (§3.2): when the promotions port is wired and the ride carries a
+	// code, recompute the discount against the FINAL gross fare at completion
+	// (percent/capped promos scale with the contract total, stop fees
+	// included). Fail-closed: a finalization error aborts completion BEFORE
+	// any money state changes — the request-time snapshot must not silently
+	// settle when the authoritative receipt-time number could not be
+	// resolved. A missing redemption row (ErrPromoNotFound) legitimately means
+	// "no promo on this ride" and falls back to the request-time projection.
+	if h.promoFinalizer != nil && promoCode != "" {
+		finalized, ferr := h.promoFinalizer.FinalizeAtCompletion(ctx, ride.ID,
+			services.SantimToMajor(grossSantim), promoCode)
+		if ferr != nil && !errors.Is(ferr, ErrPromoNotFound) {
+			return nil, fmt.Errorf("%w: finalize promo discount at completion: %v", ErrFareCalcFailed, ferr)
+		}
+		if finalized > 0 {
+			if dS := services.MajorToSantim(finalized); dS > discountSantim {
+				discountSantim = dS
+			}
+		}
+	}
+
+	// Final payable from the frozen contract + approved additions - validated
+	// discount. Deterministic: same inputs ⇒ same result, retries included.
 	finalRes, err := h.finalFare.Compute(services.FinalFareInput{
 		Snapshot:       snapshot,
 		Stops:          approvedStops,
