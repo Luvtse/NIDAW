@@ -28,7 +28,11 @@ class HotelSummary {
       city: json['city'] as String? ?? '',
       starRating: (json['star_rating'] as num?)?.toInt() ?? 0,
       pricePerNight: (json['price_per_night'] as num?)?.toDouble(),
-      currency: json['currency'] as String? ?? 'USD',
+      // Phase 4 (ETB-only standardization): NIDAW has no multi-currency
+      // runtime. Missing/legacy tags normalize to ETB; historical amounts
+      // are rendered by core/utils/formatters which maps legacy 'USD'
+      // labels to Br without implying a live dollar price.
+      currency: json['currency'] as String? ?? 'ETB',
       imageUrl: imageUrl,
     );
   }

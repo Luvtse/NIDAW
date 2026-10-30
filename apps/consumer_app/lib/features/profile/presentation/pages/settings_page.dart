@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 
@@ -16,7 +17,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _emailNotifications = true;
   bool _pushNotifications = true;
   bool _darkMode = false;
-  String _currency = 'USD';
+
+  /// Phase 4 (ETB-only standardization): NIDAW prices, books and settles every
+  /// fare in ETB. The old currency dropdown offered USD/EUR/GBP/JPY, none of
+  /// which the backend accepts — selecting one changed nothing but implied a
+  /// live multi-currency capability. It is replaced with an honest read-only
+  /// display backed by AppConstants.supportedCurrencies (exactly ['ETB']).
+  String get _currency => AppConstants.defaultCurrency;
 
   /// Currently persisted locale code ('en'/'am'/'om') or null for system
   /// default (§4.3). Read once at build from Hive via LocaleController so the
@@ -88,13 +95,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // Regional
           _buildSectionTitle('Regional'),
-          _buildDropdownTile(
-            icon: Icons.attach_money,
-            title: 'Currency',
-            value: _currency,
-            items: ['USD', 'EUR', 'GBP', 'JPY'],
-            onChanged: (value) => setState(() => _currency = value!),
-          ),
+          // Phase 4: read-only ETB display. A selector offering currencies the
+          // platform does not support was removed; AppConstants
+          // .supportedCurrencies is exactly ['ETB'] and the backend rejects
+          // any other currency code fail-closed.
+          _buildCurrencyTile(),
 
           const SizedBox(height: 24),
 
@@ -254,13 +259,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildDropdownTile({
-    required IconData icon,
-    required String title,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
+  /// Read-only currency row (Phase 4, ETB-only). Shows the single supported
+  /// currency and its unit ("Ethiopian Birr — santim minor units") instead of
+  /// offering a picker for currencies the platform rejects.
+  Widget _buildCurrencyTile() {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -270,15 +272,18 @@ class _SettingsPageState extends State<SettingsPage> {
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: AppColors.primary),
+          child: const Icon(Icons.attach_money, color: AppColors.primary),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: DropdownButton<String>(
-          value: value,
-          items: items.map((item) {
-            return DropdownMenuItem(value: item, child: Text(item));
-          }).toList(),
-          onChanged: onChanged,
+        title: const Text('Currency',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          '${AppConstants.defaultCurrency} — Ethiopian Birr '
+          '(supported: ${AppConstants.supportedCurrencies.join(', ')})',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        trailing: Text(
+          _currency,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
