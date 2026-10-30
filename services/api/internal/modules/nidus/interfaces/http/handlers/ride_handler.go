@@ -73,6 +73,20 @@ type RideHandler struct {
 	// cannot price or time. The concrete service lives in the application
 	// layer; this narrow interface keeps handlers decoupled from persistence.
 	stopCharges StopChargePort
+	// stopReader is the Phase 2 read-side port for embedding approved
+	// per-stop charge state on GET /rides/{rideID}. Wired together with
+	// stopCharges via SetStopChargeService when the concrete service also
+	// implements it (services.StopChargeService does); nil-safe — without
+	// it the stops array simply carries no Charge field, exactly like a
+	// ride whose stops were never approved.
+	stopReader StopChargeReader
+}
+
+// StopChargeReader is the narrow read surface GetRide needs: every
+// rider-approved charge on one ride, in seq order. Implemented by
+// services.StopChargeService.ApprovedChargesForRide.
+type StopChargeReader interface {
+	ApprovedChargesForRide(ctx context.Context, rideID uuid.UUID) ([]entities.StopCharge, error)
 }
 
 // StopChargePort is the minimal HTTP-facing contract of the Phase 2
@@ -84,7 +98,7 @@ type RideHandler struct {
 type StopChargePort interface {
 	QuoteStop(ctx context.Context, rideID uuid.UUID, seq int) (*services.StopQuotePreview, error)
 	ApproveStop(ctx context.Context, rideID, riderUserID uuid.UUID, seq int) (*entities.StopCharge, error)
-	StartStopTimer(ctx context.Context, rideID uuid.UUID, seq int) error
+	StartStopTimer(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error)
 	StopStopTimer(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error)
 }
 
