@@ -44,7 +44,11 @@ class MenuItem {
     name: json['name'] as String? ?? 'Menu item',
     description: json['description'] as String?,
     price: (json['price'] as num?)?.toDouble() ?? 0,
-    currency: json['currency'] as String? ?? 'USD',
+    // Phase 4 (ETB-only standardization): NIDAW has no multi-currency
+    // runtime. Missing/legacy tags normalize to ETB; historical amounts
+    // are rendered by core/utils/formatters which maps legacy 'USD'
+    // labels to Br without implying a live dollar price.
+    currency: json['currency'] as String? ?? 'ETB',
     category: json['category'] as String?,
     imageUrl: json['image_url'] as String?,
     isAvailable: json['is_available'] as bool? ?? false,
