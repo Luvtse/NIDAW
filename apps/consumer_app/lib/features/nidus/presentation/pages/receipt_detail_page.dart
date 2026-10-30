@@ -166,6 +166,40 @@ class ReceiptDetailPage extends StatelessWidget {
             ),
           ],
 
+          // ---- FARE INTEGRITY Phase 2: rider-approved stop charges --------
+          // Rendered ONLY from the embedded persisted charge projection the
+          // backend attaches to GET /rides/{id}. A stop with charge == null
+          // is honestly labeled "no fee approved" — never zero-filled. The
+          // payable itself already includes these amounts server-side; this
+          // section explains WHERE the money came from, it adds nothing.
+          if (ride.stops.isNotEmpty) ...[
+            const Divider(height: 32),
+            const Text(
+              'Stop charges',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            for (final stop in ride.stops)
+              if (stop.charge != null) ...[
+                _Line(
+                  label: 'Stop ${stop.seq} — fixed fee',
+                  value: formatSantim(stop.charge!.stopFeeSantim,
+                      currency: stop.charge!.currency),
+                ),
+                _Line(
+                  label: 'Stop ${stop.seq} — waiting '
+                      '(${stop.charge!.dwellMinutes} min dwell, '
+                      '${stop.charge!.waitingEligible ? '\u2265 ${stop.charge!.waitingThresholdMinutes} min threshold met' : 'under ${stop.charge!.waitingThresholdMinutes} min'} )',
+                  value: formatSantim(stop.charge!.waitingChargeSantim,
+                      currency: stop.charge!.currency),
+                ),
+              ] else
+                _Line(
+                  label: 'Stop ${stop.seq}',
+                  value: 'no fee approved',
+                ),
+          ],
+
           const SizedBox(height: 16),
           const Text(
             'If something looks wrong, file a dispute within 72 hours of '

@@ -143,7 +143,181 @@ abstract class RideRepository {
     String? review,
     double? tip,
   });
+
+  // ─── FARE INTEGRITY Phase 2: rider-approved stop charges ────────────────
+  //
+  // Every money number on this surface comes from the server: the quote is
+  // the same pure policy the settlement finalizer uses (stops-v1: fixed fee
+  // + waiting charge = exactly ½ of the ORIGINAL frozen booking fare once
+  // dwell ≥ threshold), and the approve response echoes the persisted row.
+  // There are no client-side fee heuristics here — Global Rule 2.
+
+  /// GET /rides/{rideId}/stops/{seq}/quote — write-free disclosure of what
+  /// approving this stop would add. Throws [ApiException] (e.g.
+  /// NO_BOOKING_CONTRACT 409) when no frozen contract exists; callers must
+  /// degrade honestly and never invent an amount.
+  Future<StopChargeQuote> quoteStop(String rideId, int seq);
+
+  /// POST /rides/{rideId}/stops/{seq}/approve — RIDER ONLY, exactly-once.
+  /// The body carries NO amount field by design: the server re-freezes the
+  /// fee from config, so a tampered client cannot negotiate it. A second
+  /// approval surfaces errorCode STOP_ALREADY_APPROVED (409).
+  Future<StopChargeState> approveStop(String rideId, int seq);
+
+  /// POST /rides/{rideId}/stops/{seq}/timer/start — records one
+  /// server-clock start event on an approved stop (either participant).
+  /// Double arrival pings resolve to exactly one start; the loser gets
+  /// STOP_TIMER_ALREADY_STARTED (409).
+  Future<StopChargeState> startStopTimer(String rideId, int seq);
+
+  /// POST /rides/{rideId}/stops/{seq}/timer/stop — closes the server-clock
+  /// window, floors the dwell to whole minutes (rider-favorable boundary),
+  /// evaluates the threshold and PERSISTS the waiting charge computed from
+  /// the original frozen booking fare. Exactly one close wins; later
+  /// attempts get STOP_TIMER_CLOSED (409).
+  Future<StopChargeState> stopStopTimer(String rideId, int seq);
 }
+
+// ============================================================================
+// FARE INTEGRITY Phase 2 — stop-charge wire models
+// ============================================================================
+
+/// santim (1/100 of a major unit) → display string with exactly two decimals.
+/// The division happens once, at formatting time, on an integer that came
+/// straight off the wire — the UI never re-derives money from floats and can
+/// therefore never drift from the server's authoritative amount.
+String formatSantim(int santim, {String currency = 'ETB'}) {
+  final sign = santim < 0 ? '-' : '';
+  final abs = santim < 0 ? -santim : santim;
+  final whole = abs ~/ 100;
+  final frac = (abs % 100).toString().padLeft(2, '0');
+  return '$currency $sign$whole.$frac';
+}
+
+/// Display symbol for ETB used by the stops-v1 disclosure copy ("Br 10.00").
+/// Falls back to the ISO code for any other currency the backend reports.
+String stopCurrencySymbol(String currency) => currency == 'ETB' ? 'Br' : currency;
+
+/// GET /rides/{id}/stops/{seq}/quote response — verbatim mirror of the
+/// backend StopQuotePreviewResponse DTO. All amounts are integer santim;
+/// [waitingThresholdMinutes] and [policyVersion] travel with them so the
+/// sheet states the rule it is applying instead of implying a number.
+class StopChargeQuote {
+  final int seq;
+  final int fixedFeeSantim;
+  final int waitingChargeIfLongSantim;
+  final int waitingThresholdMinutes;
+  final String policyVersion;
+  final String currency;
+
+  const StopChargeQuote({
+    required this.seq,
+    required this.fixedFeeSantim,
+    required this.waitingChargeIfLongSantim,
+    required this.waitingThresholdMinutes,
+    required this.policyVersion,
+    required this.currency,
+  });
+
+  factory StopChargeQuote.fromJson(Map<String, dynamic> json) =>
+      StopChargeQuote(
+        seq: json['seq'] is num ? (json['seq'] as num).toInt() : 0,
+        fixedFeeSantim: _reqInt(json['fixed_fee_santim'], 'fixed_fee_santim'),
+        waitingChargeIfLongSantim: _reqInt(
+            json['waiting_charge_if_long_santim'],
+            'waiting_charge_if_long_santim'),
+        waitingThresholdMinutes: _reqInt(
+            json['waiting_threshold_minutes'], 'waiting_threshold_minutes'),
+        policyVersion: json['policy_version'] as String? ?? '',
+        currency: json['currency'] as String? ?? 'ETB',
+      );
+
+  /// Rider-favorable disclosure sentence built ONLY from server numbers —
+  /// e.g. "Br 10.00 stop fee; stops ≥ 10 min add Br 21.50 waiting".
+  String get disclosureLine {
+    final sym = stopCurrencySymbol(currency);
+    String major(int santim) {
+      final whole = santim ~/ 100;
+      final frac = (santim % 100).toString().padLeft(2, '0');
+      return '$sym $whole.$frac';
+    }
+
+    return '${major(fixedFeeSantim)} stop fee; stops \u2265 '
+        '$waitingThresholdMinutes min add ${major(waitingChargeIfLongSantim)} '
+        'waiting ($policyVersion)';
+  }
+}
+
+/// Wire shape of a persisted ride_stop_charges row (backend StopChargeInfo).
+/// Money stays integer santim; [dwellMinutes] is the SERVER-measured value
+/// (live while the timer runs, finalized at close) — never client-supplied.
+class StopChargeState {
+  final int seq;
+  final bool approvedByRider;
+  final DateTime? approvedAt;
+  final int stopFeeSantim;
+  final int waitingChargeSantim;
+  final int totalSantim;
+  final int dwellMinutes;
+  final DateTime? timerStartedAt;
+  final DateTime? timerEndedAt;
+  final bool waitingEligible;
+  final int waitingThresholdMinutes;
+  final String policyVersion;
+  final String currency;
+
+  const StopChargeState({
+    required this.seq,
+    required this.approvedByRider,
+    this.approvedAt,
+    required this.stopFeeSantim,
+    required this.waitingChargeSantim,
+    required this.totalSantim,
+    required this.dwellMinutes,
+    this.timerStartedAt,
+    this.timerEndedAt,
+    required this.waitingEligible,
+    required this.waitingThresholdMinutes,
+    required this.policyVersion,
+    required this.currency,
+  });
+
+  bool get timerRunning =>
+      timerStartedAt != null &&
+      timerEndedAt == null &&
+      waitingChargeSantim == 0 &&
+      dwellMinutes == 0;
+
+  bool get timerClosed => timerEndedAt != null;
+
+  factory StopChargeState.fromJson(Map<String, dynamic> json) {
+    DateTime? d(Object? v) => v is String ? DateTime.tryParse(v) : null;
+    int i(Object? v, int fallback) => v is num ? (v as num).toInt() : fallback;
+    return StopChargeState(
+      seq: i(json['seq'], 0),
+      approvedByRider: json['approved_by_rider'] == true,
+      approvedAt: d(json['approved_at']),
+      stopFeeSantim: i(json['stop_fee_santim'], 0),
+      waitingChargeSantim: i(json['waiting_charge_santim'], 0),
+      totalSantim: i(json['total_santim'], 0),
+      dwellMinutes: i(json['dwell_minutes'], 0),
+      timerStartedAt: d(json['timer_started_at']),
+      timerEndedAt: d(json['timer_ended_at']),
+      waitingEligible: json['waiting_eligible'] == true,
+      waitingThresholdMinutes: i(json['waiting_threshold_minutes'], 10),
+      policyVersion: json['policy_version'] as String? ?? '',
+      currency: json['currency'] as String? ?? 'ETB',
+    );
+  }
+}
+
+int _reqInt(Object? v, String field) {
+  if (v is! num) {
+    throw const FormatException('stop-charge payload missing integer field');
+  }
+  return v.toInt();
+}
+
 
 // ============================================================================
 // DOMAIN ENTITIES
@@ -347,12 +521,19 @@ class RideStop {
   final String? address;
   final DateTime? arrivedAt;
 
+  /// FARE INTEGRITY Phase 2: the rider-approved charge state for this stop,
+  /// exactly as persisted server-side (migration 028 echo). NULL means "no
+  /// fee approved" — a legacy stop or one the rider never accepted. The UI
+  /// must render that honestly and NEVER zero-fill it into "ETB 0.00".
+  final StopChargeState? charge;
+
   const RideStop({
     required this.seq,
     required this.lat,
     required this.lng,
     this.address,
     this.arrivedAt,
+    this.charge,
   });
 
   factory RideStop.fromJson(Map<String, dynamic> json) => RideStop(
@@ -362,6 +543,12 @@ class RideStop {
         address: json['address'] as String?,
         arrivedAt: json['arrived_at'] is String
             ? DateTime.tryParse(json['arrived_at'] as String)
+            : null,
+        // Honest nullable read of the embedded charge projection: absent key
+        // (server without Phase 2 wiring, or no approval yet) stays null.
+        charge: json['charge'] is Map<String, dynamic>
+            ? StopChargeState.fromJson(
+                json['charge'] as Map<String, dynamic>)
             : null,
       );
 
@@ -1596,6 +1783,74 @@ class RideRepositoryImpl implements RideRepository {
         message: 'Failed to rate ride: ${e.toString()}',
       );
     }
+  }
+
+  // ==========================================================================
+  // FARE INTEGRITY Phase 2 — stop-charge client surface
+  // ==========================================================================
+
+  /// Shared unwrap for the three POST surfaces (approve / timer start / stop).
+  /// The backend answers `{ride_id, charge:{...}}`; anything else is a
+  /// contract violation we report honestly instead of guessing amounts.
+  Future<StopChargeState> _postStopCharge(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      path,
+      data: body ?? const <String, dynamic>{},
+    );
+    final raw = response.data;
+    if (raw == null) {
+      throw const FormatException('Empty response from stop-charge endpoint');
+    }
+    var data = raw;
+    final inner = raw['data'];
+    if (inner is Map<String, dynamic>) data = inner;
+    final charge = data['charge'];
+    if (charge is! Map<String, dynamic>) {
+      throw const FormatException(
+          'Stop-charge response missing persisted "charge" echo');
+    }
+    return StopChargeState.fromJson(charge);
+  }
+
+  @override
+  Future<StopChargeQuote> quoteStop(String rideId, int seq) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/api/v1/nidus/rides/$rideId/stops/$seq/quote',
+    );
+    final raw = response.data;
+    if (raw == null) {
+      throw const FormatException('Empty response from stop quote endpoint');
+    }
+    var data = raw;
+    final inner = raw['data'];
+    if (inner is Map<String, dynamic>) data = inner;
+    return StopChargeQuote.fromJson(data);
+  }
+
+  @override
+  Future<StopChargeState> approveStop(String rideId, int seq) async {
+    // Deliberately NO amount in the body: the server re-freezes the fee from
+    // config at approval time, so a tampered client cannot negotiate it.
+    return _postStopCharge(
+      '/api/v1/nidus/rides/$rideId/stops/$seq/approve',
+    );
+  }
+
+  @override
+  Future<StopChargeState> startStopTimer(String rideId, int seq) async {
+    return _postStopCharge(
+      '/api/v1/nidus/rides/$rideId/stops/$seq/timer/start',
+    );
+  }
+
+  @override
+  Future<StopChargeState> stopStopTimer(String rideId, int seq) async {
+    return _postStopCharge(
+      '/api/v1/nidus/rides/$rideId/stops/$seq/timer/stop',
+    );
   }
 
   // ==========================================================================
