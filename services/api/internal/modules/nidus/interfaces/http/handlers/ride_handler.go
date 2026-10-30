@@ -66,7 +66,31 @@ type RideHandler struct {
 	// lines (receipt email dispatch, etc.). Injected post-construction via
 	// SetLogger; every use site nil-checks so tests can omit it.
 	logger *zap.Logger
+	// stopCharges is the FARE INTEGRITY Phase 2 port backing the rider stop
+	// quote/approval and server-authoritative stop-timer surfaces. Injected
+	// post-construction via SetStopChargeService; nil means the routes honestly
+	// report 503 STOP_CHARGES_UNAVAILABLE instead of accepting bodies they
+	// cannot price or time. The concrete service lives in the application
+	// layer; this narrow interface keeps handlers decoupled from persistence.
+	stopCharges StopChargePort
 }
+
+// StopChargePort is the minimal HTTP-facing contract of the Phase 2
+// stop-charge service (implemented by services.StopChargeService). Approval
+// carries the authenticated RIDER's user id — a driver token can never mint
+// or move a rider-requested charge. Timer transitions are callable by either
+// party on an approved stop because they only record server-clock dwell;
+// they never create fees without approval.
+type StopChargePort interface {
+	QuoteStop(ctx context.Context, rideID uuid.UUID, seq int) (*services.StopQuotePreview, error)
+	ApproveStop(ctx context.Context, rideID, riderUserID uuid.UUID, seq int) (*entities.StopCharge, error)
+	StartStopTimer(ctx context.Context, rideID uuid.UUID, seq int) error
+	StopStopTimer(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error)
+}
+
+// SetStopChargeService wires the Phase 2 stop-charge port after construction
+// (same pattern as SetLifecycle). nil-safe: every route nil-checks first.
+func (h *RideHandler) SetStopChargeService(p StopChargePort) { h.stopCharges = p }
 
 // PreSelfieAttacher is the minimal port RideHandler needs from the selfie
 // module (§2.3). The concrete implementation wraps *selfieapp.Service and is
@@ -214,6 +238,56 @@ type RideStopResponse struct {
 	Lng       float64    `json:"lng"`
 	Address   string     `json:"address,omitempty"`
 	ArrivedAt *time.Time `json:"arrived_at,omitempty"`
+	// FARE INTEGRITY Phase 2: the rider-approved charge state for this stop.
+	// Charge is nil when the stop has NO approved charge record (a legacy stop
+	// or one the rider never accepted) — clients then render "no fee approved"
+	// rather than assuming zero. When present, every number is the persisted,
+	// server-frozen amount; nothing here is recomputed client-side.
+	Charge *StopChargeInfo `json:"charge,omitempty"`
+}
+
+// StopChargeInfo is the wire shape of a persisted ride_stop_charges row
+// (migration 028). Money is integer ETB santim — the authoritative unit —
+// with a major-unit projection carried alongside purely for legacy display
+// helpers that still format floats. dwell_minutes is the SERVER-measured
+// value finalized at timer close (live while running, never client-supplied).
+type StopChargeInfo struct {
+	Seq                   int        `json:"seq"`
+	ApprovedByRider       bool       `json:"approved_by_rider"`
+	ApprovedAt            time.Time  `json:"approved_at"`
+	StopFeeSantim         int64      `json:"stop_fee_santim"`
+	WaitingChargeSantim   int64      `json:"waiting_charge_santim"`
+	TotalSantim           int64      `json:"total_santim"`
+	DwellMinutes          int        `json:"dwell_minutes"`
+	TimerStartedAt        *time.Time `json:"timer_started_at,omitempty"`
+	TimerEndedAt          *time.Time `json:"timer_ended_at,omitempty"`
+	WaitingEligible       bool       `json:"waiting_eligible"`
+	WaitingThresholdMin   int        `json:"waiting_threshold_minutes"`
+	PolicyVersion         string     `json:"policy_version"`
+	Currency              string     `json:"currency"`
+}
+
+// StopQuotePreviewResponse is the disclosure payload for
+// GET /rides/{rideID}/stops/{seq}/quote. It mirrors the service's
+// StopQuotePreview verbatim (integer santim + policy metadata); the rider
+// approval sheet renders these numbers exactly and POSTs approve WITHOUT any
+// amount field — the server re-freezes the fee from config at approval time,
+// so a tampered client body can never negotiate a lower (or higher) stop fee.
+type StopQuotePreviewResponse struct {
+	Seq                       int    `json:"seq"`
+	FixedFeeSantim            int64  `json:"fixed_fee_santim"`
+	WaitingChargeIfLongSantim int64  `json:"waiting_charge_if_long_santim"`
+	WaitingThresholdMinutes   int    `json:"waiting_threshold_minutes"`
+	PolicyVersion             string `json:"policy_version"`
+	Currency                  string `json:"currency"`
+}
+
+// StopChargeResponse is returned by approve / timer-start / timer-stop. The
+// charge echo is the freshly persisted row state; waiting_charge_santim only
+// becomes non-zero at timer close when the threshold was actually crossed.
+type StopChargeResponse struct {
+	RideID uuid.UUID        `json:"ride_id"`
+	Charge StopChargeInfo   `json:"charge"`
 }
 
 // PreSelfieInfo is the rider-facing pre-selfie verification state embedded on
