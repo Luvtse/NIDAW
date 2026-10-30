@@ -16,11 +16,13 @@ package services
 //     NULL, stop requires running-and-open; lost races affect zero rows and
 //     surface as explicit errors.
 //   - Cash and electronic settle the identical payable (same Compute call).
+//
+// SQL fakes come from stop_charge_testhelpers_test.go (fakeRowVals/noRow/
+// fakeRows/newFakeRows/mkTag/fakeConn/newSvc/newSvcFull/has/ptrTime).
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -31,73 +33,33 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"nidaw-backend/internal/modules/nidus/domain/entities"
-	"nidaw-backend/internal/shared/database"
 )
 
-// ============================================================================
-// FAKE DRIVER (sql-driver level, no external mocks dependency)
-// ============================================================================
-
-type fakeRow struct{ cols []string; vals []any }
-
-func (r *fakeRow) Scan(dest ...any) error {
-	for i, d := range dest {
-		switch p := d.(type) {
-		case *int64:
-			*p = r.vals[i].(int64)
-		case *string:
-			*p = r.vals[i].(string)
-		case *time.Time:
-			if v, ok := r.vals[i].(time.Time); ok {
-				*p = v
-			} else if v, ok := r.vals[i].(*time.Time); ok && v != nil {
-				*p = *v
-			} else {
-				return pgx.ErrNoRows
-			}
-		case **time.Time:
-			v, _ := r.vals[i].(*time.Time)
-			*p = v
-		case *bool:
-			*p = r.vals[i].(bool)
-		case *int:
-			*p = r.vals[i].(int)
-		default:
-			return fmt.Errorf("fakeRow: unsupported scan target %T", d)
-		}
+// validSnapshot builds a self-consistent frozen booking contract quoting
+// totalSantim (gross == component sum, no floor applied) that passes
+// FareSnapshot.Validate and therefore FinalFareService.Compute.
+func validSnapshot(totalSantim int64) *entities.FareSnapshot {
+	return &entities.FareSnapshot{
+		ID:                   uuid.New(),
+		RideID:               uuid.New(),
+		IdempotencyKey:       "test-snapshot",
+		Currency:             entities.CurrencyETB,
+		PricingConfigVersion: "pricing-v1",
+		DurationRuleVersion:  "dur-min-per-km-v1",
+		MinutesPerKm:         3.0,
+		QuotedTotalSantim:    totalSantim,
+		FrozenAt:             time.Now().UTC(),
+		Components: entities.FareComponents{
+			BaseFareSantim:     1000,
+			DistanceFareSantim: totalSantim - 1000,
+			TimeFareSantim:     0,
+			SurgeAmountSantim:  0,
+			MinimumFareSantim:  1000,
+			GrossFareSantim:    totalSantim,
+			RideType:           "standard",
+		},
 	}
-	return nil
 }
-
-type fakeTag struct{ rows int64 }
-
-func (t fakeTag) RowsAffected() int64 { return t.rows }
-
-type fakeConn struct {
-	queryRowFn func(ctx context.Context, sql string, args ...any) pgx.Row
-	execFn     func(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
-
-func (c *fakeConn) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	if c.queryRowFn != nil {
-		return c.queryRowFn(ctx, sql, args...)
-	}
-	return pgx.ErrNoRows // zero value not valid; tests always set it
-}
-func (c *fakeConn) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	if c.execFn != nil {
-		return c.execFn(ctx, sql, args...)
-	}
-	return fakeTag{}, nil
-}
-
-func newSvcWithFake(qr func(context.Context, string, ...any) pgx.Row, ex func(context.Context, string, ...any) (pgconn.CommandTag, error)) *StopChargeService {
-	fc := &fakeConn{queryRowFn: qr, execFn: ex}
-	return &StopChargeService{db: database.NewPostgresWithDriver(fc)}
-}
-
-// ptrTime helper for nullable timer columns in fixtures.
-func ptrTime(t time.Time) *time.Time { return &t }
 
 // ============================================================================
 // PURE POLICY — fixed fee, threshold boundary, non-compounding
@@ -195,26 +157,35 @@ func TestComputeWaitingCharge_DeterministicRounding(t *testing.T) {
 func TestApproveStop_ExactlyOnce_ConlictSurfacesNeverRefreeze(t *testing.T) {
 	rideID, rider := uuid.New(), uuid.New()
 	var inserts int
-	svc := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
+	var insertSQLs []string
+	svc := newSvc(
+		func(sql string, _ ...any) pgx.Row {
 			switch {
-			case contains(sql, "FROM rides"): // ownership check
-				return &fakeRow{cols: []string{"user_id"}, vals: []any{rider.String()}}
-			case contains(sql, "ride_fare_snapshots"):
-				return &fakeRow{vals: []any{int64(4000)}} // F0
+			case has(sql, "FROM ride_stops"): // stop-exists probe
+				return &fakeRowVals{vals: []any{true}}
+			case has(sql, "FROM rides"): // ownership fallback check
+				return &fakeRowVals{vals: []any{rider}}
+			case has(sql, "ride_fare_snapshots"):
+				return &fakeRowVals{vals: []any{int64(4000)}} // F0
+			case has(sql, "FROM ride_stop_charges"): // ApproveStop persisted-row echo
+				return &fakeRowVals{vals: []any{
+					1, int64(1000), entities.StopPolicyVersion, true, ptrTime(time.Now().UTC()),
+					0, false, int64(0), (*time.Time)(nil), (*time.Time)(nil),
+				}}
 			default:
-				return &fakeRow{vals: []any{int64(1000)}} // existing approved fee on conflict read-back
+				return noRow()
 			}
 		},
-		func(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
-			if contains(sql, "INSERT INTO ride_stop_charges") {
+		func(sql string, _ ...any) (pgconn.CommandTag, error) {
+			if has(sql, "INSERT INTO ride_stop_charges") {
 				inserts++
+				insertSQLs = append(insertSQLs, sql)
 				if inserts == 1 {
-					return fakeTag{rows: 1}, nil // first tap wins
+					return mkTag(1), nil // first tap wins
 				}
-				return fakeTag{rows: 0}, nil // ON CONFLICT DO NOTHING: second tap affects 0 rows
+				return mkTag(0), nil // ON CONFLICT DO NOTHING: second tap affects 0 rows
 			}
-			return fakeTag{}, nil
+			return mkTag(0), nil
 		},
 	)
 
@@ -229,69 +200,76 @@ func TestApproveStop_ExactlyOnce_ConlictSurfacesNeverRefreeze(t *testing.T) {
 	if !errors.Is(err, ErrStopAlreadyApproved) {
 		t.Fatalf("second approval must surface ErrStopAlreadyApproved, got %v", err)
 	}
-	// Money invariant: the conflict path wrote nothing new — settlement sees ONE charge.
-	svc2 := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "SELECT") {
-				return &fakeRow{vals: []any{
-					rideID, 1, int64(1000), entities.StopPolicyVersion, true,
-					ptrTime(time.Now()), 0, false, int64(0),
-				}}
-			}
-			return pgx.ErrNoRows
-		}, nil)
-	_ = svc2 // read-path shape asserted below via SettlementCharges refusal test
+	// Money invariant: the conflict path wrote nothing new. Both taps issue the
+	// same idempotent ON CONFLICT DO NOTHING statement (no UPDATE of an
+	// existing row, no second fee), and only the FIRST tap affected a row — so
+	// settlement sees exactly one charge, never two.
+	if inserts != 2 {
+		t.Fatalf("both approval taps must hit the idempotent INSERT path; saw %d", inserts)
+	}
+	for _, sql := range insertSQLs {
+		if !has(sql, "ON CONFLICT (ride_id, seq) DO NOTHING") {
+			t.Fatalf("approval INSERT must be guarded by ON CONFLICT DO NOTHING, got %q", sql)
+		}
+	}
 }
 
 func TestApproveStop_StrangerRefused(t *testing.T) {
 	rideID, rider, stranger := uuid.New(), uuid.New(), uuid.New()
-	svc := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "FROM rides") {
-				return &fakeRow{vals: []any{rider.String()}}
+	svc := newSvc(
+		func(sql string, _ ...any) pgx.Row {
+			switch {
+			case has(sql, "FROM ride_stops"):
+				return &fakeRowVals{vals: []any{true}}
+			case has(sql, "FROM rides"):
+				return &fakeRowVals{vals: []any{rider}} // owner is `rider`, not `stranger`
+			default:
+				return noRow()
 			}
-			return &fakeRow{vals: []any{int64(4000)}}
 		},
-		func(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+		func(string, ...any) (pgconn.CommandTag, error) {
 			t.Fatal("no write may happen for a non-owner approval attempt")
-			return fakeTag{}, nil
+			return mkTag(0), nil
 		},
 	)
 	_, err := svc.ApproveStop(context.Background(), rideID, stranger, 1)
-	if err == nil {
-		t.Fatal("stranger approval must be refused")
+	if !errors.Is(err, ErrStopNotRideOwner) {
+		t.Fatalf("stranger approval must be refused with ErrStopNotRideOwner, got %v", err)
 	}
 }
 
 func TestQuoteStop_WriteFree_AndFailsClosedWithoutContract(t *testing.T) {
 	rideID := uuid.New()
 	var execs int
-	svc := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "ride_fare_snapshots") {
-				return &fakeRow{vals: []any{int64(4000)}}
+	svc := newSvc(
+		func(sql string, _ ...any) pgx.Row {
+			if has(sql, "ride_fare_snapshots") {
+				return &fakeRowVals{vals: []any{int64(4000)}}
 			}
-			return pgx.ErrNoRows
+			return noRow()
 		},
-		func(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+		func(string, ...any) (pgconn.CommandTag, error) {
 			execs++
-			return fakeTag{}, nil
+			return mkTag(0), nil
 		},
 	)
 	q, err := svc.QuoteStop(context.Background(), rideID, 1)
 	if err != nil {
 		t.Fatalf("quote with contract: %v", err)
 	}
-	if q.StopFeeSantim != 1000 || q.WaitingChargeSantim != 2000 {
+	if q.FixedFeeSantim != 1000 || q.WaitingChargeIfLongSantim != 2000 {
 		t.Fatalf("quote must disclose fee 1000 + waiting ½·F0 2000, got %+v", q)
+	}
+	if q.PolicyVersion != entities.StopPolicyVersion || q.Currency != entities.CurrencyETB {
+		t.Fatalf("quote must carry policy/currency metadata verbatim, got %+v", q)
 	}
 	if execs != 0 {
 		t.Fatalf("QuoteStop must perform NO writes, saw %d Exec calls", execs)
 	}
 
-	noSnap := newSvcWithFake(func(context.Context, string, ...any) pgx.Row { return pgx.ErrNoRows }, nil)
-	if _, err := noSnap.QuoteStop(context.Background(), rideID, 1); err == nil {
-		t.Fatal("quote must fail closed when no frozen booking contract exists")
+	noSnap := newSvc(func(string, ...any) pgx.Row { return noRow() }, nil)
+	if _, err := noSnap.QuoteStop(context.Background(), rideID, 1); !errors.Is(err, ErrFinalFareNoSnapshot) {
+		t.Fatalf("quote must fail closed with ErrFinalFareNoSnapshot when no frozen contract exists, got %v", err)
 	}
 }
 
@@ -301,27 +279,40 @@ func TestQuoteStop_WriteFree_AndFailsClosedWithoutContract(t *testing.T) {
 
 func TestSettlementCharges_RefusesUnapprovedRow(t *testing.T) {
 	rideID := uuid.New()
-	svc := newSvcWithFake(nil, nil)
-	// Simulate the row scan returning ApprovedByRider=false via the query fake.
-	rowsSvc := &StopChargeService{db: database.NewPostgresWithDriver(&rowListConn{rows: []fakeRow{
-		{vals: []any{rideID, 1, int64(1000), entities.StopPolicyVersion, false, (*time.Time)(nil), 0, false, int64(0)}},
-	}})}
-	_ = svc
-	_, err := rowsSvc.SettlementCharges(context.Background(), rideID)
+	rows := newFakeRows(
+		[]string{"seq", "stop_fee_santim", "waiting_charge_santim", "approved_by_rider"},
+		[][]any{{1, int64(1000), int64(0), false}}, // charge row WITHOUT rider approval
+	)
+	svc := newSvcFull(nil, nil, func(string, ...any) (pgx.Rows, error) { return rows, nil })
+	_, err := svc.SettlementCharges(context.Background(), rideID)
 	if err == nil {
 		t.Fatal("settlement must REFUSE a row lacking rider approval, never include it quietly")
 	}
 	if !errors.Is(err, entities.ErrStopNotApproved) {
-		t.Logf("refusal error wording: %v", err) // stable code checked loosely; loudness is the invariant
+		t.Fatalf("refusal must carry the stable sentinel ErrStopNotApproved, got %v", err)
 	}
 }
 
-// rowListConn serves a fixed list from Query (multi-row reads).
-type rowListConn struct{ rows []fakeRow }
-
-func (c *rowListConn) QueryRow(context.Context, string, ...any) pgx.Row { return &c.rows[0] }
-func (c *rowListConn) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	return fakeTag{}, nil
+func TestSettlementCharges_ReturnsApprovedRowsInSeqOrder(t *testing.T) {
+	rideID := uuid.New()
+	rows := newFakeRows(
+		[]string{"seq", "stop_fee_santim", "waiting_charge_santim", "approved_by_rider"},
+		[][]any{
+			{1, int64(1000), int64(2000), true},
+			{2, int64(1000), int64(0), true},
+		},
+	)
+	svc := newSvcFull(nil, nil, func(string, ...any) (pgx.Rows, error) { return rows, nil })
+	out, err := svc.SettlementCharges(context.Background(), rideID)
+	if err != nil {
+		t.Fatalf("approved rows must load cleanly: %v", err)
+	}
+	if len(out) != 2 || out[0].Seq != 1 || out[1].Seq != 2 {
+		t.Fatalf("expected 2 approved stops in seq order, got %+v", out)
+	}
+	if out[0].TotalSantim() != 3000 || out[1].TotalSantim() != 1000 {
+		t.Fatalf("stop totals must be fee+waiting exactly, got %+v", out)
+	}
 }
 
 // ============================================================================
@@ -331,74 +322,100 @@ func (c *rowListConn) Exec(context.Context, string, ...any) (pgconn.CommandTag, 
 func TestStartStopTimer_GuardsAndRaceLossSurfaces(t *testing.T) {
 	rideID := uuid.New()
 
-	// Start on an already-running timer: UPDATE ... WHERE started_at IS NULL hits 0 rows.
-	svc := newSvcWithFake(
-		func(_ context.Context, _ string, _ ...any) pgx.Row { return pgx.ErrNoRows },
-		func(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
-			if contains(sql, "started_at IS NULL") {
-				return fakeTag{rows: 0}, nil
+	// Start on an already-running timer: UPDATE ... WHERE started_at IS NULL
+	// hits 0 rows; classification read shows started_at set ⇒ ErrStopAlreadyStarted.
+	svc := newSvc(
+		func(string, ...any) pgx.Row { return noRow() },
+		func(sql string, _ ...any) (pgconn.CommandTag, error) {
+			if has(sql, "started_at IS NULL") {
+				return mkTag(0), nil
 			}
-			return fakeTag{rows: 1}, nil
+			return mkTag(1), nil
 		},
 	)
-	if err := svc.StartStopTimer(context.Background(), rideID, 1); err == nil {
+	// Zero-row start falls into classifyZeroRowTransition, whose SELECT returns
+	// no row above → honestly reported as ErrStopTimerNotRunning (no approval
+	// row exists to time). Either way the double-start NEVER succeeds silently.
+	err := svc.StartStopTimer(context.Background(), rideID, 1)
+	if err == nil {
 		t.Fatal("double-start must surface an error (zero-row guarded update)")
 	}
+	if !errors.Is(err, ErrStopTimerNotRunning) && !errors.Is(err, ErrStopAlreadyStarted) {
+		t.Fatalf("start race must map to an explicit timer sentinel, got %v", err)
+	}
 
-	// Stop when no row exists at all → ErrStopTimerNotRunning.
-	svc2 := newSvcWithFake(func(context.Context, string, ...any) pgx.Row { return pgx.ErrNoRows }, nil)
-	if _, err := svc2.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerNotRunning) {
+	// Happy-path start: guarded UPDATE affects exactly one row.
+	ok := newSvc(nil, func(sql string, _ ...any) (pgconn.CommandTag, error) {
+		if has(sql, "started_at IS NULL") {
+			return mkTag(1), nil
+		}
+		return mkTag(0), nil
+	})
+	if err := ok.StartStopTimer(context.Background(), rideID, 1); err != nil {
+		t.Fatalf("valid start must succeed, got %v", err)
+	}
+}
+
+func TestStopStopTimer_GuardsRacesAndPersistsWaitingCharge(t *testing.T) {
+	rideID := uuid.New()
+	started := time.Now().UTC().Add(-11 * time.Minute)
+
+	// Stop where no approval row exists at all → ErrStopTimerNotRunning.
+	svcMissing := newSvc(func(string, ...any) pgx.Row { return noRow() }, nil)
+	if _, err := svcMissing.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerNotRunning) {
 		t.Fatalf("missing row must map to ErrStopTimerNotRunning, got %v", err)
 	}
 
-	// Stop when row exists but never started → ErrStopTimerNotStarted.
-	svc3 := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "FROM ride_stop_charges") {
-				return &fakeRow{vals: []any{(*time.Time)(nil), int64(1000), entities.StopPolicyVersion}}
+	// Stop where the row exists but was never started → ErrStopTimerNotStarted.
+	svcNotStarted := newSvc(
+		func(sql string, _ ...any) pgx.Row {
+			if has(sql, "FROM ride_stop_charges") {
+				return &fakeRowVals{vals: []any{(*time.Time)(nil), int64(1000), entities.StopPolicyVersion}}
 			}
-			return &fakeRow{vals: []any{int64(4000)}}
+			return &fakeRowVals{vals: []any{int64(4000)}} // F0
 		}, nil)
-	if _, err := svc3.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerNotStarted) {
+	if _, err := svcNotStarted.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerNotStarted) {
 		t.Fatalf("never-started stop must map to ErrStopTimerNotStarted, got %v", err)
 	}
 
 	// Stop where the close race is lost (ended_at already set) → ErrStopTimerClosed.
-	started := time.Now().Add(-11 * time.Minute)
-	svc4 := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "FROM ride_stop_charges") {
-				return &fakeRow{vals: []any{ptrTime(started), int64(1000), entities.StopPolicyVersion}}
+	svcLost := newSvc(
+		func(sql string, _ ...any) pgx.Row {
+			if has(sql, "FROM ride_stop_charges") {
+				return &fakeRowVals{vals: []any{ptrTime(started), int64(1000), entities.StopPolicyVersion}}
 			}
-			return &fakeRow{vals: []any{int64(4000)}} // F0
+			return &fakeRowVals{vals: []any{int64(4000)}}
 		},
-		func(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
-			if contains(sql, "ended_at IS NULL") {
-				return fakeTag{rows: 0}, nil
+		func(sql string, _ ...any) (pgconn.CommandTag, error) {
+			if has(sql, "ended_at IS NULL") {
+				return mkTag(0), nil
 			}
-			return fakeTag{rows: 1}, nil
+			return mkTag(1), nil
 		},
 	)
-	if _, err := svc4.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerClosed) {
+	if _, err := svcLost.StopStopTimer(context.Background(), rideID, 1); !errors.Is(err, ErrStopTimerClosed) {
 		t.Fatalf("lost close race must surface ErrStopTimerClosed, got %v", err)
 	}
 
 	// Happy path: 11-minute dwell on F0=4000 persists fee 1000 + waiting 2000.
-	svc5 := newSvcWithFake(
-		func(_ context.Context, sql string, _ ...any) pgx.Row {
-			if contains(sql, "FROM ride_stop_charges") {
-				return &fakeRow{vals: []any{ptrTime(started), int64(1000), entities.StopPolicyVersion}}
+	svcOK := newSvc(
+		func(sql string, _ ...any) pgx.Row {
+			if has(sql, "FROM ride_stop_charges") {
+				return &fakeRowVals{vals: []any{ptrTime(started), int64(1000), entities.StopPolicyVersion}}
 			}
-			return &fakeRow{vals: []any{int64(4000)}}
+			return &fakeRowVals{vals: []any{int64(4000)}}
 		},
-		func(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) { return fakeTag{rows: 1}, nil },
+		func(string, ...any) (pgconn.CommandTag, error) { return mkTag(1), nil },
 	)
-	c, err := svc5.StopStopTimer(context.Background(), rideID, 1)
+	c, err := svcOK.StopStopTimer(context.Background(), rideID, 1)
 	if err != nil {
 		t.Fatalf("happy-path stop: %v", err)
 	}
 	if c.WaitingChargeSantim != 2000 || !c.WaitingEligible || c.DurationMin < 10 {
 		t.Fatalf("11-min dwell must earn ½·F0=2000 waiting, got %+v", c)
+	}
+	if c.StopFeeSantim != 1000 || c.StopPolicyVer != entities.StopPolicyVersion {
+		t.Fatalf("closed window must echo the frozen fee and policy verbatim, got %+v", c)
 	}
 }
 
@@ -426,15 +443,16 @@ func TestCashAndElectronic_SettleIdenticalPayable(t *testing.T) {
 	}
 }
 
-// helpers ------------------------------------------------------------------
-
-func contains(s, sub string) bool { return len(s) >= len(sub) && indexOf(s, sub) >= 0 }
-
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
+func TestPayable_FloorZero_NoCreditMinting(t *testing.T) {
+	snap := validSnapshot(1000)
+	res, err := NewFinalFareService().Compute(FinalFareInput{
+		Snapshot:       snap,
+		DiscountSantim: 5000, // promo far exceeds gross
+	})
+	if err != nil {
+		t.Fatalf("compute: %v", err)
 	}
-	return -1
+	if res.PayableSantim != 0 {
+		t.Fatalf("payable floor must be 0, never a credit, got %d", res.PayableSantim)
+	}
 }
