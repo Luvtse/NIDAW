@@ -200,9 +200,19 @@ type Ride struct {
 	CancelledBy  string  `json:"cancelled_by,omitempty" db:"cancelled_by"`
 	CancelReason string  `json:"cancel_reason,omitempty" db:"cancel_reason"`
 
-	// Trip Metrics
+	// Trip Metrics. DistanceKm/DurationMinutes carry the CONTRACTUAL route
+	// distance and billable duration while a ride is active (frozen from the
+	// fare snapshot at request time). After completion they record the ACTUAL
+	// GPS metrics for operations/analytics only — settlement reads the frozen
+	// snapshot, never these columns (NIDAW FARE INTEGRITY Phase 1).
 	DistanceKm      float64 `json:"distance_km,omitempty" db:"distance_km"`
 	DurationMinutes int     `json:"duration_minutes,omitempty" db:"duration_minutes"`
+
+	// FareSnapshotID (migration 027) points at the immutable booking pricing
+	// contract in ride_fare_snapshots. nil => the ride predates Phase 1 or was
+	// created by a legacy path; the completion handler then REFUSES to settle
+	// rather than inventing a price from actuals.
+	FareSnapshotID *uuid.UUID `json:"fare_snapshot_id,omitempty" db:"fare_snapshot_id"`
 
 	// §3.6 Scheduled Rides. ScheduledAt is the requested pickup time for a
 	// scheduled ride; nil means on-demand. The request path validates the

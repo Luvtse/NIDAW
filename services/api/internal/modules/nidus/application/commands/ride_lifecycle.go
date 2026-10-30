@@ -103,6 +103,7 @@ func (b *lifecycleBase) loadRide(ctx context.Context, rideID uuid.UUID) (*entiti
 		       COALESCE(fare_amount, 0), COALESCE(currency, 'ETB'), COALESCE(tip_amount, 0),
 		       COALESCE(cancel_fee, 0), COALESCE(cancelled_by, ''), COALESCE(cancel_reason, ''),
 		       COALESCE(distance_km, 0), COALESCE(duration_minutes, 0),
+		       fare_snapshot_id,
 		       COALESCE(payment_method_type, ''), cash_collected_at, scheduled_at,
 		       COALESCE(promo_code, ''), COALESCE(promo_discount, 0),
 		       base_fare_component, distance_fare_component, time_fare_component,
@@ -117,6 +118,7 @@ func (b *lifecycleBase) loadRide(ctx context.Context, rideID uuid.UUID) (*entiti
 		&r.FareAmount, &r.Currency, &r.TipAmount,
 		&r.CancelFee, &r.CancelledBy, &r.CancelReason,
 		&r.DistanceKm, &r.DurationMinutes,
+		&r.FareSnapshotID,
 		&r.PaymentMethodType, &r.CashCollectedAt, &r.ScheduledAt,
 		&r.PromoCode, &r.PromoDiscount,
 		&r.BaseFareComponent, &r.DistanceFareComponent, &r.TimeFareComponent,
@@ -563,6 +565,51 @@ func NewCompleteRideHandler(db *database.Postgres, eventBus eventbus.EventBus, p
 	return &CompleteRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}, pricingService: ps, promoFinalizer: promoFinalizer}
 }
 
+// requireContract enforces the Phase 1 completion rule: a ride settles ONLY
+// against its frozen booking contract. It verifies rides.fare_snapshot_id is
+// stamped and that the immutable row exists in ride_fare_snapshots with a
+// quoted total matching the persisted fare_amount to the santim (a mismatch
+// means someone rewrote one of the two — settlement refuses rather than
+// picking a winner). Legacy rides created before migration 027 have no
+// snapshot and are rejected; backfill them explicitly, never implicitly.
+func (h *CompleteRideHandler) requireContract(ctx context.Context, ride *entities.Ride) error {
+	if ride.FareSnapshotID == nil {
+		return fmt.Errorf("%w: ride %s has no frozen fare snapshot; refusing to invent a price at completion",
+			ErrFareCalcFailed, ride.ID)
+	}
+	var quotedSantim int64
+	var currency string
+	err := h.db.QueryRow(ctx,
+		`SELECT quoted_total_santim, currency FROM ride_fare_snapshots WHERE id = $1 AND ride_id = $2`,
+		*ride.FareSnapshotID, ride.ID).Scan(&quotedSantim, &currency)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: %v (snapshot %s missing for ride %s)",
+			ErrFareCalcFailed, ErrFareSnapshotNotFound, *ride.FareSnapshotID, ride.ID)
+	}
+	if err != nil {
+		return fmt.Errorf("load fare snapshot contract: %w", err)
+	}
+	if currency != entities.CurrencyETB {
+		return fmt.Errorf("%w: fare snapshot currency %q is not ETB", ErrFareCalcFailed, currency)
+	}
+	// The stored major-unit fare must equal the frozen santim quote exactly.
+	if services.MajorToSantim(ride.FareAmount) != quotedSantim {
+		return fmt.Errorf("%w: ride fare %.2f does not match frozen quote %d santim (contract tamper or drift)",
+			ErrFareCalcFailed, ride.FareAmount, quotedSantim)
+	}
+	return nil
+}
+
+// fareSnapshotIDString renders the contract pointer for settlement payloads;
+// "" when absent (legacy rides cannot reach settlement anyway — see
+// requireContract — but the payload helper stays nil-safe regardless).
+func fareSnapshotIDString(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
 func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideCommand) (*CompleteRideResult, error) {
 	driverID, err := h.resolveDriverID(ctx, cmd.DriverUserID)
 	if err != nil {
@@ -580,32 +627,29 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 	}
 
 	// --- Final fare -------------------------------------------------------
-	// Recalculate against actual distance/duration when reported; otherwise
-	// honour the quoted estimate (transparent to the rider: same formula,
-	// surge snapshot preserved because we reuse base inputs).
-	distance := ride.DistanceKm
-	duration := ride.DurationMinutes
+	// FARE INTEGRITY (Phase 1): the payable amount comes EXCLUSIVELY from the
+	// frozen booking contract (ride_fare_snapshots) — never from a reprice.
+	// cmd.ActualDistanceKm / ActualDurationMin are recorded on the ride row as
+	// OPERATIONS-ONLY metrics; they are not inputs to money math, so a longer
+	// route, deliberate delays or manipulated driver-reported trip metrics can
+	// never raise what the rider pays. A ride without a stored contract is
+	// REFUSED at completion (ErrFareCalcFailed wrapping ErrFareSnapshotNotFound)
+	// rather than silently repriced from actuals — inventing a price at receipt
+	// time is exactly the undisclosed-charge class this phase eliminates.
+	if err := h.requireContract(ctx, ride); err != nil {
+		return nil, err
+	}
+
+	actualDistance := ride.DistanceKm
+	actualDuration := ride.DurationMinutes
 	if cmd.ActualDistanceKm > 0 {
-		distance = cmd.ActualDistanceKm
+		actualDistance = cmd.ActualDistanceKm
 	}
 	if cmd.ActualDurationMin > 0 {
-		duration = cmd.ActualDurationMin
+		actualDuration = cmd.ActualDurationMin
 	}
 
 	finalFare := ride.FareAmount
-	var repricedEst *services.FareEstimate
-	if h.pricingService != nil && cmd.ActualDistanceKm > 0 {
-		est, perr := h.pricingService.CalculateFare(ctx,
-			ride.PickupLat, ride.PickupLng, ride.DropoffLat, ride.DropoffLng,
-			services.RideType(ride.RideType))
-		if perr != nil {
-			return nil, fmt.Errorf("%w: %v", ErrFareCalcFailed, perr)
-		}
-		if est != nil {
-			finalFare = float64(est.TotalFare) / 100.0
-			repricedEst = est
-		}
-	}
 	if finalFare <= 0 {
 		return nil, fmt.Errorf("%w: non-positive fare", ErrFareCalcFailed)
 	}
@@ -660,22 +704,13 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 	// completed + cash + cash_collected_at IS NULL (see Ride.IsPendingCashCollection).
 	isCash := ride.IsCashRide()
 
-	// §3.4 receipt-time component snapshot. When completion re-priced the trip
-	// (actual distance/duration reported), the request-time variable lines are
-	// stale; we recompute them from the SAME pricing result that produced
-	// finalFare so base+distance+time+surge+service_fee reconciles with
-	// fare_amount exactly. When no re-pricing happened, the request-time
-	// snapshot already sums to FareAmount and is left untouched — only the
-	// service-fee line (a function of the final fare) is added. minFareUplift
-	// is folded into the base line identically to request time.
+	// FARE INTEGRITY (Phase 1): the receipt's itemized lines are the ones
+	// frozen with the booking contract — completion no longer re-prices, so
+	// there is nothing to recompute. The request-time component snapshot
+	// already reconciles exactly with FareAmount (the pricing service folded
+	// any minimum-fare uplift into the base line at quote time); we only add
+	// the service-fee line, which is a function of the FINAL fare.
 	baseComp, distComp, timeComp, surgeComp := ride.BaseFareComponent, ride.DistanceFareComponent, ride.TimeFareComponent, ride.SurgeFareComponent
-	if repricedEst != nil {
-		uplift := minFareUpliftCents(repricedEst)
-		baseComp = ptrFenToF(repricedEst.BaseFare + uplift)
-		distComp = ptrFenToF(repricedEst.DistanceFare)
-		timeComp = ptrFenToF(repricedEst.TimeFare)
-		surgeComp = ptrFenToF(repricedEst.SurgeAmount)
-	}
 
 	// Driver ledger identity: the ledger keys balances by USER id, while
 	// rides reference the DRIVER profile id — translate before settling.
@@ -689,14 +724,20 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		"ride_id":                 ride.ID.String(),
 		"driver_id":               driverUserID.String(), // ledger identity (user id)
 		"user_id":                 ride.UserID.String(),
-		"actual_distance":         distance,
-		"actual_duration":         duration,
-		"final_fare":              finalFare,
-		"driver_earnings":         driverEarnings,
-		"platform_fee":            platformFee,
-		"currency":                ride.Currency,
-		"completed_at_unix":       completedAt.Unix(),
-		"payment_method_type":     ride.PaymentMethodType,
+		// Operations-only trip actuals. The ledger MUST NOT derive money from
+		// these; final_fare/charge_amount below are authoritative and come
+		// exclusively from the frozen booking contract (FARE INTEGRITY Phase 1).
+		"actual_distance":     actualDistance,
+		"actual_duration":     actualDuration,
+		"final_fare":          finalFare,
+		"driver_earnings":     driverEarnings,
+		"platform_fee":        platformFee,
+		"currency":            ride.Currency,
+		"completed_at_unix":   completedAt.Unix(),
+		"payment_method_type": ride.PaymentMethodType,
+		// FARE INTEGRITY (Phase 1): locate the immutable contract this
+		// settlement honors. Consumers that ignore unknown keys are unaffected.
+		"fare_snapshot_id": fareSnapshotIDString(ride.FareSnapshotID),
 		"pending_cash_collection": isCash,
 		// §3.2 receipt-time promo fields: the discount finalized against the
 		// actual fare and the amount charged to the rider after it. Consumers
@@ -728,7 +769,7 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		}
 	}
 
-	if err := h.recordCompleted(ctx, ride.ID, finalFare, platformFee, ride.TipAmount, distance, duration,
+	if err := h.recordCompleted(ctx, ride.ID, finalFare, platformFee, ride.TipAmount, actualDistance, actualDuration,
 		&CompletionFareComponents{
 			Base:          baseComp,
 			Distance:      distComp,
