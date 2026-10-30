@@ -169,6 +169,17 @@ class AppStartupCoordinator {
 
   List<DeferredStartupStep> _defaultSteps() {
     return [
+      // 0. Map-readiness wiring: forward the LIVE-engine milestone (only the
+      //    mounted flutter_map tree can fire perf.markMapReady — see
+      //    LiveMapWidget._LiveMapReadyNotifier) into the startup state so any
+      //    listener can observe §5.1 map readiness honestly.
+      DeferredStartupStep(
+        subsystem: StartupSubsystem.mapEngine,
+        body: () async {
+          perf.onMapReady = () => state.markReady(StartupSubsystem.mapEngine);
+        },
+      ),
+
       // 1. Offline service: opens its own Hive boxes, starts the connectivity
       //    stream and marks connectivity known as soon as the first check
       //    lands (online OR offline — both are settled answers).
@@ -308,6 +319,6 @@ StartupStateNotifier get startupState => currentStartupCoordinator.state;
 
 bool get hasStartupCoordinator => _currentCoordinator != null;
 
-void installStartupCoordinator(AppStartupCoordinator coordinator) {
+void installStartupCoordinator(AppStartupCoordinator? coordinator) {
   _currentCoordinator = coordinator;
 }

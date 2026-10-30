@@ -499,6 +499,114 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
   }
 }
 
+/// §5.1 progressive mounting: cheap placeholder painted while the live
+/// flutter_map engine has not mounted yet. It is VISIBLY distinct from a
+/// real map (flat grid pattern + explicit "Preparing map…" label) and never
+/// shows vehicles, routes or driver positions — it cannot be mistaken for
+/// current availability, and it can never fire the map-ready milestone.
+class _MapPlaceholder extends StatelessWidget {
+  final LatLng center;
+
+  const _MapPlaceholder({required this.center});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Static grid background evoking a map without pretending to be one.
+        CustomPaint(
+          painter: _MapGridPainter(color: scheme.onSurface.withOpacity(0.06)),
+          child: const SizedBox.expand(),
+        ),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: scheme.primary.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Preparing map…',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Simple non-animated grid painter used by [_MapPlaceholder]. Deliberately
+/// static: no tiles, no markers, no animation beyond the small spinner in
+/// the placeholder itself, so first-frame raster cost stays minimal.
+class _MapGridPainter extends CustomPainter {
+  final Color color;
+
+  _MapGridPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    const spacing = 48.0;
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapGridPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Lives exclusively inside the real [FlutterMap] children list. Its first
+/// painted frame proves the LIVE engine mounted; it walks up to the owning
+/// [LiveMapWidgetState] exactly once and triggers the readiness milestone.
+/// The placeholder branch never contains this widget, so a cached/placeholder
+/// frame can never be counted as an initialized interactive map (Part 10).
+class _LiveMapReadyNotifier extends StatefulWidget {
+  const _LiveMapReadyNotifier();
+
+  @override
+  State<_LiveMapReadyNotifier> createState() => _LiveMapReadyNotifierState();
+}
+
+class _LiveMapReadyNotifierState extends State<_LiveMapReadyNotifier> {
+  bool _notified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_notified || !mounted) return;
+      _notified = true;
+      final owner = context.findAncestorStateOfType<LiveMapWidgetState>();
+      owner?._notifyLiveMapReadyOnce();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 /// Pickup pin that responds to long-press-drag gestures, updating its LatLng
 /// through the parent's preview mechanism.
 class _DraggablePickupPin extends StatelessWidget {
