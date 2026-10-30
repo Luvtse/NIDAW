@@ -147,18 +147,21 @@ class AppConstants {
   // CURRENCY
   // ============================================================================
 
-  /// Default currency
-  static const String defaultCurrency = 'USD';
+  /// Default currency. NIDAW is ETB-only across pricing, booking, fare
+  /// snapshots, receipts, payment intents, ledger entries, refunds, tips and
+  /// payouts (Phase 4 standardization). Persisted monetary amounts use
+  /// integer santim (1 ETB = 100 santim); any other currency code must be
+  /// rejected by clients and servers rather than silently coerced.
+  static const String defaultCurrency = 'ETB';
 
-  /// Supported currencies
-  static const List<String> supportedCurrencies = [
-    'USD',
-    'EUR',
-    'GBP',
-    'JPY',
-    'CAD',
-    'AUD',
-  ];
+  /// Santim per birr — the minor unit used for all money arithmetic.
+  static const int santimPerBirr = 100;
+
+  /// Supported currencies. Exactly one entry: ETB. USD/EUR/... were removed
+  /// from runtime configuration and user-facing options; display helpers map
+  /// legacy 'USD' labels to Br so historical fixtures never imply a live
+  /// dollar price.
+  static const List<String> supportedCurrencies = ['ETB'];
 
   // ============================================================================
   // ERROR MESSAGES

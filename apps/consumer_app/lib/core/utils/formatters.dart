@@ -8,8 +8,15 @@ class Formatters {
   // CURRENCY FORMATTING
   // ============================================================================
 
-  /// Format amount as currency
-  static String formatCurrency(double amount, {String currency = 'USD'}) {
+  /// NIDAW is ETB-only (Phase 4 standardization). Any legacy or mismatched
+  /// currency code arriving from historical fixtures is normalized to the
+  /// Ethiopian Birr symbol so the UI never implies a live dollar price.
+  /// Amounts are always major-unit ETB here; persisted money uses integer
+  /// santim and must be converted with [formatSantim] before display.
+  static const String _currencySymbol = 'Br';
+
+  /// Format amount as currency (always ETB / Br)
+  static String formatCurrency(double amount, {String currency = 'ETB'}) {
     final format = NumberFormat.currency(
       symbol: _getCurrencySymbol(currency),
       decimalDigits: 2,
@@ -17,8 +24,19 @@ class Formatters {
     return format.format(amount);
   }
 
-  /// Format amount as compact currency (e.g., $1.2K)
-  static String formatCompactCurrency(double amount, {String currency = 'USD'}) {
+  /// Format an integer SANTIM amount deterministically as ETB.
+  /// Uses exact integer arithmetic (no float division drift): the sign and
+  /// birr/santim split come from truncating division on the int value.
+  static String formatSantim(int santim) {
+    final negative = santim < 0;
+    final abs = santim.abs();
+    final text =
+        '${_currencySymbol}${(abs ~/ 100).toString()}.${(abs % 100).toString().padLeft(2, '0')}';
+    return negative ? '-$text' : text;
+  }
+
+  /// Format amount as compact currency (e.g., Br1.2K)
+  static String formatCompactCurrency(double amount, {String currency = 'ETB'}) {
     final format = NumberFormat.compactCurrency(
       symbol: _getCurrencySymbol(currency),
       decimalDigits: 1,
@@ -26,18 +44,9 @@ class Formatters {
     return format.format(amount);
   }
 
-  /// Get currency symbol
-  static String _getCurrencySymbol(String currency) {
-    final symbols = {
-      'USD': '\$',
-      'EUR': '€',
-      'GBP': '£',
-      'JPY': '¥',
-      'CAD': 'C\$',
-      'AUD': 'A\$',
-    };
-    return symbols[currency] ?? currency;
-  }
+  /// Get currency symbol. ETB is the only supported runtime currency; the
+  /// legacy 'USD' label maps to Br for safe display of historical rows.
+  static String _getCurrencySymbol(String currency) => _currencySymbol;
 
   // ============================================================================
   // DATE FORMATTING
@@ -225,8 +234,8 @@ class Formatters {
   // RIDE FORMATTING
   // ============================================================================
 
-  /// Format fare amount
-  static String formatFare(double amount, {String currency = 'USD'}) {
+  /// Format fare amount (always ETB; see [formatCurrency]).
+  static String formatFare(double amount, {String currency = 'ETB'}) {
     return formatCurrency(amount, currency: currency);
   }
 

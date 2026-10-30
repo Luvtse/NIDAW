@@ -835,14 +835,16 @@ class RideOptionEstimate {
 
   /// Display price band. Prefers the server-provided low/high; degrades to
   /// the point estimate. All values originate from the pricing service —
-  /// nothing here is a hardcoded "$12–15".
+  /// nothing here is a hardcoded "$12–15". Currency is always ETB (Phase 4):
+  /// any non-ETB label arriving from a legacy payload is displayed as Br so
+  /// the rider is never shown a dollar price for a live booking.
   String get priceRangeLabel {
     final low = priceLow ?? totalFare;
     final high = priceHigh ?? totalFare;
+    const symbol = 'Br';
     if ((high - low).abs() < 0.005) {
-      return '${currency == 'USD' ? '\$' : '$currency '}${low.toStringAsFixed(2)}';
+      return '$symbol${low.toStringAsFixed(2)}';
     }
-    final symbol = currency == 'USD' ? '\$' : '$currency ';
     return '$symbol${low.toStringAsFixed(0)}–$symbol${high.toStringAsFixed(0)}';
   }
 }
