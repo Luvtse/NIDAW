@@ -104,7 +104,18 @@ type StopChargePort interface {
 
 // SetStopChargeService wires the Phase 2 stop-charge port after construction
 // (same pattern as SetLifecycle). nil-safe: every route nil-checks first.
-func (h *RideHandler) SetStopChargeService(p StopChargePort) { h.stopCharges = p }
+// When the concrete service also implements StopChargeReader (services.
+// StopChargeService does), the read side is wired in the same call so
+// GetRide's per-stop charge embedding can never drift out of sync with the
+// write surface.
+func (h *RideHandler) SetStopChargeService(p StopChargePort) {
+	h.stopCharges = p
+	if r, ok := p.(StopChargeReader); ok {
+		h.stopReader = r
+	} else {
+		h.stopReader = nil
+	}
+}
 
 // PreSelfieAttacher is the minimal port RideHandler needs from the selfie
 // module (§2.3). The concrete implementation wraps *selfieapp.Service and is
@@ -266,19 +277,19 @@ type RideStopResponse struct {
 // helpers that still format floats. dwell_minutes is the SERVER-measured
 // value finalized at timer close (live while running, never client-supplied).
 type StopChargeInfo struct {
-	Seq                   int        `json:"seq"`
-	ApprovedByRider       bool       `json:"approved_by_rider"`
-	ApprovedAt            time.Time  `json:"approved_at"`
-	StopFeeSantim         int64      `json:"stop_fee_santim"`
-	WaitingChargeSantim   int64      `json:"waiting_charge_santim"`
-	TotalSantim           int64      `json:"total_santim"`
-	DwellMinutes          int        `json:"dwell_minutes"`
-	TimerStartedAt        *time.Time `json:"timer_started_at,omitempty"`
-	TimerEndedAt          *time.Time `json:"timer_ended_at,omitempty"`
-	WaitingEligible       bool       `json:"waiting_eligible"`
-	WaitingThresholdMin   int        `json:"waiting_threshold_minutes"`
-	PolicyVersion         string     `json:"policy_version"`
-	Currency              string     `json:"currency"`
+	Seq                 int        `json:"seq"`
+	ApprovedByRider     bool       `json:"approved_by_rider"`
+	ApprovedAt          time.Time  `json:"approved_at"`
+	StopFeeSantim       int64      `json:"stop_fee_santim"`
+	WaitingChargeSantim int64      `json:"waiting_charge_santim"`
+	TotalSantim         int64      `json:"total_santim"`
+	DwellMinutes        int        `json:"dwell_minutes"`
+	TimerStartedAt      *time.Time `json:"timer_started_at,omitempty"`
+	TimerEndedAt        *time.Time `json:"timer_ended_at,omitempty"`
+	WaitingEligible     bool       `json:"waiting_eligible"`
+	WaitingThresholdMin int        `json:"waiting_threshold_minutes"`
+	PolicyVersion       string     `json:"policy_version"`
+	Currency            string     `json:"currency"`
 }
 
 // StopQuotePreviewResponse is the disclosure payload for
@@ -300,8 +311,8 @@ type StopQuotePreviewResponse struct {
 // charge echo is the freshly persisted row state; waiting_charge_santim only
 // becomes non-zero at timer close when the threshold was actually crossed.
 type StopChargeResponse struct {
-	RideID uuid.UUID        `json:"ride_id"`
-	Charge StopChargeInfo   `json:"charge"`
+	RideID uuid.UUID      `json:"ride_id"`
+	Charge StopChargeInfo `json:"charge"`
 }
 
 // PreSelfieInfo is the rider-facing pre-selfie verification state embedded on
@@ -599,6 +610,12 @@ func (h *RideHandler) GetRide(w http.ResponseWriter, r *http.Request) {
 	// failure leaves resp.Driver nil — the client then shows its honest
 	// "driver details unavailable" state instead of blanks or fakes.
 	h.attachDriverCard(ctx, &resp)
+	// FARE INTEGRITY Phase 2: embed the persisted rider-approved charge state on
+	// each stop so both apps render exactly what settlement will use. Read-side
+	// failures degrade honestly: stops simply carry no Charge field (the same
+	// shape as a ride whose stops were never approved) rather than failing the
+	// whole ride fetch.
+	h.embedStopCharges(ctx, rideID, &resp)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
@@ -1011,6 +1028,44 @@ func mapLifecycleError(err error) (int, string, string) {
 		return http.StatusBadRequest, "INVALID_MULTIPLIER", "multiplier must be one of the offered buckets"
 	default:
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "failed to process request"
+	}
+}
+
+// mapStopChargeError translates the Phase 2 stop-charge sentinels into coded
+// HTTP responses (same no-detail-leak rule as mapLifecycleError). The rider
+// approval sheet and driver timer surface branch on these stable codes:
+//   - not-approved / not-owner        -> 403 (you may not create this charge)
+//   - already-approved                -> 409 (exactly-once; show current truth)
+//   - timer-not-running/not-started   -> 409 (client re-reads the ride state)
+//   - already-started / already-closed-> 409 (first writer won the race)
+//   - seq-out-of-range                -> 422 (stop does not exist on this ride)
+//   - no frozen contract              -> 409 (unpriced ride cannot carry stops)
+//   - ride not found                  -> 404
+func mapStopChargeError(err error) (int, string, string) {
+	switch {
+	case errors.Is(err, services.ErrStopRideNotFound):
+		return http.StatusNotFound, "NOT_FOUND", "ride not found"
+	case errors.Is(err, services.ErrStopNotRideOwner),
+		errors.Is(err, entities.ErrStopNotApproved),
+		errors.Is(err, queries.ErrRideAccessDenied):
+		return http.StatusForbidden, "STOP_NOT_APPROVABLE", "only the ride's rider can approve stop charges"
+	case errors.Is(err, entities.ErrStopAlreadyApproved):
+		return http.StatusConflict, "STOP_ALREADY_APPROVED", "this stop's fee was already approved; it cannot be approved twice"
+	case errors.Is(err, services.ErrStopTimerNotRunning),
+		errors.Is(err, services.ErrStopTimerNotStarted):
+		return http.StatusConflict, "STOP_TIMER_NOT_RUNNING", "the stop timer is not running for this stop"
+	case errors.Is(err, services.ErrStopAlreadyStarted):
+		return http.StatusConflict, "STOP_TIMER_ALREADY_STARTED", "the stop timer was already started"
+	case errors.Is(err, services.ErrStopTimerClosed):
+		return http.StatusConflict, "STOP_TIMER_CLOSED", "the stop window was already closed"
+	case errors.Is(err, entities.ErrStopSeqOutOfRange):
+		return http.StatusUnprocessableEntity, "STOP_SEQ_OUT_OF_RANGE", "no such stop exists on this ride"
+	case errors.Is(err, services.ErrFinalFareNoSnapshot):
+		return http.StatusConflict, "NO_BOOKING_CONTRACT", "this ride has no frozen booking fare; stops cannot be quoted or approved"
+	case errors.Is(err, queries.ErrRideNotFound):
+		return http.StatusNotFound, "NOT_FOUND", "ride not found"
+	default:
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "failed to process stop charge request"
 	}
 }
 
@@ -1805,3 +1860,280 @@ func applyDriverCardETA(info *DriverInfo, r resolvedETA) {
 	info.ETAMinutes = r.Minutes
 	info.EtaConfidence = r.Confidence
 }
+
+// ============================================================================
+// FARE INTEGRITY PHASE 2 — RIDER STOP QUOTE / APPROVAL / SERVER TIMER
+// ============================================================================
+
+// parseStopSeq reads and validates the {seq} URL segment (1-based visit order,
+// capped by entities.MaxRideStops). An out-of-range seq is answered 422 with
+// the same STOP_SEQ_OUT_OF_RANGE code the service sentinel maps to, so the
+// client sees one consistent contract whether the stop index is bogus at the
+// URL or missing in the database.
+func parseStopSeq(w http.ResponseWriter, r *http.Request) (int, bool) {
+	sv := chi.URLParam(r, "seq")
+	seq, err := strconv.Atoi(sv)
+	if err != nil || seq < 1 || seq > entities.MaxRideStops {
+		writeError(w, http.StatusUnprocessableEntity, "STOP_SEQ_OUT_OF_RANGE", "stop sequence must be between 1 and the number of stops on this ride")
+		return 0, false
+	}
+	return seq, true
+}
+
+// requireStopService answers the honest 503 when the routes were mounted
+// without the stop-charge wiring (nil port) — never a fake accept that would
+// promise a fee the platform cannot price or time.
+func (h *RideHandler) requireStopService(w http.ResponseWriter) bool {
+	if h.stopCharges == nil {
+		writeError(w, http.StatusServiceUnavailable, "STOP_CHARGES_UNAVAILABLE", "stop charges are not configured on this deployment")
+		return false
+	}
+	return true
+}
+
+// stopChargeInfo projects a persisted StopCharge entity onto its wire shape.
+// Every amount is the server-frozen integer santim from the row; threshold
+// and policy metadata come from the active disclosed config so clients can
+// render "stops >= N min add Br X" verbatim alongside the stored numbers.
+func stopChargeInfo(c *entities.StopCharge) StopChargeInfo {
+	cfg := services.DefaultStopFeeConfig()
+	return StopChargeInfo{
+		Seq:                 c.Seq,
+		ApprovedByRider:     c.ApprovedByRider,
+		ApprovedAt:          approvedAtOrNow(c),
+		StopFeeSantim:       c.StopFeeSantim,
+		WaitingChargeSantim: c.WaitingChargeSantim,
+		TotalSantim:         c.TotalSantim(),
+		DwellMinutes:        c.DurationMin,
+		TimerStartedAt:      c.TimerStartedAt,
+		TimerEndedAt:        c.TimerEndedAt,
+		WaitingEligible:     c.WaitingEligible,
+		WaitingThresholdMin: cfg.WaitingThresholdMinutes,
+		PolicyVersion:       c.StopPolicyVer,
+		Currency:            entities.CurrencyETB,
+	}
+}
+
+func approvedAtOrNow(c *entities.StopCharge) time.Time {
+	if c.ApprovedAt != nil {
+		return *c.ApprovedAt
+	}
+	return time.Now().UTC()
+}
+
+// embedStopCharges attaches the approved per-stop charge state onto a ride
+// DTO's stops array (matched by seq). Stops without an approval row keep
+// Charge nil — the deliberate "no fee approved" signal, never zero-filled.
+func (h *RideHandler) embedStopCharges(ctx context.Context, rideID uuid.UUID, resp *RideResponse) {
+	if h.stopReader == nil || len(resp.Stops) == 0 {
+		return
+	}
+	charges, err := h.stopReader.ApprovedChargesForRide(ctx, rideID)
+	if err != nil {
+		// Honest degradation: the ride payload stays valid; the client shows the
+		// stops without fee chips and re-reads later.
+		return
+	}
+	bySeq := make(map[int]*StopChargeInfo, len(charges))
+	for i := range charges {
+		c := charges[i]
+		info := stopChargeInfo(&c)
+		bySeq[c.Seq] = &info
+	}
+	for i := range resp.Stops {
+		if info, ok := bySeq[resp.Stops[i].Seq]; ok {
+			resp.Stops[i].Charge = info
+		}
+	}
+}
+
+// QuoteStopRoute handles GET /api/v1/nidus/rides/{rideID}/stops/{seq}/quote
+// (rider surface; read-only). It discloses the exact amounts approving this
+// stop would add — computed from the ride's frozen booking contract via the
+// SAME pure policy the settlement finalizer uses. It performs NO writes and
+// requires no ownership beyond the shared GetRideQuery access rules already
+// applied below (participants only). With no frozen contract it fails closed
+// (409 NO_BOOKING_CONTRACT) rather than quoting against a guess.
+func (h *RideHandler) QuoteStopRoute(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+	if !h.requireStopService(w) {
+		return
+	}
+	rideID, ok := parseRideID(w, r)
+	if !ok {
+		return
+	}
+	seq, ok := parseStopSeq(w, r)
+	if !ok {
+		return
+	}
+	// Participant check first (rider owner or assigned driver may see the
+	// disclosure); strangers get the same 403 as every other ride surface.
+	if _, err := h.getRideQuery.Execute(ctx, userID, rideID); err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	preview, err := h.stopCharges.QuoteStop(ctx, rideID, seq)
+	if err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, StopQuotePreviewResponse{
+		Seq:                       preview.Seq,
+		FixedFeeSantim:            preview.FixedFeeSantim,
+		WaitingChargeIfLongSantim: preview.WaitingChargeIfLongSantim,
+		WaitingThresholdMinutes:   preview.WaitingThresholdMinutes,
+		PolicyVersion:             preview.PolicyVersion,
+		Currency:                  preview.Currency,
+	})
+}
+
+// ApproveStopRoute handles POST /api/v1/nidus/rides/{rideID}/stops/{seq}/approve
+// (RIDER ONLY). The authenticated JWT subject is passed into ApproveStop as
+// the approving identity; the service refuses anyone who is not the ride's
+// owner. The request body is deliberately NOT parsed for any amount field —
+// the fee is re-frozen server-side from the disclosed policy, so a tampered
+// client cannot negotiate stop fees up or down. Exactly-once: a second
+// approval attempt surfaces 409 STOP_ALREADY_APPROVED, never a double charge.
+func (h *RideHandler) ApproveStopRoute(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+	if !h.requireStopService(w) {
+		return
+	}
+	rideID, ok := parseRideID(w, r)
+	if !ok {
+		return
+	}
+	seq, ok := parseStopSeq(w, r)
+	if !ok {
+		return
+	}
+	charge, err := h.stopCharges.ApproveStop(ctx, rideID, userID, seq)
+	if err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, StopChargeResponse{RideID: rideID, Charge: stopChargeInfo(charge)})
+}
+
+// StartStopTimerRoute handles POST /api/v1/nidus/rides/{rideID}/stops/{seq}/
+// timer/start (either ride participant — typically the driver arriving at the
+// stop). It records ONE server-clock start event on an already-approved stop;
+// it creates no fee. Double arrival pings resolve to exactly one start (409
+// STOP_TIMER_ALREADY_STARTED for the loser), so the dwell used for money
+// math is unique and auditable.
+func (h *RideHandler) StartStopTimerRoute(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+	if !h.requireStopService(w) {
+		return
+	}
+	rideID, ok := parseRideID(w, r)
+	if !ok {
+		return
+	}
+	seq, ok := parseStopSeq(w, r)
+	if !ok {
+		return
+	}
+	if _, err := h.getRideQuery.Execute(ctx, userID, rideID); err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	charge, err := h.stopCharges.StartStopTimer(ctx, rideID, seq)
+	if err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, StopChargeResponse{RideID: rideID, Charge: stopChargeInfo(charge)})
+}
+
+// StopStopTimerRoute handles POST /api/v1/nidus/rides/{rideID}/stops/{seq}/
+// timer/stop. It closes the server-clock window, floors the dwell to whole
+// minutes (rider-favorable boundary), evaluates the 10-minute threshold and
+// PERSISTS the waiting charge computed from the ORIGINAL frozen booking fare.
+// Exactly one close wins; later attempts get 409 STOP_TIMER_CLOSED so the
+// finalized dwell can never be rewritten by a race.
+func (h *RideHandler) StopStopTimerRoute(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+	if !h.requireStopService(w) {
+		return
+	}
+	rideID, ok := parseRideID(w, r)
+	if !ok {
+		return
+	}
+	seq, ok := parseStopSeq(w, r)
+	if !ok {
+		return
+	}
+	if _, err := h.getRideQuery.Execute(ctx, userID, rideID); err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	charge, err := h.stopCharges.StopStopTimer(ctx, rideID, seq)
+	if err != nil {
+		status, code, msg := mapStopChargeError(err)
+		writeError(w, status, code, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, StopChargeResponse{RideID: rideID, Charge: stopChargeInfo(charge)})
+}
+
+// StopChargePortAdapter adapts the concrete services.StopChargeService onto
+// the HTTP-facing StopChargePort. The service's StartStopTimer returns only
+// an error (its plain transition); the port needs the persisted row echo for
+// the timer-start response, which the service already exposes as
+// StartStopTimerWithCharge. Keeping this shim in the handlers package means
+// neither layer's public API bends for the other.
+type StopChargePortAdapter struct {
+	S *services.StopChargeService
+}
+
+func (a StopChargePortAdapter) QuoteStop(ctx context.Context, rideID uuid.UUID, seq int) (*services.StopQuotePreview, error) {
+	return a.S.QuoteStop(ctx, rideID, seq)
+}
+
+func (a StopChargePortAdapter) ApproveStop(ctx context.Context, rideID, riderUserID uuid.UUID, seq int) (*entities.StopCharge, error) {
+	return a.S.ApproveStop(ctx, rideID, riderUserID, seq)
+}
+
+func (a StopChargePortAdapter) StartStopTimer(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error) {
+	return a.S.StartStopTimerWithCharge(ctx, rideID, seq)
+}
+
+func (a StopChargePortAdapter) StopStopTimer(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error) {
+	return a.S.StopStopTimer(ctx, rideID, seq)
+}
+
+// compile-time proof the adapter satisfies the port and the concrete service
+// still satisfies the settlement + read surfaces used elsewhere.
+var (
+	_ StopChargePort   = StopChargePortAdapter{}
+	_ StopChargeReader = (*services.StopChargeService)(nil)
+)

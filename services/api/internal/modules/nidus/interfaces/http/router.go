@@ -336,15 +336,29 @@ func NewRouter(deps *Dependencies) http.Handler {
 		deps.PricingService,
 		services.DefaultCancellationPolicy(),
 	)
+	// FARE INTEGRITY Phase 2: one stop-charge service instance backs BOTH the
+	// settlement ports (complete/cash) and the rider quote/approve/timer HTTP
+	// surface, so every money path reads and writes the same ride_stop_charges
+	// rows. Constructed unconditionally (nil-safe routes below handle an absent
+	// DB gracefully by failing loudly inside the service itself).
+	stopChargeSvc := services.NewStopChargeService(deps.DB)
+	// Rider-only approval guard: reuse the shared GetRideQuery access rules so
+	// ApproveStop refuses strangers through the same code path every other ride
+	// surface uses.
+	stopChargeSvc.SetRiderGate(queries.NewGetRideQuery(deps.DB))
+
 	rideHandler.SetLifecycle(nidusHttp.LifecycleCommands{
 		Accept:   commands.NewAcceptRideHandler(deps.DB, deps.EventBus, deps.MatchingEngine, deps.PricingService),
 		Start:    commands.NewStartRideHandler(deps.DB, deps.EventBus),
-		Complete: commands.NewCompleteRideHandler(deps.DB, deps.EventBus, deps.PricingService, deps.PromoFinalizer),
+		Complete: commands.NewCompleteRideHandler(deps.DB, deps.EventBus, deps.PricingService, deps.PromoFinalizer).WithStopCharger(stopChargeSvc),
 		Cancel:   commands.NewCancelRideHandler(deps.DB, deps.EventBus),
 		Rate:     rateRideCmd,
 		// §3.1: driver-side cash-collection confirm (completed -> paid + deferred
 		// settlement event). Mounted on the router only when cash is enabled.
-		ConfirmCashCollection: commands.NewConfirmCashCollectionHandler(deps.DB, deps.EventBus),
+		// Phase 2: cash settles the IDENTICAL payable as electronic — the same
+		// approved-stop port feeds ConfirmCashCollection, fail-closed like
+		// CompleteRide.
+		ConfirmCashCollection: commands.NewConfirmCashCollectionHandler(deps.DB, deps.EventBus).WithStopCharger(stopChargeSvc),
 		// §3.5: rider mid-trip destination change with server-recomputed fare.
 		// Built unconditionally here; the PATCH route is mounted only when
 		// StopoversEnabled — the handler field existing but unrouted is fine
@@ -361,6 +375,11 @@ func NewRouter(deps *Dependencies) http.Handler {
 	if deps.PreSelfie != nil {
 		rideHandler.SetPreSelfieAttacher(deps.PreSelfie)
 	}
+	// FARE INTEGRITY Phase 2: inject the stop-charge write+read port into the
+	// ride handler. With it wired, the quote/approve/timer routes price and time
+	// for real and GET /rides/{rideID} embeds persisted per-stop charge state;
+	// without it those routes honestly report 503 STOP_CHARGES_UNAVAILABLE.
+	rideHandler.SetStopChargeService(nidusHttp.StopChargePortAdapter{S: stopChargeSvc})
 	// §3.4: inject the email-receipt port when main.go wired one (nil-safe —
 	// the route then honestly reports 503 RECEIPT_EMAIL_UNAVAILABLE).
 	if deps.ReceiptMailer != nil {
@@ -475,6 +494,15 @@ func NewRouter(deps *Dependencies) http.Handler {
 				// shows the change-destination affordance.
 				if deps.StopoversEnabled {
 					r.Patch("/{rideID}/destination", rideHandler.ChangeDestination)
+					// FARE INTEGRITY Phase 2: rider stop-fee disclosure & approval, plus
+					// the server-clock stop timer both participants can drive. Mounted
+					// with stopovers because a stop cannot be quoted/approved on a ride
+					// that cannot carry stops; the handlers additionally enforce rider-
+					// only approval and participant-only timer access internally.
+					r.Get("/{rideID}/stops/{seq}/quote", rideHandler.QuoteStopRoute)
+					r.Post("/{rideID}/stops/{seq}/approve", rideHandler.ApproveStopRoute)
+					r.Post("/{rideID}/stops/{seq}/timer/start", rideHandler.StartStopTimerRoute)
+					r.Post("/{rideID}/stops/{seq}/timer/stop", rideHandler.StopStopTimerRoute)
 				}
 				// §4.6 Price-Extension Negotiation (rider): POST bumps the
 				// broadcast fare of a still-searching ride by an approved
