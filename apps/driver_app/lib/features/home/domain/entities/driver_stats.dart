@@ -10,6 +10,7 @@ class DriverStats extends Equatable {
   final double averageRating;
   final double acceptanceRate;
   final double completionRate;
+  final int totalRides;
   final double? onlineHours;
   final double averageFare;
   final double tips;
@@ -26,6 +27,7 @@ class DriverStats extends Equatable {
     required this.averageRating,
     required this.acceptanceRate,
     required this.completionRate,
+    this.totalRides = 0,
     required this.onlineHours,
     required this.averageFare,
     required this.tips,
@@ -44,11 +46,12 @@ class DriverStats extends Equatable {
       averageRating: (json['average_rating'] as num).toDouble(),
       acceptanceRate: (json['acceptance_rate'] as num).toDouble(),
       completionRate: (json['completion_rate'] as num).toDouble(),
+      totalRides: (json['total_rides'] as num?)?.toInt() ?? 0,
       onlineHours: (json['online_hours'] as num?)?.toDouble(),
       averageFare: (json['average_fare'] as num).toDouble(),
       tips: (json['tips'] as num).toDouble(),
       cancellations: json['cancellations'] as int,
-      lastUpdated: DateTime.parse(json['last_updated'] as String),
+      lastUpdated: DateTime.tryParse(json['last_updated'] as String? ?? '') ?? DateTime.now(),
     );
   }
 
@@ -82,6 +85,7 @@ class DriverStats extends Equatable {
         averageRating,
         acceptanceRate,
         completionRate,
+        totalRides,
         onlineHours,
       ];
 }

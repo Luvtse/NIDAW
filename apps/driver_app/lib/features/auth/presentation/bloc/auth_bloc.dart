@@ -210,7 +210,7 @@ Future<void> _onCheckAuthStatus(
 
     try {
       await _authRepository.logout();
-      await _webSocketClient.disconnect();
+      _webSocketClient.disconnect();
       emit(const AuthUnauthenticated());
     } catch (e) {
       emit(AuthError(message: e.toString()));
