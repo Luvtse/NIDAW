@@ -1,0 +1,264 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"nidaw-backend/internal/modules/nidus/infrastructure/cache"
+	"nidaw-backend/internal/shared/auth"
+	"nidaw-backend/internal/shared/database"
+	"nidaw-backend/internal/shared/eventbus"
+
+	"github.com/google/uuid"
+)
+
+// DriverLocation is an alias to the canonical location type defined in the
+// nidus cache infrastructure package.
+type DriverLocation = cache.DriverLocation
+
+type CacheService interface {
+	GetNearbyDrivers(ctx context.Context, lat, lng, radiusKm float64, status string) ([]*DriverLocation, error)
+	UpdateDriverLocation(ctx context.Context, loc *DriverLocation) error
+}
+
+type LocationHandler struct {
+	cacheService CacheService
+	eventBus     eventbus.EventBus
+	db           *database.Postgres // Phase B/B7: active-ride association checks
+}
+
+func NewLocationHandler(
+	cacheService CacheService,
+	eventBus eventbus.EventBus,
+	db *database.Postgres,
+) *LocationHandler {
+	return &LocationHandler{
+		cacheService: cacheService,
+		eventBus:     eventBus,
+		db:           db,
+	}
+}
+
+type UpdateLocationRequest struct {
+	Lat     float64 `json:"lat"`
+	Lng     float64 `json:"lng"`
+	Heading float64 `json:"heading"`
+	Speed   float64 `json:"speed"`
+}
+
+type GetLocationResponse struct {
+	DriverID  string  `json:"driver_id"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Heading   float64 `json:"heading"`
+	Speed     float64 `json:"speed"`
+	Timestamp int64   `json:"timestamp"`
+}
+
+func (h *LocationHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+
+	// Phase B/B7: only drivers may publish fleet positions. Without this check,
+	// any authenticated user (e.g., a rider) could spoof arbitrary GPS points
+	// into the matching cache under their own ID.
+	role, _ := auth.GetUserRoleFromContext(ctx)
+	if role != "driver" && role != "admin" {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only drivers may update vehicle location")
+		return
+	}
+
+	var req UpdateLocationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+		return
+	}
+
+	// Validate coordinates
+	if req.Lat < -90 || req.Lat > 90 || req.Lng < -180 || req.Lng > 180 {
+		writeError(w, http.StatusBadRequest, "INVALID_COORDINATES", "invalid coordinates")
+		return
+	}
+	// Phase B: sanity bounds on kinematic fields to reject junk/spoofed data.
+	if req.Speed < 0 || req.Speed > 300 { // km/h
+		writeError(w, http.StatusBadRequest, "INVALID_SPEED", "speed out of range")
+		return
+	}
+	if req.Heading < 0 || req.Heading >= 360 {
+		writeError(w, http.StatusBadRequest, "INVALID_HEADING", "heading must be in [0,360)")
+		return
+	}
+
+	var driverID uuid.UUID
+	if h.db == nil || !h.db.IsReady() {
+		writeError(w, http.StatusServiceUnavailable, "DATABASE_UNAVAILABLE", "driver location storage is unavailable")
+		return
+	}
+	if err := h.db.QueryRow(ctx, `
+		UPDATE drivers
+		   SET current_lat = $1, current_lng = $2, last_location_update = NOW(), updated_at = NOW()
+		 WHERE user_id = $3 AND status IN ('available', 'on_trip', 'busy')
+		 RETURNING id`, req.Lat, req.Lng, userID).Scan(&driverID); err != nil {
+		writeError(w, http.StatusForbidden, "NOT_A_DRIVER", "no eligible driver profile for this account")
+		return
+	}
+
+	err := h.cacheService.UpdateDriverLocation(ctx, &DriverLocation{
+		DriverID:  driverID.String(),
+		Latitude:  req.Lat,
+		Longitude: req.Lng,
+		Timestamp: time.Now().Unix(),
+		Heading:   req.Heading,
+		Speed:     req.Speed,
+		Status:    "available",
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "UPDATE_FAILED", "failed to update location")
+		return
+	}
+
+	// Publish location update event. Phase 1 audit: when the driver is on an
+	// active ride, enrich the payload with ride_id + rider user_id so (a) the
+	// WSBridge fans GPS to the ride room (rider's live tracking) and (b) the
+	// DriverArrivingWatcher can evaluate pickup proximity for the
+	// driver_arriving notification (§1.4 event wiring). One indexed query per
+	// GPS ping; failures degrade silently to the pre-enrichment behavior.
+	rideID, riderID := h.activeRideFor(ctx, driverID)
+	payload := map[string]interface{}{
+		"driver_id": driverID.String(),
+		"lat":       req.Lat,
+		"lng":       req.Lng,
+		"heading":   req.Heading,
+		"speed":     req.Speed,
+	}
+	if rideID != uuid.Nil {
+		payload["ride_id"] = rideID.String()
+		payload["user_id"] = riderID.String()
+	}
+	event := eventbus.Event{
+		Type:      "driver.location_updated",
+		Payload:   payload,
+		Timestamp: time.Now().Unix(),
+	}
+	_ = h.eventBus.Publish(ctx, "nidus.locations", event)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status": "updated",
+	})
+}
+
+// activeRideFor returns the ride + rider for the driver's current pre-trip
+// assignment (matched / accepted / driver_en_route — i.e., the driver is on the way to
+// pickup). in_progress is deliberately excluded: once the trip starts there
+// is no "arriving at pickup" state to announce. Zero or multiple rows, and
+// any query error, degrade to uuid.Nil (no enrichment) rather than failing
+// the GPS ping itself — location ingest must stay available.
+func (h *LocationHandler) activeRideFor(ctx context.Context, driverID uuid.UUID) (rideID, riderID uuid.UUID) {
+	if h.db == nil {
+		return uuid.Nil, uuid.Nil
+	}
+	var rideStr, userStr string
+	err := h.db.QueryRow(ctx, `
+		SELECT id::text, user_id::text FROM rides
+		WHERE driver_id = $1 AND status IN ('matched', 'accepted', 'driver_en_route')
+		ORDER BY created_at DESC LIMIT 1`, driverID).Scan(&rideStr, &userStr)
+	if err != nil {
+		return uuid.Nil, uuid.Nil
+	}
+	rideID, _ = uuid.Parse(rideStr)
+	riderID, _ = uuid.Parse(userStr)
+	return rideID, riderID
+}
+
+// canTrackDriver reports whether caller may view the live position of driverID.
+// Authorization rule (Phase B/B7): allowed if the caller IS the driver (own
+// record echo) or holds an ACTIVE ride assigned to that driver — statuses in
+// matched / driver_en_route / in_progress. Completed/cancelled rides do not
+// grant ongoing tracking rights.
+func (h *LocationHandler) canTrackDriver(ctx context.Context, callerID, driverID uuid.UUID) bool {
+	if callerID == driverID {
+		return true // drivers may read their own cached position
+	}
+	if h.db == nil {
+		return false // fail closed: no DB => cannot verify association
+	}
+	var exists bool
+	err := h.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM rides
+			WHERE driver_id = $1
+			  AND user_id = $2
+			  AND status IN ('matched', 'accepted', 'driver_en_route', 'in_progress')
+		)`, driverID, callerID).Scan(&exists)
+	if err != nil {
+		// Fail closed on any query error; details stay server-side only.
+		return false
+	}
+	return exists
+}
+
+func (h *LocationHandler) GetDriverLocation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Phase B/B7: resolve the caller identity first — driver GPS is only
+	// disclosed to participants of an ACTIVE ride with that driver. This closes
+	// the IDOR where any authenticated user could track any driver by ID.
+	callerID, ok := auth.GetUserIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing user context")
+		return
+	}
+
+	driverIDStr := r.URL.Query().Get("driver_id")
+	driverID, err := uuid.Parse(driverIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_DRIVER_ID", "driver_id must be a UUID")
+		return
+	}
+
+	if !h.canTrackDriver(ctx, callerID, driverID) {
+		// 404 rather than 403: do not leak whether the driver exists/has rides.
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "driver location not found")
+		return
+	}
+
+	// Get location from cache
+	locations, err := h.cacheService.GetNearbyDrivers(ctx, 0, 0, 1000, "")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "FETCH_FAILED", "failed to fetch location")
+		return
+	}
+
+	// Find specific driver
+	var driverLoc *DriverLocation
+	for _, loc := range locations {
+		if loc.DriverID == driverID.String() {
+			driverLoc = loc
+			break
+		}
+	}
+
+	if driverLoc == nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "driver location not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(GetLocationResponse{
+		DriverID:  driverLoc.DriverID,
+		Latitude:  driverLoc.Latitude,
+		Longitude: driverLoc.Longitude,
+		Heading:   driverLoc.Heading,
+		Speed:     driverLoc.Speed,
+		Timestamp: driverLoc.Timestamp,
+	})
+}

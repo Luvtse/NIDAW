@@ -1,0 +1,1373 @@
+// Package commands — ride lifecycle (request → match → start → complete/cancel/rate).
+//
+// This file closes the gaps found in the end-to-end NIDAW ride audit:
+// previously only RequestRide was implemented; the driver-side transitions
+// (accept / start / complete) and rider-side terminal actions (cancel / rate)
+// were 501 stubs, so no ride could ever reach "completed" and the ledger's
+// ride.completed settlement consumer had nothing to consume.
+//
+// Money model (Phase D/E/F): fares are NOT charged at request time. Riders
+// pre-pay into the internal ledger via top-up; on ride completion this module
+// emits a `ride.completed` event and the ledger settles it atomically
+// (rider debit + driver held-credit + 72h escrow hold), keyed idempotently on
+// the ride id. A durable outbox table (ride_completed_events) guarantees the
+// settlement message survives a broker outage: pending rows are re-published
+// by the background publisher wired in cmd/server.
+package commands
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"nidaw-backend/internal/modules/nidus/application/services"
+	"nidaw-backend/internal/modules/nidus/domain/entities"
+	nidusevents "nidaw-backend/internal/modules/nidus/domain/events"
+	"nidaw-backend/internal/shared/database"
+	"nidaw-backend/internal/shared/eventbus"
+	"nidaw-backend/internal/shared/observability"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+// ============================================================================
+// ERRORS
+// ============================================================================
+
+var (
+	ErrRideNotFound       = errors.New("ride not found")
+	ErrForbidden          = errors.New("you are not permitted to perform this action on this ride")
+	ErrInvalidTransition  = entities.ErrInvalidStatusTransition
+	ErrDriverUnavailable  = errors.New("driver is not available")
+	ErrDriverNotOnTrip    = errors.New("driver is not on an active trip")
+	ErrAlreadyRated       = errors.New("ride has already been rated")
+	ErrTipTooLarge        = errors.New("tip must be less than or equal to the fare")
+	ErrFareCalcFailed     = errors.New("final fare calculation failed")
+	ErrSettlementFallback = errors.New("settlement event persisted but direct publish failed (outbox will retry)")
+
+	// Cash collection (§3.1). ErrNotACashRide is returned when the driver
+	// attempts to confirm collection on a ride that was not booked with the
+	// cash payment method; ErrRideNotEligibleForCashCollection covers every
+	// other precondition failure (not completed yet, already collected).
+	ErrNotACashRide                     = errors.New("ride is not a cash ride")
+	ErrRideNotEligibleForCashCollection = errors.New("ride is not eligible for cash collection confirmation")
+
+	// §3.5 mid-trip destination change. Alias of the domain sentinel so HTTP
+	// error mapping and command consumers reference one source of truth.
+	ErrDestinationNotChangeable = entities.ErrDestinationNotChangeable
+)
+
+// PlatformCommissionRate is the marketplace take applied to every completed
+// ride. The driver is credited (fare - commission + tip); the remainder is
+// platform revenue. Kept here as a single source of truth until Phase G moves
+// it to per-region config.
+const PlatformCommissionRate = 0.15
+
+func computePlatformFee(fare float64) float64 {
+	if fare <= 0 {
+		return 0
+	}
+	fee := fare * PlatformCommissionRate
+	// Round to santim (2 dp) half away from zero.
+	cents := int64(fee*100 + 0.5)
+	return float64(cents) / 100.0
+}
+
+// ============================================================================
+// SHARED BASE (ride loading + transition persistence)
+// ============================================================================
+
+type lifecycleBase struct {
+	db       *database.Postgres
+	eventBus eventbus.EventBus
+}
+
+// loadRide fetches a ride with its current state. Returns ErrRideNotFound for
+// unknown ids so handlers can answer 404 without leaking existence details.
+func (b *lifecycleBase) loadRide(ctx context.Context, rideID uuid.UUID) (*entities.Ride, error) {
+	// DriverID is *uuid.UUID on the entity; scan it directly so an unmatched ride
+	// (SQL NULL) normalises to a nil pointer.
+	// §3.1: payment_method_type and cash_collected_at MUST be loaded here —
+	// ConfirmCashCollectionHandler gates on ride.IsCashRide(), which reads
+	// PaymentMethodType. Omitting these columns would make every cash-ride
+	// precondition check fail against a zero-valued entity.
+	var r entities.Ride
+	err := b.db.QueryRow(ctx, `
+		SELECT id, user_id, driver_id,
+		       pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
+		       COALESCE(pickup_address, ''), COALESCE(dropoff_address, ''),
+		       ride_type, status,
+		       COALESCE(fare_amount, 0), COALESCE(currency, 'ETB'), COALESCE(tip_amount, 0),
+		       COALESCE(cancel_fee, 0), COALESCE(cancelled_by, ''), COALESCE(cancel_reason, ''),
+		       COALESCE(distance_km, 0), COALESCE(duration_minutes, 0),
+		       COALESCE(payment_method_type, ''), cash_collected_at, scheduled_at,
+		       COALESCE(promo_code, ''), COALESCE(promo_discount, 0),
+		       base_fare_component, distance_fare_component, time_fare_component,
+		       surge_fare_component, service_fee_component,
+		       requested_at, matched_at, started_at, completed_at,
+		       COALESCE(rating, 0), created_at, updated_at
+		FROM rides WHERE id = $1`, rideID).Scan(
+		&r.ID, &r.UserID, &r.DriverID,
+		&r.PickupLat, &r.PickupLng, &r.DropoffLat, &r.DropoffLng,
+		&r.PickupAddress, &r.DropoffAddress,
+		&r.RideType, &r.Status,
+		&r.FareAmount, &r.Currency, &r.TipAmount,
+		&r.CancelFee, &r.CancelledBy, &r.CancelReason,
+		&r.DistanceKm, &r.DurationMinutes,
+		&r.PaymentMethodType, &r.CashCollectedAt, &r.ScheduledAt,
+		&r.PromoCode, &r.PromoDiscount,
+		&r.BaseFareComponent, &r.DistanceFareComponent, &r.TimeFareComponent,
+		&r.SurgeFareComponent, &r.ServiceFeeComponent,
+		&r.RequestedAt, &r.MatchedAt, &r.StartedAt, &r.CompletedAt,
+		&r.Rating, &r.CreatedAt, &r.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRideNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// unmarshalPayload decodes a persisted settlement outbox payload.
+func unmarshalPayload(raw []byte) (map[string]interface{}, error) {
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// resolveDriverID maps an authenticated JWT subject (user id) to its driver
+// profile row. Drivers authenticate as users; drivers.user_id is the link.
+func (b *lifecycleBase) resolveDriverID(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	var driverID uuid.UUID
+	err := b.db.QueryRow(ctx, `SELECT id FROM drivers WHERE user_id = $1`, userID).Scan(&driverID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrForbidden // caller is not a registered driver
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return driverID, nil
+}
+
+// updateStatus stamps the new status plus updated_at.
+func (b *lifecycleBase) updateStatus(ctx context.Context, rideID uuid.UUID, status entities.RideStatus) error {
+	_, err := b.db.Exec(ctx,
+		`UPDATE rides SET status = $2, updated_at = NOW() WHERE id = $1`,
+		rideID, string(status))
+	return err
+}
+
+// recordCompleted persists the terminal completed state with final money and
+// trip metrics inside one DB transaction. When isCash is true the settlement
+// outbox row is deliberately NOT enqueued: cash rides are collected by the
+// driver in person, and ledger settlement is deferred until the driver
+// confirms collection via ConfirmCashCollectionHandler (§3.1), which emits
+// the same settlement event at that point. Non-cash rides settle immediately
+// as before.
+func (b *lifecycleBase) recordCompleted(ctx context.Context, rideID uuid.UUID, fare, fee, tip float64, distance float64, duration int, components *CompletionFareComponents, ev settlementRecord, isCash bool) error {
+	return b.db.WithTx(ctx, func(tx *database.Tx) error {
+		if _, err := tx.Exec(ctx, `
+			UPDATE rides
+			   SET status = 'completed',
+			       fare_amount = $2, currency = $3, tip_amount = $4,
+			       distance_km = $5, duration_minutes = $6,
+			       service_fee_component = $7,
+			       promo_discount = $8,
+			       base_fare_component     = COALESCE($9,  base_fare_component),
+			       distance_fare_component = COALESCE($10, distance_fare_component),
+			       time_fare_component     = COALESCE($11, time_fare_component),
+			       surge_fare_component    = COALESCE($12, surge_fare_component),
+			       completed_at = NOW(), updated_at = NOW()
+			WHERE id = $1 AND status = 'in_progress'`,
+			rideID, fare, ev.Currency, tip, distance, duration,
+			components.ServiceFee, components.PromoDiscount,
+			components.Base, components.Distance, components.Time, components.Surge); err != nil {
+			return err
+		}
+		if isCash {
+			return nil
+		}
+		return enqueueRideCompleted(ctx, tx, ev)
+	})
+}
+
+// CompletionFareComponents carries the §3.4 receipt-time snapshot written back
+// onto the ride row in recordCompleted so GET /rides/{id} can serve an itemized
+// receipt whose lines reconcile with fare_amount without recomputation. The
+// four variable lines are *float64 pointers: when completion did NOT re-price
+// the trip they are nil, and the UPDATE leaves the request-time snapshot in
+// place (COALESCE-free passthrough); when it DID re-price them from actuals,
+// the new values overwrite. ServiceFee/PromoDiscount always exist at
+// completion time (platform fee is a function of the FINAL fare; the promo
+// discount is finalized against it), so they are plain floats.
+type CompletionFareComponents struct {
+	Base          *float64
+	Distance      *float64
+	Time          *float64
+	Surge         *float64
+	ServiceFee    float64
+	PromoDiscount float64
+}
+
+// settlementRecord is the durable outbox representation of the ride.completed
+// event consumed by the ledger's RideSettlementHandler.
+type settlementRecord struct {
+	EventID         uuid.UUID
+	RideID          uuid.UUID
+	DriverUserID    uuid.UUID // ledger identity of the driver (drivers.user_id)
+	Currency        string    // ISO currency code carried on the event payload
+	Payload         map[string]interface{}
+	DirectPublished bool
+	PublishedAt     *time.Time
+}
+
+// enqueueRideCompleted inserts the settlement event into the durable outbox.
+// Idempotent on event_id (the ride UUID): Kafka redelivery or a retried
+// completion attempt cannot insert a second settlement row, and the ledger
+// side is itself idempotent on "ride:debit:<ride_id>".
+func enqueueRideCompleted(ctx context.Context, tx *database.Tx, rec settlementRecord) error {
+	payloadJSON, err := json.Marshal(rec.Payload)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO ride_completed_events
+			(event_id, ride_id, driver_user_id, payload, direct_published, published_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (event_id) DO NOTHING`,
+		rec.EventID, rec.RideID, rec.DriverUserID, payloadJSON, rec.DirectPublished, rec.PublishedAt)
+	return err
+}
+
+// publishRideCompleted emits the settlement event onto the bus used by the
+// ledger consumer ("nidaw.events", matching EventBusPublisher's default topic
+// and the KafkaBus writer). Failures are returned so callers can fall back to
+// the outbox retry path without failing the ride completion itself.
+func (b *lifecycleBase) publishRideCompleted(ctx context.Context, payload map[string]interface{}) error {
+	if b.eventBus == nil {
+		return errors.New("event bus not configured")
+	}
+	return b.eventBus.Publish(ctx, "nidaw.events", eventbus.Event{
+		Type:      nidusevents.RideCompletedType,
+		Payload:   payload,
+		Timestamp: time.Now().Unix(),
+	})
+}
+
+// ============================================================================
+// ACCEPT RIDE (driver) — requested/searching/matched -> matched
+// ============================================================================
+
+// AcceptRideCommand carries the driver identity (JWT-derived) and ride id.
+type AcceptRideCommand struct {
+	DriverUserID uuid.UUID // authenticated subject (a user id that owns a driver row)
+	RideID       uuid.UUID
+}
+
+// AcceptRideHandler lets the best-matched (or offered) driver claim a ride.
+// Concurrency-safe: the status UPDATE is guarded by `status IN (...)` so two
+// racing drivers can both pass the FOR UPDATE read, but only one sees
+// RowsAffected == 1 on the transition write.
+type AcceptRideHandler struct {
+	lifecycleBase
+	matchingEngine *services.MatchingEngine
+	pricingService *services.PricingService
+}
+
+func NewAcceptRideHandler(db *database.Postgres, eventBus eventbus.EventBus, me *services.MatchingEngine, ps *services.PricingService) *AcceptRideHandler {
+	return &AcceptRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}, matchingEngine: me, pricingService: ps}
+}
+
+// Execute performs the accept transition. Returns ErrForbidden when the
+// calling driver is not the ride's currently matched candidate.
+//
+// NIDUS-DISPATCH-001: the mutation section now delegates to the SAME atomic
+// dispatch operation used by automatic matching (AssignRideAtomically), so
+// manual acceptance and the auto-matcher share one reservation invariant:
+// driver row lock + eligibility revalidation at commit + conditional ride
+// transition + outbox persistence in a single transaction. The previous code
+// committed the ride UPDATE first and treated the driver reservation as a
+// non-fatal afterthought, which allowed one driver to end up on two active
+// rides; it also published ride.matched with a hard-coded 5-minute ETA.
+// Lost races surface as ErrInvalidTransition (HTTP mapping unchanged) via
+// errors.Is(ErrAssignmentConflict); infrastructure errors propagate as
+// themselves and are never disguised as contention.
+func (h *AcceptRideHandler) Execute(ctx context.Context, cmd *AcceptRideCommand) (*entities.Ride, error) {
+	driverID, err := h.resolveDriverID(ctx, cmd.DriverUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Driver must be online-and-available (or suspended checks live in the
+	// entity). This pre-check keeps the friendly ErrDriverUnavailable for the
+	// common case; AssignRideAtomically revalidates under the row lock.
+	var dStatus entities.DriverStatus
+	if err := h.db.QueryRow(ctx, `SELECT status FROM drivers WHERE id = $1`, driverID).Scan(&dStatus); err != nil {
+		return nil, err
+	}
+	if !dStatus.CanAcceptRides() {
+		return nil, ErrDriverUnavailable
+	}
+
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+	if (ride.Status == entities.RideStatusRequested || ride.Status == entities.RideStatusSearching) &&
+		time.Since(ride.RequestedAt) > 30*time.Second {
+		return nil, ErrInvalidTransition
+	}
+
+	switch ride.Status {
+	case entities.RideStatusRequested, entities.RideStatusSearching:
+		// No candidate yet — run the matching engine to nominate this driver
+		// only if they are the best available match. For simplicity/safety we
+		// allow self-nomination during the searching window; the assignment
+		// below is still race-guarded.
+		if err := ride.TransitionTo(entities.RideStatusMatched); err != nil {
+			return nil, err
+		}
+	case entities.RideStatusMatched:
+		if ride.DriverID == nil || *ride.DriverID != driverID {
+			return nil, ErrForbidden
+		}
+		if ride.MatchedAt == nil || time.Since(*ride.MatchedAt) > 30*time.Second {
+			err := h.db.WithTx(ctx, func(tx *database.Tx) error {
+				tag, err := tx.Exec(ctx, `
+					UPDATE rides SET status = 'searching', driver_id = NULL, matched_at = NULL,
+					       matched_eta_minutes = NULL, cancel_reason = 'offer_expired', updated_at = NOW()
+					 WHERE id = $1 AND status = 'matched' AND driver_id = $2`, ride.ID, driverID)
+				if err != nil {
+					return err
+				}
+				if tag.RowsAffected() != 1 {
+					return ErrInvalidTransition
+				}
+				tag, err = tx.Exec(ctx, `UPDATE drivers SET status = 'available', updated_at = NOW() WHERE id = $1 AND status = 'on_trip'`, driverID)
+				if err != nil {
+					return err
+				}
+				if tag.RowsAffected() != 1 {
+					return ErrInvalidTransition
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			return nil, ErrInvalidTransition
+		}
+		tag, err := h.db.Exec(ctx, `UPDATE rides SET status = 'accepted', updated_at = NOW() WHERE id = $1 AND driver_id = $2 AND status = 'matched'`, ride.ID, driverID)
+		if err != nil {
+			return nil, err
+		}
+		if tag.RowsAffected() != 1 {
+			return nil, ErrInvalidTransition
+		}
+		ride.Status = entities.RideStatusAccepted
+		observability.Nidus().RecordMatch("manual")
+		return ride, nil
+	case entities.RideStatusAccepted:
+		if ride.DriverID == nil || *ride.DriverID != driverID {
+			return nil, ErrForbidden
+		}
+		return ride, nil
+	default:
+		return nil, ErrInvalidTransition
+	}
+
+	// Authoritative ETA for this assignment: prefer the ACTUAL computed value
+	// from the matching engine for this driver/pickup pair; fall back to the
+	// documented haversine heuristic on the driver's current position when
+	// scoring inputs are unavailable. Never a fabricated constant.
+	etaMinutes := 0
+	if h.matchingEngine != nil {
+		if cand, cErr := h.matchingEngine.SelectBestCandidate(ctx, ride); cErr == nil &&
+			cand != nil && cand.Driver != nil && cand.Driver.ID == driverID && cand.ETA > 0 {
+			etaMinutes = cand.ETA
+		}
+	}
+	if etaMinutes <= 0 {
+		var dLat, dLng float64
+		if qErr := h.db.QueryRow(ctx,
+			`SELECT current_lat, current_lng FROM drivers WHERE id = $1`, driverID,
+		).Scan(&dLat, &dLng); qErr == nil {
+			etaMinutes = heuristicPickupETAMinutes(dLat, dLng, ride.PickupLat, ride.PickupLng)
+		}
+	}
+	if etaMinutes <= 0 {
+		// No usable position input at all: refuse to store a fake estimate.
+		// AllowNilETA commits the assignment with matched_eta_minutes NULL and
+		// clients render "not provided" (same omission convention as the live
+		// ETA on the offer feed).
+		etaMinutes = AllowNilETA
+	}
+
+	result, err := AssignRideAtomicallyWithStatus(ctx, h.db, ride.ID, driverID, etaMinutes, entities.RideStatusAccepted)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrAssignmentIneligible):
+			return nil, ErrDriverUnavailable
+		case errors.Is(err, ErrAssignmentConflict):
+			return nil, ErrInvalidTransition // lost the race to another driver/worker
+		default:
+			return nil, err // infrastructure failure stays distinguishable
+		}
+	}
+	ride.Status = entities.RideStatusAccepted
+
+	// NOTE: no separate ETA write here — AssignRideAtomically already persisted
+	// result.ETAMinutes (NULL when AllowNilETA was passed) inside the same
+	// transaction that committed the reservation; a second UPDATE would be
+	// racy, non-transactional, and pointless.
+
+	observability.Nidus().RecordMatch("manual")
+
+	now := result.MatchedAt
+	ride.Status = entities.RideStatusAccepted
+	ride.DriverID = &driverID
+	ride.MatchedAt = &now
+
+	// Post-commit best-effort direct publish; MatchedEventsOutbox drains the
+	// row committed inside AssignRideAtomically if the broker is down.
+	ev := &nidusevents.RideMatched{
+		RideID:     ride.ID,
+		DriverID:   driverID,
+		UserID:     ride.UserID,
+		ETAMinutes: result.ETAMinutes,
+		FareAmount: ride.FareAmount,
+	}
+	if err := h.publishDomainEvent(ctx, ev.ToEvent()); err != nil {
+		fmt.Printf("warning: failed to publish ride.matched (outbox will retry): %v\n", err)
+	}
+	return ride, nil
+}
+
+// publishDomainEvent converts a nidus domain event to the shared bus envelope.
+func (b *lifecycleBase) publishDomainEvent(ctx context.Context, ev *nidusevents.Event) error {
+	if b.eventBus == nil {
+		return nil
+	}
+	return b.eventBus.Publish(ctx, "nidus.rides", eventbus.Event{
+		Type:      ev.Type,
+		Payload:   ev.Payload,
+		Timestamp: ev.Timestamp.Unix(),
+	})
+}
+
+// ============================================================================
+// START RIDE (driver) — matched/driver_en_route -> in_progress
+// ============================================================================
+
+type StartRideCommand struct {
+	DriverUserID uuid.UUID
+	RideID       uuid.UUID
+}
+
+type StartRideHandler struct{ lifecycleBase }
+
+func NewStartRideHandler(db *database.Postgres, eventBus eventbus.EventBus) *StartRideHandler {
+	return &StartRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}}
+}
+
+func (h *StartRideHandler) Execute(ctx context.Context, cmd *StartRideCommand) (*entities.Ride, error) {
+	driverID, err := h.resolveDriverID(ctx, cmd.DriverUserID)
+	if err != nil {
+		return nil, err
+	}
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+	if ride.DriverID == nil || *ride.DriverID != driverID {
+		return nil, ErrForbidden
+	}
+	if ride.Status != entities.RideStatusAccepted {
+		return nil, ErrInvalidTransition
+	}
+	if err := ride.TransitionTo(entities.RideStatusInProgress); err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	tag, err := h.db.Exec(ctx, `
+		UPDATE rides SET status = 'in_progress', started_at = $2, updated_at = $2
+		 WHERE id = $1 AND status IN ('matched','accepted','driver_en_route')`,
+		ride.ID, now)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrInvalidTransition
+	}
+	ride.Status = entities.RideStatusInProgress
+	ride.StartedAt = &now
+
+	ev := &nidusevents.RideStarted{RideID: ride.ID, DriverID: driverID, UserID: ride.UserID}
+	if err := h.publishDomainEvent(ctx, ev.ToEvent()); err != nil {
+		fmt.Printf("warning: failed to publish ride.started: %v\n", err)
+	}
+	return ride, nil
+}
+
+// ============================================================================
+// COMPLETE RIDE (driver) — in_progress -> completed (+ ledger settlement)
+// ============================================================================
+
+type CompleteRideCommand struct {
+	DriverUserID uuid.UUID
+	RideID       uuid.UUID
+	// ActualDistanceKm / ActualDurationMin let the app report the real trip
+	// after GPS breadcrumbs; zero values fall back to the original estimate.
+	ActualDistanceKm  float64
+	ActualDurationMin int
+}
+
+// CompleteRideResult reports the settled money breakdown.
+type CompleteRideResult struct {
+	RideID         uuid.UUID
+	FinalFare      float64
+	PlatformFee    float64
+	DriverEarnings float64
+	Tip            float64
+	Settled        bool // true when the ride.completed event hit the bus directly
+	// §3.1: true for cash rides — the fare is owed in hand, ledger settlement
+	// is deferred until the driver confirms collection.
+	PendingCashCollection bool
+}
+
+// PromoFinalizer is the narrow port CompleteRideHandler needs from the
+// promotions module (§3.2 "automatic application at receipt time"): adjust the
+// stored discount to the actual final fare when the ride completes. Declared
+// structurally so nidus never imports the promotions package. A nil port (or
+// a ride with no promo code) leaves the request-time snapshot untouched —
+// legacy behaviour, unchanged.
+type PromoFinalizer interface {
+	FinalizeAtCompletion(ctx context.Context, rideID uuid.UUID, finalFare float64, code string) (float64, error)
+}
+
+type CompleteRideHandler struct {
+	lifecycleBase
+	pricingService *services.PricingService
+	promoFinalizer PromoFinalizer // nil => receipt-time promo adjustment disabled
+}
+
+func NewCompleteRideHandler(db *database.Postgres, eventBus eventbus.EventBus, ps *services.PricingService, promoFinalizer PromoFinalizer) *CompleteRideHandler {
+	return &CompleteRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}, pricingService: ps, promoFinalizer: promoFinalizer}
+}
+
+func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideCommand) (*CompleteRideResult, error) {
+	driverID, err := h.resolveDriverID(ctx, cmd.DriverUserID)
+	if err != nil {
+		return nil, err
+	}
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+	if ride.DriverID == nil || *ride.DriverID != driverID {
+		return nil, ErrForbidden
+	}
+	if err := ride.TransitionTo(entities.RideStatusCompleted); err != nil {
+		return nil, err
+	}
+
+	// --- Final fare -------------------------------------------------------
+	// Recalculate against actual distance/duration when reported; otherwise
+	// honour the quoted estimate (transparent to the rider: same formula,
+	// surge snapshot preserved because we reuse base inputs).
+	distance := ride.DistanceKm
+	duration := ride.DurationMinutes
+	if cmd.ActualDistanceKm > 0 {
+		distance = cmd.ActualDistanceKm
+	}
+	if cmd.ActualDurationMin > 0 {
+		duration = cmd.ActualDurationMin
+	}
+
+	finalFare := ride.FareAmount
+	var repricedEst *services.FareEstimate
+	if h.pricingService != nil && cmd.ActualDistanceKm > 0 {
+		est, perr := h.pricingService.CalculateFare(ctx,
+			ride.PickupLat, ride.PickupLng, ride.DropoffLat, ride.DropoffLng,
+			services.RideType(ride.RideType))
+		if perr != nil {
+			return nil, fmt.Errorf("%w: %v", ErrFareCalcFailed, perr)
+		}
+		if est != nil {
+			finalFare = float64(est.TotalFare) / 100.0
+			repricedEst = est
+		}
+	}
+	if finalFare <= 0 {
+		return nil, fmt.Errorf("%w: non-positive fare", ErrFareCalcFailed)
+	}
+
+	platformFee := computePlatformFee(finalFare)
+	driverEarnings := round2(finalFare - platformFee)
+
+	// §3.2 receipt-time application: when the ride carries a promo code, the
+	// discount is recomputed against the FINAL fare (the projection was made
+	// against the estimate). The finalized amount replaces the request-time
+	// snapshot on both the ride row and the settlement payload, so the ledger
+	// debits exactly what the rider's receipt will show. Failure policy: if
+	// finalization errors, keep the request-time snapshot and log — the rider
+	// already saw that number at booking; silently changing money mid-ride is
+	// worse than a stale-but-shown discount. A missing redemption row returns
+	// discount=0 with no error, which we treat as "no promo on this ride".
+	promoCode := ride.PromoCode
+	promoDiscount := ride.PromoDiscount
+	if h.promoFinalizer != nil && promoCode != "" {
+		finalized, ferr := h.promoFinalizer.FinalizeAtCompletion(ctx, ride.ID, finalFare, promoCode)
+		if ferr != nil {
+			fmt.Printf("warning: promo finalization failed for ride %s (code %s), keeping request-time discount %.2f: %v\n", ride.ID, promoCode, promoDiscount, ferr)
+		} else {
+			promoDiscount = round2(finalized)
+		}
+		// Keep the redemption ledger in agreement with the finalized snapshot.
+		// recordCompleted persists promo_discount on the ride row; this optional
+		// port call keeps promo_redemptions.discount_applied honest so analytics
+		// and GET /promotions/mine never read a stale projection. Best-effort:
+		// a ledger-sync failure is logged, the authoritative ride row still wins.
+		if promoDiscount != ride.PromoDiscount {
+			if syncer, ok := h.promoFinalizer.(interface {
+				UpdateRedemptionDiscount(ctx context.Context, rideID uuid.UUID, discountApplied float64) error
+			}); ok {
+				if serr := syncer.UpdateRedemptionDiscount(ctx, ride.ID, promoDiscount); serr != nil {
+					fmt.Printf("warning: redemption ledger sync failed for ride %s (code %s): %v\n", ride.ID, promoCode, serr)
+				}
+			}
+		}
+	}
+	// Money actually charged to the rider after the discount. Never negative:
+	// a misconfigured code cannot mint a credit.
+	chargeAmount := round2(finalFare - promoDiscount)
+	if chargeAmount < 0 {
+		chargeAmount = 0
+	}
+
+	// §3.1 Cash rides: the fare is collected in hand at completion, so ledger
+	// settlement must NOT be enqueued here — it is deferred until the driver
+	// confirms physical collection (ConfirmCashCollectionHandler). The ride
+	// still reaches 'completed'; pending_cash_collection is derived as
+	// completed + cash + cash_collected_at IS NULL (see Ride.IsPendingCashCollection).
+	isCash := ride.IsCashRide()
+
+	// §3.4 receipt-time component snapshot. When completion re-priced the trip
+	// (actual distance/duration reported), the request-time variable lines are
+	// stale; we recompute them from the SAME pricing result that produced
+	// finalFare so base+distance+time+surge+service_fee reconciles with
+	// fare_amount exactly. When no re-pricing happened, the request-time
+	// snapshot already sums to FareAmount and is left untouched — only the
+	// service-fee line (a function of the final fare) is added. minFareUplift
+	// is folded into the base line identically to request time.
+	baseComp, distComp, timeComp, surgeComp := ride.BaseFareComponent, ride.DistanceFareComponent, ride.TimeFareComponent, ride.SurgeFareComponent
+	if repricedEst != nil {
+		uplift := minFareUpliftCents(repricedEst)
+		baseComp = ptrFenToF(repricedEst.BaseFare + uplift)
+		distComp = ptrFenToF(repricedEst.DistanceFare)
+		timeComp = ptrFenToF(repricedEst.TimeFare)
+		surgeComp = ptrFenToF(repricedEst.SurgeAmount)
+	}
+
+	// Driver ledger identity: the ledger keys balances by USER id, while
+	// rides reference the DRIVER profile id — translate before settling.
+	var driverUserID uuid.UUID
+	if err := h.db.QueryRow(ctx, `SELECT user_id FROM drivers WHERE id = $1`, driverID).Scan(&driverUserID); err != nil {
+		return nil, fmt.Errorf("resolve driver user identity: %w", err)
+	}
+
+	completedAt := time.Now().UTC()
+	payload := map[string]interface{}{
+		"ride_id":                 ride.ID.String(),
+		"driver_id":               driverUserID.String(), // ledger identity (user id)
+		"user_id":                 ride.UserID.String(),
+		"actual_distance":         distance,
+		"actual_duration":         duration,
+		"final_fare":              finalFare,
+		"driver_earnings":         driverEarnings,
+		"platform_fee":            platformFee,
+		"currency":                ride.Currency,
+		"completed_at_unix":       completedAt.Unix(),
+		"payment_method_type":     ride.PaymentMethodType,
+		"pending_cash_collection": isCash,
+		// §3.2 receipt-time promo fields: the discount finalized against the
+		// actual fare and the amount charged to the rider after it. Consumers
+		// that ignore unknown keys are unaffected; the receipt surface reads
+		// these instead of recomputing.
+		"promo_code":     promoCode,
+		"promo_discount": promoDiscount,
+		"charge_amount":  chargeAmount,
+	}
+
+	rec := settlementRecord{
+		EventID:      ride.ID, // deterministic: one settlement per ride, ever
+		RideID:       ride.ID,
+		DriverUserID: driverUserID,
+		Currency:     ride.Currency,
+		Payload:      payload,
+	}
+
+	// Try a synchronous publish first (fast path). On broker failure we still
+	// commit the completion + outbox row; the background re-publisher drains
+	// pending rows later, so settlement is eventually guaranteed.
+	// Cash rides skip both paths entirely (§3.1 deferral).
+	settled := false
+	if !isCash {
+		if err := h.publishRideCompleted(ctx, payload); err == nil {
+			settled = true
+			rec.DirectPublished = true
+			rec.PublishedAt = &completedAt
+		}
+	}
+
+	if err := h.recordCompleted(ctx, ride.ID, finalFare, platformFee, ride.TipAmount, distance, duration,
+		&CompletionFareComponents{
+			Base:          baseComp,
+			Distance:      distComp,
+			Time:          timeComp,
+			Surge:         surgeComp,
+			ServiceFee:    platformFee,
+			PromoDiscount: promoDiscount,
+		}, rec, isCash); err != nil {
+		return nil, err
+	}
+
+	// Observability parity with ledger Phase E/F/G workers: completion volume
+	// plus which settlement path was taken (inline publish vs durable outbox
+	// vs deferred-cash).
+	nm := observability.Nidus()
+	nm.RidesCompletedTotal.Inc()
+	switch {
+	case isCash:
+		nm.RecordSettlement("cash_deferred")
+	case settled:
+		nm.RecordSettlement("settled")
+	default:
+		nm.RecordSettlement("queued")
+	}
+
+	// Free the driver for the next match.
+	if _, err := h.db.Exec(ctx,
+		`UPDATE drivers SET status = 'available', total_rides = total_rides + 1, updated_at = NOW()
+		  WHERE id = $1 AND status = 'on_trip'`, driverID); err != nil {
+		fmt.Printf("warning: failed to release driver %s after trip: %v\n", driverID, err)
+	}
+
+	res := &CompleteRideResult{
+		RideID:                ride.ID,
+		FinalFare:             finalFare,
+		PlatformFee:           platformFee,
+		DriverEarnings:        driverEarnings,
+		Tip:                   ride.TipAmount,
+		Settled:               settled,
+		PendingCashCollection: isCash,
+	}
+	if isCash {
+		// Cash completion is a clean success: settlement is intentionally
+		// deferred until the driver confirms collection — not a fallback.
+		return res, nil
+	}
+	if !settled {
+		// Completion succeeded; settlement will flow through the outbox.
+		// Surface as a wrapped sentinel so the handler can log/alert but the
+		// HTTP layer still returns 200.
+		return res, ErrSettlementFallback
+	}
+	return res, nil
+}
+
+// ============================================================================
+// CONFIRM CASH COLLECTION (driver) — §3.1 completes the cash loop
+// ============================================================================
+
+type ConfirmCashCollectionCommand struct {
+	DriverUserID uuid.UUID // authenticated JWT subject (a user id owning a driver row)
+	RideID       uuid.UUID
+}
+
+// ConfirmCashCollectionResult reports the transition outcome. AlreadyCollected
+// marks the idempotent replay: the second call succeeds without restamping.
+type ConfirmCashCollectionResult struct {
+	RideID           uuid.UUID
+	Status           string
+	CashCollectedAt  time.Time
+	AlreadyCollected bool
+}
+
+type ConfirmCashCollectionHandler struct{ lifecycleBase }
+
+func NewConfirmCashCollectionHandler(db *database.Postgres, eventBus eventbus.EventBus) *ConfirmCashCollectionHandler {
+	return &ConfirmCashCollectionHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}}
+}
+
+// Execute stamps cash_collected_at and moves the ride completed -> paid, then
+// emits the deferred settlement event so the ledger pays the driver exactly
+// once. Preconditions (checked against the DB row inside one transaction):
+//   - caller is the matched driver of this ride (else 403);
+//   - ride status is 'completed' AND payment_method_type = 'cash'
+//     AND cash_collected_at IS NULL (else conflict/not-found mapping).
+//
+// Idempotency: the UPDATE is guarded by cash_collected_at IS NULL, so a
+// concurrent/retried confirm either wins (and publishes settlement with a
+// deterministic event key the ledger dedupes on "ride:debit:<ride_id>") or
+// observes the already-collected row and returns success without side effects.
+func (h *ConfirmCashCollectionHandler) Execute(ctx context.Context, cmd *ConfirmCashCollectionCommand) (*ConfirmCashCollectionResult, error) {
+	driverID, err := h.resolveDriverID(ctx, cmd.DriverUserID)
+	if err != nil {
+		return nil, err
+	}
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+	if ride.DriverID == nil || *ride.DriverID != driverID {
+		return nil, ErrForbidden
+	}
+	if !ride.IsCashRide() {
+		return nil, ErrNotACashRide
+	}
+	switch ride.Status {
+	case entities.RideStatusPaid:
+		// Already collected + settled: idempotent success.
+		at := time.Now().UTC()
+		if ride.CashCollectedAt != nil {
+			at = *ride.CashCollectedAt
+		}
+		return &ConfirmCashCollectionResult{RideID: ride.ID, Status: string(ride.Status), CashCollectedAt: at, AlreadyCollected: true}, nil
+	case entities.RideStatusCompleted:
+		// expected state for pending_cash_collection
+	default:
+		return nil, ErrRideNotEligibleForCashCollection
+	}
+
+	var collectedAt time.Time
+	var wonFirst bool
+	err = h.db.WithTx(ctx, func(tx *database.Tx) error {
+		tag, err := tx.Exec(ctx, `
+			UPDATE rides
+			   SET status = 'paid', cash_collected_at = NOW(), updated_at = NOW()
+			 WHERE id = $1 AND status = 'completed'
+			   AND payment_method_type = 'cash'
+			   AND cash_collected_at IS NULL`, ride.ID)
+		if err != nil {
+			return err
+		}
+		wonFirst = tag.RowsAffected() == 1
+		if !wonFirst {
+			return nil // lost the race / replay: read back below
+		}
+		return tx.QueryRow(ctx, `SELECT cash_collected_at FROM rides WHERE id = $1`, ride.ID).Scan(&collectedAt)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !wonFirst {
+		// Row moved under us (duplicate request). Re-read and report honestly.
+		fresh, rerr := h.loadRide(ctx, cmd.RideID)
+		if rerr != nil {
+			return nil, rerr
+		}
+		if fresh.CashCollectedAt == nil {
+			return nil, ErrRideNotEligibleForCashCollection
+		}
+		return &ConfirmCashCollectionResult{RideID: fresh.ID, Status: string(fresh.Status), CashCollectedAt: *fresh.CashCollectedAt, AlreadyCollected: true}, nil
+	}
+
+	// Emit the deferred settlement now that money physically changed hands.
+	// Same payload shape the ledger consumer already handles; deterministic
+	// event key keeps this exactly-once even if publish retries.
+	var driverUserID uuid.UUID
+	if err := h.db.QueryRow(ctx, `SELECT user_id FROM drivers WHERE id = $1`, driverID).Scan(&driverUserID); err != nil {
+		// Collection already recorded; settlement identity failure must not
+		// fail the endpoint. Log and let the outbox re-publisher stay silent —
+		// ops alert surfaces via the warning line, matching existing style.
+		fmt.Printf("warning: cash ride %s collected but driver identity unresolved for settlement: %v\n", ride.ID, err)
+		return &ConfirmCashCollectionResult{RideID: ride.ID, Status: string(entities.RideStatusPaid), CashCollectedAt: collectedAt}, nil
+	}
+
+	payload := map[string]interface{}{
+		"ride_id":                 ride.ID.String(),
+		"driver_id":               driverUserID.String(),
+		"user_id":                 ride.UserID.String(),
+		"actual_distance":         ride.DistanceKm,
+		"actual_duration":         ride.DurationMinutes,
+		"final_fare":              ride.FareAmount,
+		"driver_earnings":         round2(ride.FareAmount - computePlatformFee(ride.FareAmount)),
+		"platform_fee":            computePlatformFee(ride.FareAmount),
+		"currency":                ride.Currency,
+		"completed_at_unix":       collectedAt.Unix(),
+		"payment_method_type":     "cash",
+		"pending_cash_collection": false,
+	}
+	rec := settlementRecord{
+		EventID:      ride.ID,
+		RideID:       ride.ID,
+		DriverUserID: driverUserID,
+		Currency:     ride.Currency,
+		Payload:      payload,
+	}
+	published := false
+	if err := h.publishRideCompleted(ctx, payload); err == nil {
+		published = true
+		rec.DirectPublished = true
+		rec.PublishedAt = &collectedAt
+	}
+	if err := h.db.WithTx(ctx, func(tx *database.Tx) error {
+		return enqueueRideCompleted(ctx, tx, rec)
+	}); err != nil {
+		fmt.Printf("warning: cash ride %s settlement outbox insert failed: %v\n", ride.ID, err)
+	}
+	nm := observability.Nidus()
+	if published {
+		nm.RecordSettlement("cash_settled")
+	} else {
+		nm.RecordSettlement("cash_queued")
+	}
+
+	return &ConfirmCashCollectionResult{RideID: ride.ID, Status: string(entities.RideStatusPaid), CashCollectedAt: collectedAt}, nil
+}
+
+func round2(v float64) float64 {
+	cents := int64(v*100 + 0.5)
+	return float64(cents) / 100.0
+}
+
+// ============================================================================
+// CANCEL RIDE (rider or matched driver) — active states -> cancelled
+// ============================================================================
+
+type CancelRideCommand struct {
+	UserID         uuid.UUID // authenticated subject (rider or driver-user)
+	RideID         uuid.UUID
+	Reason         string
+	CancelledBy    string  // "rider" | "driver" (derived server-side, never client input)
+	RiderCancelFee float64 // §2.5: authoritative fee computed by the SAME policy function that backs GET /cancellation-quote; charged only when the actor is the rider and > 0
+}
+
+type CancelRideHandler struct{ lifecycleBase }
+
+func NewCancelRideHandler(db *database.Postgres, eventBus eventbus.EventBus) *CancelRideHandler {
+	return &CancelRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}}
+}
+
+func (h *CancelRideHandler) Execute(ctx context.Context, cmd *CancelRideCommand) (*entities.Ride, error) {
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+
+	actor := ""
+	switch {
+	case ride.UserID == cmd.UserID:
+		actor = "rider"
+	default:
+		// Maybe a driver cancelling their assigned ride.
+		if ride.DriverID != nil {
+			if driverID, derr := h.resolveDriverID(ctx, cmd.UserID); derr == nil && *ride.DriverID == driverID {
+				actor = "driver"
+			}
+		}
+		if actor == "" {
+			return nil, ErrForbidden
+		}
+	}
+	if actor == "driver" && cmd.Reason == "driver_declined" && ride.Status == entities.RideStatusMatched && ride.DriverID != nil {
+		if err := h.db.WithTx(ctx, func(tx *database.Tx) error {
+			tag, err := tx.Exec(ctx, `
+				UPDATE rides
+				   SET status = 'searching', driver_id = NULL, matched_at = NULL,
+				       matched_eta_minutes = NULL, cancel_reason = 'driver_declined', updated_at = NOW()
+				 WHERE id = $1 AND status = 'matched' AND driver_id = $2`, ride.ID, *ride.DriverID)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() != 1 {
+				return ErrInvalidTransition
+			}
+			tag, err = tx.Exec(ctx, `UPDATE drivers SET status = 'available', updated_at = NOW() WHERE id = $1 AND status = 'on_trip'`, *ride.DriverID)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() != 1 {
+				return ErrInvalidTransition
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		ride.Status = entities.RideStatusSearching
+		ride.DriverID = nil
+		ride.MatchedAt = nil
+		ride.MatchedETAMinutes = nil
+		return ride, nil
+	}
+	if !ride.CanBeCancelled() {
+		return nil, ErrInvalidTransition
+	}
+	if err := ride.TransitionTo(entities.RideStatusCancelled); err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	reason := cmd.Reason
+	if reason == "" {
+		reason = "no reason provided"
+	}
+	// §2.5: the authoritative fee is persisted only when the RIDER is the
+	// cancelling actor and the shared policy computed a positive charge.
+	// Driver-initiated cancels never fee the rider (cancel_fee stays 0).
+	chargedFee := 0.0
+	if actor == "rider" && cmd.RiderCancelFee > 0 {
+		chargedFee = cmd.RiderCancelFee
+	}
+
+	tag, err := h.db.Exec(ctx, `
+UPDATE rides SET status = 'cancelled', cancel_reason = $3, updated_at = $2,
+		       cancel_fee = $4, cancelled_by = $5
+		 WHERE id = $1 AND status IN ('requested','searching','matched','accepted','driver_en_route')`,
+		ride.ID, now, reason, chargedFee, actor)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrInvalidTransition
+	}
+
+	// Release the matched driver back to the pool.
+	if ride.DriverID != nil {
+		if _, err := h.db.Exec(ctx,
+			`UPDATE drivers SET status = 'available', updated_at = NOW() WHERE id = $1 AND status = 'on_trip'`,
+			*ride.DriverID); err != nil {
+			fmt.Printf("warning: failed to release driver after cancel: %v\n", err)
+		}
+	}
+
+	ride.Status = entities.RideStatusCancelled
+	ride.CancelFee = chargedFee
+	ride.CancelledBy = actor
+	ride.CancelReason = reason
+
+	ev := &nidusevents.RideCancelled{
+		RideID: ride.ID, UserID: ride.UserID, DriverID: ride.DriverID,
+		Reason: reason, CancelledBy: actor,
+	}
+	if err := h.publishDomainEvent(ctx, ev.ToEvent()); err != nil {
+		fmt.Printf("warning: failed to publish ride.cancelled: %v\n", err)
+	}
+	return ride, nil
+}
+
+// ============================================================================
+// RATE RIDE (rider) — completed rides only; tips settle through the ledger
+// ============================================================================
+
+type RateRideCommand struct {
+	UserID   uuid.UUID
+	RideID   uuid.UUID
+	Rating   int
+	Review   string
+	TipCents int64 // ETB cents; converted once here, never trusted as float downstream
+}
+
+// TipSettler is the narrow port the rate flow needs from the private ledger:
+// move an accepted tip from the rider's available balance to the driver's
+// available balance, idempotently per ride. Implemented by
+// ledgerTipSettler in the interfaces/http/handlers package (the only place
+// allowed to import ledger application code — module boundary rule).
+type TipSettler interface {
+	SettleTip(ctx context.Context, rideID, riderID, driverUserID uuid.UUID, tipCents int64) error
+}
+
+type RateRideHandler struct {
+	lifecycleBase
+	tips TipSettler
+}
+
+func NewRateRideHandler(db *database.Postgres, eventBus eventbus.EventBus) *RateRideHandler {
+	return &RateRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}}
+}
+
+// SetTipSettler enables ledger-backed tip settlement (Phase E wiring point).
+// Without it, a rating that carries a tip fails explicitly rather than
+// silently dropping money the rider intended to pay.
+func (h *RateRideHandler) SetTipSettler(s TipSettler) { h.tips = s }
+
+func (h *RateRideHandler) Execute(ctx context.Context, cmd *RateRideCommand) (*entities.Ride, error) {
+	ride, err := h.loadRide(ctx, cmd.RideID)
+	if err != nil {
+		return nil, err
+	}
+	if ride.UserID != cmd.UserID {
+		return nil, ErrForbidden
+	}
+	if !ride.CanBeRated() {
+		return nil, ErrInvalidTransition
+	}
+	if ride.Rating != 0 {
+		return nil, ErrAlreadyRated
+	}
+	if cmd.Rating < 1 || cmd.Rating > 5 {
+		return nil, errors.New("rating must be between 1 and 5")
+	}
+	if cmd.TipCents < 0 {
+		return nil, ErrTipTooLarge
+	}
+	if float64(cmd.TipCents)/100.0 > ride.FareAmount {
+		return nil, ErrTipTooLarge
+	}
+
+	tip := float64(cmd.TipCents) / 100.0
+	tag, err := h.db.Exec(ctx, `
+		UPDATE rides SET rating = $2, review = $3, tip_amount = $4, updated_at = NOW()
+		 WHERE id = $1 AND status = 'completed' AND COALESCE(rating, 0) = 0`,
+		ride.ID, cmd.Rating, cmd.Review, tip)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrAlreadyRated
+	}
+
+	// Settle the tip through the ledger BEFORE announcing the rating so the
+	// driver's available balance already reflects it when notifications fire.
+	if cmd.TipCents > 0 {
+		if h.tips == nil {
+			return nil, errors.New("tip settlement unavailable: ledger not wired")
+		}
+		if ride.DriverID == nil {
+			return nil, errors.New("cannot settle tip: ride has no driver")
+		}
+		var driverUserID uuid.UUID
+		if err := h.db.QueryRow(ctx, `SELECT user_id FROM drivers WHERE id = $1`, *ride.DriverID).Scan(&driverUserID); err != nil {
+			return nil, err
+		}
+		if err := h.tips.SettleTip(ctx, ride.ID, ride.UserID, driverUserID, cmd.TipCents); err != nil {
+			// Rating is committed; surface the tip failure so the client can
+			// retry (the settler is idempotent on the ride key).
+			return nil, fmt.Errorf("rating saved, tip settlement failed: %w", err)
+		}
+	}
+
+	ride.Rating = cmd.Rating
+	ride.Review = cmd.Review
+	ride.TipAmount = tip
+
+	ev := &nidusevents.RideRated{
+		RideID: ride.ID, UserID: ride.UserID, Rating: cmd.Rating, Review: cmd.Review, Tip: tip,
+	}
+	if ride.DriverID != nil {
+		ev.DriverID = *ride.DriverID
+	}
+	if err := h.publishDomainEvent(ctx, ev.ToEvent()); err != nil {
+		fmt.Printf("warning: failed to publish ride.rated: %v\n", err)
+	}
+	return ride, nil
+}
+
+// ============================================================================
+// MATCHED-EVENTS OUTBOX RE-PUBLISHER (durability worker, NIDUS-DISPATCH-001)
+// ----------------------------------------------------------------------------
+// Pattern-copy of SettlementOutbox above, draining ride_matched_events
+// (migration 014) written inside the atomic dispatch transaction. Guarantees
+// a committed assignment is eventually communicated even when the broker was
+// unavailable at commit time.
+// ============================================================================
+
+// maxMatchedOutboxAttempts bounds the per-row retry count. Rows that exceed it
+// stop being re-published so a permanently malformed payload cannot pin the
+// drain loop; they remain visible for operators (published_at IS NULL AND
+// attempts >= limit) and are counted in logs/metrics by the caller's tick.
+const maxMatchedOutboxAttempts = 25
+
+// MatchedEventsOutbox drains ride_matched_events rows whose synchronous
+// publish failed (or has not run yet) and re-publishes them to the canonical
+// bus topic. Safe on every API replica: claims use FOR UPDATE SKIP LOCKED so
+// two workers never publish the same row concurrently, event_id == ride_id
+// makes replays idempotent, and consumers key on ride_id, so duplicate
+// delivery is a no-op downstream.
+type MatchedEventsOutbox struct {
+	db       *database.Postgres
+	eventBus eventbus.EventBus
+	interval time.Duration
+	limit    int
+}
+
+func NewMatchedEventsOutbox(db *database.Postgres, eventBus eventbus.EventBus, interval time.Duration) *MatchedEventsOutbox {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	return &MatchedEventsOutbox{db: db, eventBus: eventBus, interval: interval, limit: 50}
+}
+
+// Run blocks until ctx is cancelled, draining the outbox on each tick.
+func (o *MatchedEventsOutbox) Run(ctx context.Context) {
+	ticker := time.NewTicker(o.interval)
+	defer ticker.Stop()
+	// Drain immediately on start-up so events left by a previous crash are
+	// delivered without waiting a full interval.
+	o.drainOnce(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			o.drainOnce(ctx)
+		}
+	}
+}
+
+func (o *MatchedEventsOutbox) drainOnce(ctx context.Context) {
+	_ = o.db.WithTx(ctx, func(tx *database.Tx) error {
+		rows, err := tx.Query(ctx, `
+			SELECT event_id, payload, attempts
+			  FROM ride_matched_events
+			 WHERE published_at IS NULL AND attempts < $2
+			 ORDER BY created_at
+			 LIMIT $1
+			 FOR UPDATE SKIP LOCKED`, o.limit, maxMatchedOutboxAttempts)
+		if err != nil {
+			return err
+		}
+		type pending struct {
+			eventID  uuid.UUID
+			payload  map[string]interface{}
+			attempts int
+		}
+		var batch []pending
+		for rows.Next() {
+			var p pending
+			var raw []byte
+			if err := rows.Scan(&p.eventID, &raw, &p.attempts); err != nil {
+				continue
+			}
+			p.payload, _ = unmarshalPayload(raw)
+			batch = append(batch, p)
+		}
+		rows.Close()
+
+		for _, p := range batch {
+			if o.eventBus == nil {
+				// No bus wired: nothing to publish this tick. Do NOT increment
+				// attempts (that cap is for broker failures, not deployment
+				// configuration); retry once a bus exists.
+				continue
+			}
+			pubErr := o.eventBus.Publish(ctx, "nidaw.events", eventbus.Event{
+				Type:      nidusevents.RideMatchedType,
+				Payload:   p.payload,
+				Timestamp: time.Now().Unix(),
+			})
+			if pubErr != nil {
+				// Bounded-retry accounting happens in its own short transaction
+				// AFTER this one rolls back, so the attempt increment survives the
+				// broker failure (the settlement pattern's version lost it — here a
+				// permanently failing row still reaches the attempts cap instead of
+				// retrying forever). Leave published_at NULL; retry next tick.
+				_ = o.db.WithTx(context.Background(), func(atx *database.Tx) error {
+					_, err := atx.Exec(context.Background(),
+						`UPDATE ride_matched_events SET attempts = attempts + 1 WHERE event_id = $1`,
+						p.eventID)
+					return err
+				})
+				continue
+			}
+			if _, err := tx.Exec(ctx,
+				`UPDATE ride_matched_events SET published_at = NOW(), attempts = attempts + 1 WHERE event_id = $1`,
+				p.eventID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// ============================================================================
+// SETTLEMENT OUTBOX RE-PUBLISHER (durability worker)
+// ============================================================================
+
+// SettlementOutbox drains ride_completed_events rows that were not published
+// synchronously (broker down at completion time) and retries them until the
+// ledger receives them. Safe to run on every API instance: claims use
+// FOR UPDATE SKIP LOCKED so replicas never double-publish, and even a
+// duplicate delivery is a no-op downstream (ledger idempotency key).
+type SettlementOutbox struct {
+	db       *database.Postgres
+	eventBus eventbus.EventBus
+	interval time.Duration
+	limit    int
+}
+
+func NewSettlementOutbox(db *database.Postgres, eventBus eventbus.EventBus, interval time.Duration) *SettlementOutbox {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	return &SettlementOutbox{db: db, eventBus: eventBus, interval: interval, limit: 50}
+}
+
+// Run blocks until ctx is cancelled, draining the outbox on each tick.
+func (o *SettlementOutbox) Run(ctx context.Context) {
+	ticker := time.NewTicker(o.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			o.drainOnce(ctx)
+		}
+	}
+}
+
+func (o *SettlementOutbox) drainOnce(ctx context.Context) {
+	_ = o.db.WithTx(ctx, func(tx *database.Tx) error {
+		rows, err := tx.Query(ctx, `
+			SELECT event_id, ride_id, payload
+			  FROM ride_completed_events
+			 WHERE published_at IS NULL
+			 ORDER BY created_at
+			 LIMIT $1
+			 FOR UPDATE SKIP LOCKED`, o.limit)
+		if err != nil {
+			return err
+		}
+		type pending struct {
+			eventID uuid.UUID
+			payload map[string]interface{}
+		}
+		var batch []pending
+		for rows.Next() {
+			var p pending
+			var raw []byte
+			if err := rows.Scan(&p.eventID, new(uuid.UUID), &raw); err != nil {
+				continue
+			}
+			p.payload, _ = unmarshalPayload(raw)
+			batch = append(batch, p)
+		}
+		rows.Close()
+
+		for _, p := range batch {
+			if err := o.eventBus.Publish(ctx, "nidaw.events", eventbus.Event{
+				Type:      nidusevents.RideCompletedType,
+				Payload:   p.payload,
+				Timestamp: time.Now().Unix(),
+			}); err != nil {
+				return err // leave rows unpublished; retry next tick
+			}
+			if _, err := tx.Exec(ctx,
+				`UPDATE ride_completed_events SET published_at = NOW(), attempts = attempts + 1 WHERE event_id = $1`,
+				p.eventID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
