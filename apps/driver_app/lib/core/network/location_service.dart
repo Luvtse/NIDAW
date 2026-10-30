@@ -11,7 +11,8 @@ import 'package:geolocator/geolocator.dart';
 ///   - features/ride/presentation/bloc/active_ride_bloc.dart
 ///   - core/di/injection.dart
 class LocationService {
-  static const double _distanceFilterMeters = 20;
+  // geolocator's LocationSettings.distanceFilter is an int (meters).
+  static const int _distanceFilterMeters = 20;
   static const Duration _timeInterval = Duration(seconds: 5);
 
   StreamSubscription<Position>? _subscription;
@@ -51,9 +52,10 @@ class LocationService {
     }
 
     _subscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
+      locationSettings: LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: _distanceFilterMeters,
+        timeLimit: _timeInterval * 12,
       ),
     ).listen(
       (position) {

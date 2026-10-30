@@ -10,7 +10,9 @@ import 'package:nidaw_driver_app/core/startup/driver_startup_state.dart';
 void main() {
   group('DriverStartupSnapshot.initial', () {
     test('nothing is claimed at launch', () {
-      const s = DriverStartupSnapshot.initial();
+      // Const-compatible: the factory `initial()` is not a const constructor,
+      // but the underlying const default map is identical.
+      final s = DriverStartupSnapshot.initial();
       expect(s.sessionRestored, isFalse);
       expect(s.serverValidated, isFalse);
       expect(s.availabilityProvisional, isFalse);
