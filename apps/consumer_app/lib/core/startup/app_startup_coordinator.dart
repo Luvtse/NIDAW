@@ -10,7 +10,7 @@ import '../geocoding/geocoding_cache.dart';
 import '../network/websocket_client.dart';
 import '../notifications/fcm_service.dart';
 import '../offline/offline_service.dart';
-import '../router/app_router.dart' show LocaleController;
+import '../../l10n/l10n.dart' show LocaleController;
 import 'startup_state.dart';
 
 /// ============================================================================
@@ -76,8 +76,11 @@ class AppStartupCoordinator {
     // constructed here — getIt defers construction to first resolution).
     registerCoreDependencies(state);
     // Restore the persisted locale synchronously so the very first frame
-    // already uses the right language (no rebuild storm later).
-    LocaleController.applyLocallySavedCode();
+    // already uses the right language (no rebuild storm later). Hive's 'settings'
+    // box was opened just above, so readSavedCode() hits the real store;
+    // apply.value is a pure in-memory assignment.
+    LocaleController.apply.value =
+        LocaleController.localeFromCode(LocaleController.readSavedCode());
     state.markReady(StartupSubsystem.bootstrap);
     _stageADone = true;
     sw.stop();
@@ -273,4 +276,32 @@ class DeferredStartupStep {
 
   final StartupSubsystem subsystem;
   final Future<void> Function() body;
+}
+
+// ============================================================================
+// PROCESS-LEVEL ACCESSOR
+// ============================================================================
+//
+// main() constructs the coordinator before runApp so widgets, the router and
+// integration tests can reach the same StartupStateNotifier instance. Tests
+// that build their own coordinator never touch this global.
+AppStartupCoordinator? _currentCoordinator;
+
+AppStartupCoordinator get currentStartupCoordinator {
+  final c = _currentCoordinator;
+  if (c == null) {
+    throw StateError(
+      'AppStartupCoordinator not installed — main() must run '
+      'installStartupCoordinator() before any widget resolves it.',
+    );
+  }
+  return c;
+}
+
+StartupStateNotifier get startupState => currentStartupCoordinator.state;
+
+bool get hasStartupCoordinator => _currentCoordinator != null;
+
+void installStartupCoordinator(AppStartupCoordinator coordinator) {
+  _currentCoordinator = coordinator;
 }
