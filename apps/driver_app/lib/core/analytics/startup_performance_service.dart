@@ -16,13 +16,21 @@ import 'package:flutter/scheduler.dart';
 /// are recorded (never silently dropped), and a cached/provisional value never
 /// counts as a settled milestone.
 class StartupPerformanceService {
-  StartupPerformanceService(
-      {void Function(Map<String, dynamic> report)? reportSink})
-      : _reportSink = reportSink {
+  /// [autoFirstFrameDetection] defaults to true for production: the very next
+  /// painted frame stamps the first-frame milestone. Integration/unit tests
+  /// that pump widgets while asserting *pre*-first-frame behavior pass false
+  /// and call [markFirstFrame] manually — otherwise the auto callback would
+  /// fire during the test's own pumps and race the assertions.
+  StartupPerformanceService({
+    void Function(Map<String, dynamic> report)? reportSink,
+    bool autoFirstFrameDetection = true,
+  }) : _reportSink = reportSink {
     // Earliest possible anchor: constructed at the top of main(), before any
     // await on the pre-frame path.
     _launchAnchor = Stopwatch()..start();
-    SchedulerBinding.instance.addPostFrameCallback((_) => markFirstFrame());
+    if (autoFirstFrameDetection) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => markFirstFrame());
+    }
   }
 
   final void Function(Map<String, dynamic> report)? _reportSink;

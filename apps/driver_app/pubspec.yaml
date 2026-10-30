@@ -67,8 +67,8 @@ dependencies:
   image_picker: ^1.0.4
   camera: ^0.10.5+5
 
-  # Maps & Navigation
-  google_maps_flutter: ^2.5.3
+  # Maps & Navigation (google_maps_flutter already declared above;
+  # flutter_polyline_points supplements route polylines)
   flutter_polyline_points: ^2.0.0
 
 dev_dependencies:

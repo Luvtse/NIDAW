@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../analytics/startup_performance_service.dart';
@@ -57,6 +58,7 @@ class DriverStartupCoordinator {
   static const String offersTopic = 'driver:offers';
 
   bool _stageADone = false;
+  bool _stageBStarted = false;
   bool _dispatchWired = false;
   bool _tripRecoveryDone = false;
   Timer? _reconnectTimer;
@@ -96,7 +98,11 @@ class DriverStartupCoordinator {
   // --------------------------------------------------------------------------
 
   void scheduleDeferredInitialization() {
-    if (!_stageADone) return;
+    // Parity guard with the consumer coordinator: scheduling twice must never
+    // enqueue two Stage-B runs (double trip-recovery GETs / double dispatch
+    // wiring would break the exactly-once startup contract).
+    if (!_stageADone || _stageBStarted) return;
+    _stageBStarted = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(runDeferredInitialization());
     });
@@ -352,6 +358,9 @@ class DriverStartupCoordinator {
     _ackedTopics.clear();
     _dispatchWired = false;
     _tripRecoveryDone = false;
+    // Re-arm Stage B so a fresh login session can run deferred init again
+    // (parity with the consumer coordinator's reset semantics).
+    _stageBStarted = false;
     state.reset();
   }
 
@@ -399,6 +408,6 @@ DriverStartupStateNotifier get driverStartupState =>
 
 bool get hasDriverStartupCoordinator => _currentCoordinator != null;
 
-void installDriverStartupCoordinator(DriverStartupCoordinator coordinator) {
+void installDriverStartupCoordinator(DriverStartupCoordinator? coordinator) {
   _currentCoordinator = coordinator;
 }

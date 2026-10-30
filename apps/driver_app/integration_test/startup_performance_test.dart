@@ -8,6 +8,7 @@ import 'package:nidaw_driver_app/core/network/location_service.dart';
 import 'package:nidaw_driver_app/core/network/websocket_client.dart';
 import 'package:nidaw_driver_app/core/startup/driver_startup_coordinator.dart';
 import 'package:nidaw_driver_app/core/startup/driver_startup_state.dart';
+import 'package:nidaw_driver_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:nidaw_driver_app/features/ride/data/repositories/ride_repository.dart';
 import 'package:nidaw_driver_app/features/ride/domain/entities/active_ride.dart';
 
@@ -42,7 +43,7 @@ import 'package:nidaw_driver_app/features/ride/domain/entities/active_ride.dart'
 
 class _FakeRideRepository implements RideRepository {
   /// Scripted answers for the authoritative active-ride GET. Each entry is
-  /// either a value (success) or a Throwable to raise.
+  /// either an `ActiveRide?` value (success) or an `Exception` to raise.
   final List<Object?> script;
   int _calls = 0;
 
@@ -54,7 +55,7 @@ class _FakeRideRepository implements RideRepository {
   Future<ActiveRide?> getActiveRide() async {
     final answer = script[_calls.clamp(0, script.length - 1)];
     _calls++;
-    if (answer is Throwable) throw answer;
+    if (answer is Exception) throw answer;
     return answer as ActiveRide?;
   }
 
@@ -78,6 +79,23 @@ class _RecordingLocationService implements LocationService {
       throw UnimplementedError('startup test only needs start/stop');
 }
 
+class _FakeAuthRepository implements AuthRepository {
+  /// null => signed out (token absent). The startup tests never authenticate,
+  /// so dispatch wiring stays honestly un-ready.
+  @override
+  Future<bool> isAuthenticated() async => token != null;
+
+  @override
+  Future<String?> getAccessToken() async => token;
+
+  final String? token;
+  _FakeAuthRepository({this.token});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('startup test only needs auth probes');
+}
+
 class _NeverConnectingWebSocket extends WebSocketClient {
   _NeverConnectingWebSocket() : super(baseUrl: 'ws://test.invalid/ws');
 
@@ -88,14 +106,18 @@ class _NeverConnectingWebSocket extends WebSocketClient {
   Stream<WebSocketConnectionState> get stateStream => _state.stream;
 
   @override
+  Stream<Map<String, dynamic>> get messageStream =>
+      const Stream<Map<String, dynamic>>.empty();
+
+  @override
+  Future<bool> connectNow() async => false; // never reaches ws://test.invalid
+
+  @override
   void subscribe(String topic) {
     subscribedTopics.add(topic);
   }
 
   final List<String> subscribedTopics = [];
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 ActiveRide _ride(String id) => ActiveRide(
@@ -126,6 +148,16 @@ void main() {
   late StartupPerformanceService perf;
   late _RecordingLocationService location;
   late _NeverConnectingWebSocket ws;
+  late _FakeAuthRepository auth;
+
+  /// Registers the baseline getIt collaborators shared by every scenario:
+  /// signed-out auth, a socket that never connects and idle location service.
+  void registerBase({required RideRepository repo}) {
+    GetIt.I.registerLazySingleton<LocationService>(() => location);
+    GetIt.I.registerLazySingleton<WebSocketClient>(() => ws);
+    GetIt.I.registerLazySingleton<AuthRepository>(() => auth);
+    GetIt.I.registerLazySingleton<RideRepository>(() => repo);
+  }
 
   setUp(() {
     GetIt.I.reset();
@@ -139,8 +171,7 @@ void main() {
     state = DriverStartupStateNotifier();
     location = _RecordingLocationService();
     ws = _NeverConnectingWebSocket();
-    GetIt.I.registerLazySingleton<LocationService>(() => location);
-    GetIt.I.registerLazySingleton<WebSocketClient>(() => ws);
+    auth = _FakeAuthRepository(); // token == null -> signed out
   });
 
   tearDown(() {
@@ -149,14 +180,10 @@ void main() {
   });
 
   DriverStartupCoordinator buildCoord({
-    required List<RideRepository> rideRepos,
+    required RideRepository repo,
     List<DriverDeferredStartupStep>? steps,
   }) {
-    var i = 0;
-    GetIt.I.registerFactory<RideRepository>(
-        () => rideRepos[i.clamp(0, rideRepos.length - 1)]++ == null || true
-            ? rideRepos[(i++) < rideRepos.length ? i - 1 : rideRepos.length - 1]
-            : rideRepos.last);
+    registerBase(repo: repo);
     final c = DriverStartupCoordinator(state: state, perf: perf, steps: steps);
     installDriverStartupCoordinator(c);
     return c;
@@ -166,17 +193,19 @@ void main() {
     testWidgets('shell paints with ZERO deferred work executed',
         (tester) async {
       final ran = <String>[];
-      final coord = buildCoord(rideRepos: [_FakeRideRepository([null])],
-          steps: [
-            DriverDeferredStartupStep(
-              subsystem: DriverStartupSubsystem.sessionHydration,
-              body: () async => ran.add('session'),
-            ),
-            DriverDeferredStartupStep(
-              subsystem: DriverStartupSubsystem.tripRecovery,
-              body: () async => ran.add('trip'),
-            ),
-          ]);
+      final coord = buildCoord(
+        repo: _FakeRideRepository([null]),
+        steps: [
+          DriverDeferredStartupStep(
+            subsystem: DriverStartupSubsystem.sessionHydration,
+            body: () async => ran.add('session'),
+          ),
+          DriverDeferredStartupStep(
+            subsystem: DriverStartupSubsystem.tripRecovery,
+            body: () async => ran.add('trip'),
+          ),
+        ],
+      );
 
       await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
 
@@ -185,10 +214,15 @@ void main() {
       expect(state.snapshot.hasPendingHydration, isFalse);
 
       coord.scheduleDeferredInitialization();
+      // Double-schedule parity guard: a second call must never enqueue a
+      // second Stage-B run.
+      coord.scheduleDeferredInitialization();
       expect(ran, isEmpty, reason: 'scheduling must be synchronous-light');
 
       await tester.pump(); // post-frame callback fires -> steps execute
       expect(ran, containsAllInOrder(['session', 'trip']));
+      await tester.pump(); // no duplicate run from the second schedule call
+      expect(ran.length, 2);
     });
   });
 
@@ -196,16 +230,11 @@ void main() {
     testWidgets('ride found -> restored from server GET, not cache',
         (tester) async {
       final repo = _FakeRideRepository([_ride('ride-77')]);
-      GetIt.I.reset();
-      GetIt.I.registerLazySingleton<LocationService>(() => location);
-      GetIt.I.registerLazySingleton<WebSocketClient>(() => ws);
-      GetIt.I.registerLazySingleton<RideRepository>(() => repo);
-      final coord = DriverStartupCoordinator(state: state, perf: perf);
-      installDriverStartupCoordinator(coord);
+      final coord = buildCoord(repo: repo);
 
       await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
       coord.scheduleDeferredInitialization();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(repo.callCount, greaterThanOrEqualTo(1),
           reason: 'recovery must ask the authoritative backend');
@@ -217,7 +246,7 @@ void main() {
 
     test('"no active ride" is a settled negative, not a guess', () async {
       final repo = _FakeRideRepository([null]);
-      GetIt.I.registerLazySingleton<RideRepository>(() => repo);
+      registerBase(repo: repo);
       final coord = DriverStartupCoordinator(state: state, perf: perf);
       await coord.runDeferredInitialization();
       expect(state.snapshot.tripRecoverySettled, isTrue);
@@ -229,7 +258,7 @@ void main() {
         () async {
       final repo = _FakeRideRepository(
           [Exception('network down'), Exception('network down'), _ride('r2')]);
-      GetIt.I.registerLazySingleton<RideRepository>(() => repo);
+      registerBase(repo: repo);
       final coord = DriverStartupCoordinator(state: state, perf: perf);
       await coord.runDeferredInitialization();
 
@@ -241,7 +270,7 @@ void main() {
 
     test('exhausted recovery never fabricates "no trip"', () async {
       final alwaysFails = _FakeRideRepository([Exception('offline')]);
-      GetIt.I.registerLazySingleton<RideRepository>(() => alwaysFails);
+      registerBase(repo: alwaysFails);
       final coord = DriverStartupCoordinator(state: state, perf: perf);
       await coord.runDeferredInitialization();
 
@@ -257,8 +286,7 @@ void main() {
   group('dispatch gating (§4.3)', () {
     test('offers subscription requires authenticated socket reality',
         () async {
-      GetIt.I.registerLazySingleton<RideRepository>(
-          () => _FakeRideRepository([null]));
+      registerBase(repo: _FakeRideRepository([null]));
       final coord = DriverStartupCoordinator(state: state, perf: perf);
       await coord.runDeferredInitialization();
 
@@ -284,8 +312,7 @@ void main() {
   group('location permission gate', () {
     test('tracking never starts while availability unconfirmed and idle',
         () async {
-      GetIt.I.registerLazySingleton<RideRepository>(
-          () => _FakeRideRepository([null]));
+      registerBase(repo: _FakeRideRepository([null]));
       final coord = DriverStartupCoordinator(state: state, perf: perf);
       await coord.runDeferredInitialization();
 
@@ -313,7 +340,7 @@ void main() {
   group('perf honesty', () {
     test('unreached milestones serialize as null', () async {
       final coord = buildCoord(
-        rideRepos: [_FakeRideRepository([null])],
+        repo: _FakeRideRepository([null]),
         steps: [
           DriverDeferredStartupStep(
             subsystem: DriverStartupSubsystem.bootstrap,
