@@ -95,6 +95,36 @@ type Postgres struct {
 	pool   *pgxpool.Pool
 	config *Config
 	logger *zap.Logger
+
+	// testConn, when set (NewPostgresWithDriver), backs Query/QueryRow/Exec so
+	// unit tests can exercise repository/service SQL logic without a live
+	// Postgres. Production construction never sets it.
+	testConn PgConn
+}
+
+// PgConn is the narrow connection surface used by the production methods and
+// injectable in tests (implemented by *pgxpool.Pool and test fakes).
+type PgConn interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// conn returns the active connection surface: the injected test fake when
+// present, otherwise the production pool. Production code paths never set
+// testConn, so behavior is unchanged outside tests.
+func (p *Postgres) conn() PgConn {
+	if p.testConn != nil {
+		return p.testConn
+	}
+	return p.pool
+}
+
+// NewPostgresWithDriver builds a Postgres client backed by an injected PgConn
+// (test-only constructor; keeps service-level SQL logic unit-testable without
+// a live database). The returned client is considered ready for queries.
+func NewPostgresWithDriver(c PgConn) *Postgres {
+	return &Postgres{testConn: c, config: DefaultConfig(), logger: zap.NewNop()}
 }
 
 // NewPostgres creates a new database connection pool
@@ -200,7 +230,9 @@ func NewPostgres(cfg *Config, logger *zap.Logger) (*Postgres, error) {
 var ErrDatabaseClosed = errors.New("database client not initialized")
 
 // ready reports whether the pool and config are usable.
-func (p *Postgres) ready() bool { return p != nil && p.pool != nil && p.config != nil }
+func (p *Postgres) ready() bool {
+	return p != nil && (p.testConn != nil || (p.pool != nil && p.config != nil))
+}
 
 // IsReady reports whether the pool is initialized. Exported for module
 // handlers that must degrade explicitly when the database is unavailable
@@ -215,7 +247,7 @@ func (p *Postgres) Query(ctx context.Context, sql string, args ...interface{}) (
 	ctx, cancel := context.WithTimeout(ctx, p.config.QueryTimeout)
 	defer cancel()
 
-	rows, err := p.pool.Query(ctx, sql, args...)
+	rows, err := p.conn().Query(ctx, sql, args...)
 	if err != nil {
 		p.logger.Error("query failed",
 			zap.String("sql", sql),
@@ -238,7 +270,7 @@ func (p *Postgres) QueryRow(ctx context.Context, sql string, args ...interface{}
 	// Note: cancel is called when the row is scanned or context expires
 	_ = cancel
 
-	return p.pool.QueryRow(ctx, sql, args...)
+	return p.conn().QueryRow(ctx, sql, args...)
 }
 
 // errRow is a pgx.Row that always fails to scan.
@@ -256,7 +288,7 @@ func (p *Postgres) Exec(ctx context.Context, sql string, args ...interface{}) (p
 	ctx, cancel := context.WithTimeout(ctx, p.config.QueryTimeout)
 	defer cancel()
 
-	tag, err := p.pool.Exec(ctx, sql, args...)
+	tag, err := p.conn().Exec(ctx, sql, args...)
 	if err != nil {
 		p.logger.Error("exec failed",
 			zap.String("sql", sql),
