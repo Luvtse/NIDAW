@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../startup/driver_startup_coordinator.dart'
+    show hasDriverStartupCoordinator;
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
@@ -153,10 +155,27 @@ class _SplashPageState extends State<_SplashPage> {
   }
 
   Future<void> _initialize() async {
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      _authBloc.add(const CheckAuthStatus());
+    // Phase 5 (§4.3, render first / recover second): the artificial 2-second
+    // timer is removed. Session restoration must be gated on real state, not
+    // wall-clock time. When main() installed the DriverStartupCoordinator we
+    // hand off at the very next frame boundary (shell painted); auth/trip
+    // recovery proceeds from validated local storage and server responses.
+    // Without a coordinator (widget tests / tooling), dispatch immediately so
+    // auth flows still progress.
+    if (!hasDriverStartupCoordinator) {
+      _kickoffAuth();
+      return;
     }
+    await WidgetsBinding.instance.endOfFrame;
+    _kickoffAuth();
+  }
+
+  void _kickoffAuth() {
+    if (!mounted) return;
+    // CheckAuthStatus is idempotent under retries (re-read of the already-open
+    // driver_auth box + one bounded server round-trip). Routing decisions
+    // remain driven by AuthBloc state — never by a delay.
+    _authBloc.add(const CheckAuthStatus());
   }
 
   @override
