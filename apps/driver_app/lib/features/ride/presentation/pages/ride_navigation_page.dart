@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../bloc/active_ride_bloc.dart';
 import '../widgets/rider_info_card.dart';
 import '../widgets/navigation_controls.dart';
+import '../widgets/stop_contract_card.dart';
 import '../data/repositories/masked_call_repository.dart';
 import 'driver_chat_page.dart';
 import 'ride_completion_page.dart';
@@ -238,6 +239,11 @@ class RideNavigationPage extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 20),
+
+                      // FARE INTEGRITY Phase 2: read-only stop contract view.
+                      // Renders nothing when the trip has no stops; never any
+                      // money-mutating control (approval is rider-only).
+                      StopContractCard(ride: state.ride),
 
                       // Navigation Controls
                       NavigationControls(

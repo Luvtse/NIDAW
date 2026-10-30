@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'stop_charge.dart';
+
 class ActiveRide extends Equatable {
   final String id;
   final String riderId;
@@ -23,6 +25,12 @@ class ActiveRide extends Equatable {
   final DateTime? startedAt;
   final DateTime? completedAt;
   final String? riderNote;
+  /// FARE INTEGRITY Phase 2: intermediate stops with their rider-approved
+  /// charge projections, embedded by the backend on GET /rides/{id}. READ-ONLY
+  /// for the driver — approval is rider-only by design (drivers cannot press
+  /// any stop button; a manipulated client POST hits 403 STOP_NOT_APPROVABLE).
+  /// Empty list means "no stops on this ride", never an unknown state.
+  final List<RideStopView> stops;
 
   const ActiveRide({
     required this.id,
@@ -47,6 +55,7 @@ class ActiveRide extends Equatable {
     this.startedAt,
     this.completedAt,
     this.riderNote,
+    this.stops = const [],
   });
 
   factory ActiveRide.fromJson(Map<String, dynamic> json) {
@@ -79,6 +88,11 @@ class ActiveRide extends Equatable {
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       riderNote: json['rider_note'] as String?,
+      stops: (json['stops'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(RideStopView.fromJson)
+              .toList() ??
+          const [],
     );
   }
 
@@ -106,6 +120,35 @@ class ActiveRide extends Equatable {
       'started_at': startedAt?.toIso8601String(),
       'completed_at': completedAt?.toIso8601String(),
       'rider_note': riderNote,
+      'stops': stops
+          .map((s) => {
+                'seq': s.seq,
+                'lat': s.lat,
+                'lng': s.lng,
+                'address': s.address,
+                'arrived_at': s.arrivedAt?.toIso8601String(),
+                'charge': s.charge == null
+                    ? null
+                    : {
+                        'seq': s.charge!.seq,
+                        'approved_by_rider': s.charge!.approvedByRider,
+                        'approved_at': s.charge!.approvedAt?.toIso8601String(),
+                        'stop_fee_santim': s.charge!.stopFeeSantim,
+                        'waiting_charge_santim': s.charge!.waitingChargeSantim,
+                        'total_santim': s.charge!.totalSantim,
+                        'dwell_minutes': s.charge!.dwellMinutes,
+                        'timer_started_at':
+                            s.charge!.timerStartedAt?.toIso8601String(),
+                        'timer_ended_at':
+                            s.charge!.timerEndedAt?.toIso8601String(),
+                        'waiting_eligible': s.charge!.waitingEligible,
+                        'waiting_threshold_minutes':
+                            s.charge!.waitingThresholdMinutes,
+                        'policy_version': s.charge!.policyVersion,
+                        'currency': s.charge!.currency,
+                      },
+              })
+          .toList(),
     };
   }
 
@@ -114,6 +157,7 @@ class ActiveRide extends Equatable {
     DateTime? acceptedAt,
     DateTime? startedAt,
     DateTime? completedAt,
+    List<RideStopView>? stops,
   }) {
     return ActiveRide(
       id: id,
@@ -138,6 +182,7 @@ class ActiveRide extends Equatable {
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
       riderNote: riderNote,
+      stops: stops ?? this.stops,
     );
   }
 
@@ -145,6 +190,13 @@ class ActiveRide extends Equatable {
   bool get isAccepted => status == 'accepted';
   bool get isInProgress => status == 'in_progress';
   bool get isCompleted => status == 'completed';
+
+  /// FARE INTEGRITY Phase 2 (READ-ONLY view for the driver): total of all
+  /// rider-approved stop charges in santim. Computed by SUMMING persisted
+  /// server amounts — no client-side fee math. Zero when there are no stops
+  /// or no approved fees, which is exactly what completion will add.
+  int get approvedStopChargesSantim =>
+      stops.fold(0, (sum, s) => sum + (s.charge?.totalSantim ?? 0));
 
   double get totalEarnings => fareAmount + tipAmount;
 
@@ -158,5 +210,6 @@ class ActiveRide extends Equatable {
         dropoffLat,
         dropoffLng,
         fareAmount,
+        stops,
       ];
 }
