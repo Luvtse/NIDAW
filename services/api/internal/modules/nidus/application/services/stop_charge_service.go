@@ -163,12 +163,46 @@ StopFeeSantim:   cfg.FixedFeeSantim,
 StopPolicyVer:   cfg.PolicyVersion,
 ApprovedByRider: true,
 ApprovedAt:      &now,
+WaitingEligible: false,
 }
-_ = f0 // original fare stays server-side until the timer closes; echoed via QuoteStop
+
+// Echo the authoritative row state back through one read so the HTTP layer
+// renders exactly what is persisted (never an in-memory approximation of it).
+persisted, perr := s.fetchCharge(ctx, rideID, seq)
+if perr != nil {
+return nil, perr
+}
+// Fail closed: an approval echo must always satisfy the domain invariants.
 if err := charge.Validate(); err != nil {
 return nil, err
 }
-return charge, nil
+_ = f0 // original fare stays server-side until the timer closes; echoed via QuoteStop
+return persisted, nil
+}
+
+// fetchCharge loads one stop-charge row into its full entity shape (including
+// the server-clock timer events and finalized dwell). Used by ApproveStop's
+// echo and by every timer transition response.
+func (s *StopChargeService) fetchCharge(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error) {
+var c entities.StopCharge
+var startedAt, endedAt *time.Time
+err := s.db.QueryRow(ctx, `
+SELECT seq, stop_fee_santim, policy_version, approved_by_rider, approved_at,
+       duration_minutes, waiting_eligible, waiting_charge_santim,
+       started_at, ended_at
+  FROM ride_stop_charges WHERE ride_id = $1 AND seq = $2`, rideID, seq).
+Scan(&c.Seq, &c.StopFeeSantim, &c.StopPolicyVer, &c.ApprovedByRider, new(time.Time),
+&c.DurationMin, &c.WaitingEligible, &c.WaitingChargeSantim, &startedAt, &endedAt)
+if errors.Is(err, pgx.ErrNoRows) {
+return nil, ErrStopTimerNotRunning // no approval row exists for this stop
+}
+if err != nil {
+return nil, err
+}
+c.RideID = rideID
+c.TimerStartedAt = startedAt
+c.TimerEndedAt = endedAt
+return &c, nil
 }
 
 // StartStopTimer records driver ARRIVAL at a rider-approved stop. The stop
@@ -193,6 +227,16 @@ if tag.RowsAffected() == 0 {
 return s.classifyZeroRowTransition(ctx, rideID, seq, true)
 }
 return nil
+}
+
+// StartStopTimerWithCharge is StartStopTimer returning the persisted row echo
+// so the HTTP surface can render the authoritative timer state without a
+// second round-trip at the caller.
+func (s *StopChargeService) StartStopTimerWithCharge(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error) {
+if err := s.StartStopTimer(ctx, rideID, seq); err != nil {
+return nil, err
+}
+return s.fetchCharge(ctx, rideID, seq)
 }
 
 // StopStopTimer records departure from the stop, finalizes the whole-minute
@@ -264,9 +308,52 @@ StopFeeSantim:       r.fee,
 StopPolicyVer:       r.policyVer,
 ApprovedByRider:     true,
 DurationMin:         durationMin,
+TimerStartedAt:      r.startedAt,
+TimerEndedAt:        &now,
 WaitingEligible:     eligible,
 WaitingChargeSantim: waiting,
 }, nil
+}
+
+// ApprovedChargesForRide returns every rider-approved stop charge on a ride
+// in seq order with full timer/dwell state — the read surface behind
+// GET /rides/{rideID} (per-stop "charge" embedding) and the driver's
+// read-only contract view. Rows without approval are skipped silently here
+// because they carry no payable amount; settlement reads go through
+// SettlementCharges, which refuses such rows loudly instead.
+func (s *StopChargeService) ApprovedChargesForRide(ctx context.Context, rideID uuid.UUID) ([]entities.StopCharge, error) {
+if s.db == nil {
+return nil, errors.New("stop charge service: database not configured")
+}
+rows, err := s.db.Query(ctx, `
+SELECT seq, stop_fee_santim, policy_version, approved_at,
+       duration_minutes, waiting_eligible, waiting_charge_santim,
+       started_at, ended_at
+  FROM ride_stop_charges
+ WHERE ride_id = $1 AND approved_by_rider = TRUE
+ ORDER BY seq`, rideID)
+if err != nil {
+return nil, err
+}
+defer rows.Close()
+
+var out []entities.StopCharge
+for rows.Next() {
+var c entities.StopCharge
+c.RideID = rideID
+c.ApprovedByRider = true
+var approvedAt time.Time
+var startedAt, endedAt *time.Time
+if err := rows.Scan(&c.Seq, &c.StopFeeSantim, &c.StopPolicyVer, &approvedAt,
+&c.DurationMin, &c.WaitingEligible, &c.WaitingChargeSantim, &startedAt, &endedAt); err != nil {
+return nil, err
+}
+c.ApprovedAt = &approvedAt
+c.TimerStartedAt = startedAt
+c.TimerEndedAt = endedAt
+out = append(out, c)
+}
+return out, rows.Err()
 }
 
 // SettlementCharges returns the APPROVED stop fees and finalized waiting
