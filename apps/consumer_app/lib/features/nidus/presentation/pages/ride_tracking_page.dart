@@ -22,6 +22,7 @@ import '../../data/repositories/ride_repository.dart'
         DestinationChangeResult,
         PriceExtensionResult;
 import '../widgets/cancel_ride_sheet.dart';
+import '../widgets/stop_charge_card.dart';
 import '../widgets/place_autocomplete_sheet.dart';
 import '../widgets/driver_card.dart';
 import '../widgets/payment_method_selector.dart';
@@ -626,6 +627,29 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                           ),
                         ),
                         const SizedBox(height: 12),
+                      ],
+
+                      // FARE INTEGRITY Phase 2 — rider-approved stop charges.
+                      // One card per stopover while the trip runs, behind the
+                      // same ride_stopovers kill switch as the destination
+                      // control (flag off ⇒ nothing renders, never a dead
+                      // button). Every amount inside comes from the embedded
+                      // GET /rides/{id} charge projection or the quote/approve
+                      // endpoints — this page holds no fee math at all.
+                      if (state is RideInProgress &&
+                          state.ride.stops.isNotEmpty &&
+                          getIt<FeatureFlagService>()
+                              .isEnabled('ride_stopovers')) ...[
+                        for (final stop in state.ride.stops) ...[
+                          StopChargeCard(
+                            rideId: widget.rideId,
+                            stop: stop,
+                            onChanged: () => context
+                                .read<RideBloc>()
+                                .add(LoadRide(widget.rideId)),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ],
 
                       // Action Buttons
