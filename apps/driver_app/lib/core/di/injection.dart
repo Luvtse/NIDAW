@@ -5,6 +5,7 @@ import '../network/api_client.dart';
 import '../network/websocket_client.dart';
 import '../network/location_service.dart';
 import '../router/app_router.dart';
+import '../startup/driver_startup_state.dart';
 
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
@@ -34,7 +35,25 @@ import '../../features/profile/presentation/bloc/driver_profile_bloc.dart';
 
 final getIt = GetIt.instance;
 
-Future<void> configureDependencies() async {
+/// ============================================================================
+/// DRIVER DI (Phase 5, §4.3 / §5.3)
+/// ============================================================================
+///
+/// [registerCoreDependencies] is the STARTUP-CRITICAL registration: purely
+/// synchronous closure wiring — nothing is constructed and no I/O happens
+/// until first resolution. Lazy singletons for earnings / profile / documents
+/// therefore cost zero on the cold path: their repositories only construct
+/// when those screens are first opened (§4.3 "initialize ... lazily when
+/// first accessed").
+///
+/// The startup coordinator's Stage A additionally opens ONLY 'driver_auth'
+/// before runApp; 'driver_cache'/'driver_settings' open in Stage B. Repos
+/// that read those boxes already `await Hive.openBox(...)` defensively, so
+/// deferred opening is safe.
+void registerCoreDependencies(DriverStartupStateNotifier startupState) {
+  getIt.registerLazySingleton<DriverStartupStateNotifier>(
+      () => startupState);
+
   // Network
   getIt.registerLazySingleton<ApiClient>(
     () => ApiClient(baseUrl: const String.fromEnvironment(
@@ -76,6 +95,8 @@ Future<void> configureDependencies() async {
     ),
   );
 
+  // Secondary money/profile surfaces: lazy — constructed on first screen
+  // access, never during startup.
   getIt.registerLazySingleton<EarningsRepository>(
     () => EarningsRepositoryImpl(apiClient: getIt<ApiClient>()),
   );
@@ -91,15 +112,15 @@ Future<void> configureDependencies() async {
   // Use Cases
   getIt.registerFactory(() => LoginUseCase(getIt<AuthRepository>()));
   getIt.registerFactory(() => RegisterUseCase(getIt<AuthRepository>()));
-  
+
   getIt.registerFactory(() => GetDriverStatsUseCase(getIt<DriverHomeRepository>()));
   getIt.registerFactory(() => ToggleAvailabilityUseCase(getIt<DriverHomeRepository>()));
-  
+
   getIt.registerFactory(() => AcceptRideUseCase(getIt<RideRepository>()));
   getIt.registerFactory(() => StartRideUseCase(getIt<RideRepository>()));
   getIt.registerFactory(() => CompleteRideUseCase(getIt<RideRepository>()));
   getIt.registerFactory(() => GetActiveRideUseCase(getIt<RideRepository>()));
-  
+
   getIt.registerFactory(() => GetDailyEarningsUseCase(getIt<EarningsRepository>()));
   getIt.registerFactory(() => GetWeeklyEarningsUseCase(getIt<EarningsRepository>()));
 
@@ -138,4 +159,15 @@ Future<void> configureDependencies() async {
 
   // Router
   getIt.registerLazySingleton(() => AppRouter(authBloc: getIt<AuthBloc>()));
+}
+
+/// Back-compatible full configuration for tests and tooling that do not care
+/// about frame timing: opens every box and registers everything eagerly.
+/// Production main() uses registerCoreDependencies + the startup coordinator.
+Future<void> configureDependencies() async {
+  await Hive.initFlutter();
+  await Hive.openBox('driver_auth');
+  await Hive.openBox('driver_cache');
+  await Hive.openBox('driver_settings');
+  registerCoreDependencies(DriverStartupStateNotifier());
 }

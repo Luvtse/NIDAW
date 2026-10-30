@@ -111,6 +111,12 @@ class AppStartupCoordinator {
     for (final step in work) {
       await _runStep(step);
     }
+    // Mark the interactive cached shell milestone once Stage B has settled
+    // every deferred subsystem (success or honest failure). This is distinct
+    // from map readiness — a fast placeholder must not call markMapReady.
+    if (steps == null) {
+      perf.markInteractiveShell();
+    }
     await sw.stopIfRunning();
     perf.finishStage('stageB.deferred');
   }
