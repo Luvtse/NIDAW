@@ -1,0 +1,144 @@
+{
+  "catalog_version": 1,
+  "compatibility_policy": {
+    "new_events": "schema_version must be explicit and start at 1",
+    "legacy_events": "schema_version 0 or absent is legacy and must not be assumed to satisfy a v1 contract",
+    "breaking_change": "publish a new major contract version or a new event type; do not silently change required fields",
+    "delivery": "at-least-once where the transactional outbox or reliable subscriber is used; consumers must be idempotent"
+  },
+  "events": [
+    {
+      "type": "corpus.booking.created",
+      "schema_version": 1,
+      "producer": "Corpus BookingRepository via CreateCorporateBookingHandler",
+      "topic": "corpus.bookings",
+      "required_fields": [
+        "booking_id",
+        "employee_id",
+        "corporate_id",
+        "service_type",
+        "status",
+        "policy_compliant",
+        "estimated_amount"
+      ],
+      "consumers": [],
+      "consumer_status": "No active subscriber found in the inspected Go module; consumer integration remains open",
+      "source_paths": [
+        "services/api/internal/modules/corpus/application/commands/create_booking.go"
+      ]
+    },
+    {
+      "type": "corpus.booking.approved",
+      "schema_version": 1,
+      "producer": "Corpus BookingRepository via booking creation or approval decision",
+      "topic": "service-specific: nidus.rides, haven.bookings, vorax.orders, or logix.shipments",
+      "required_fields": [
+        "corporate_booking_id",
+        "booking_data"
+      ],
+      "conditional_fields": [
+        "corporate_id",
+        "service_type",
+        "approved_by_employee_id",
+        "approval_notes"
+      ],
+      "consumers": [],
+      "consumer_status": "Service-specific topics are selected, but downstream contract adapters/subscribers are not yet demonstrated as mounted runtime paths",
+      "source_paths": [
+        "services/api/internal/modules/corpus/application/commands/create_booking.go",
+        "services/api/internal/modules/corpus/infrastructure/postgres/booking_repository.go"
+      ]
+    },
+    {
+      "type": "corpus.booking.rejected",
+      "schema_version": 1,
+      "producer": "Corpus BookingRepository via DecideBooking",
+      "topic": "corpus.bookings",
+      "required_fields": [
+        "corporate_booking_id",
+        "corporate_id",
+        "service_type",
+        "approved_by_employee_id",
+        "approval_notes"
+      ],
+      "consumers": [],
+      "consumer_status": "No active subscriber found in the inspected Go module; consumer integration remains open",
+      "source_paths": [
+        "services/api/internal/modules/corpus/infrastructure/postgres/booking_repository.go"
+      ]
+    },
+    {
+      "type": "logix.customs.cleared",
+      "schema_version": 1,
+      "producer": "Logix CustomsRepository",
+      "topic": "logix.customs",
+      "required_fields": [
+        "shipment_id",
+        "declaration_id",
+        "duties_owed",
+        "taxes_owed"
+      ],
+      "consumers": [],
+      "consumer_status": "No active subscriber found in the inspected Go module; downstream freight workflow integration remains open",
+      "source_paths": [
+        "services/api/internal/modules/logix/infrastructure/postgres/customs_repository.go"
+      ]
+    },
+    {
+      "type": "logix.load.matched",
+      "schema_version": 1,
+      "producer": "Logix LoadMatcher via LoadMatchEventRepository",
+      "topic": "logix.loads",
+      "required_fields": [
+        "load_id",
+        "carrier_id",
+        "score",
+        "rate"
+      ],
+      "consumers": [],
+      "consumer_status": "Versioned schema v1 is written to logix_event_outbox for at-least-once dispatch; no active downstream consumer identified. Event persistence is durable but is not yet coupled to a persisted load status transition.",
+      "source_paths": [
+        "services/api/internal/modules/logix/application/services/load_matcher.go",
+        "services/api/internal/modules/logix/infrastructure/postgres/load_match_event_repository.go"
+      ]
+    },
+    {
+      "type": "ride.matched",
+      "schema_version": 0,
+      "producer": "Nidus ride lifecycle/dispatch workflows (multiple producers; verify each path)",
+      "topic": "nidus.rides and nidaw.events (observed subscriber topics; producer topic requires per-path verification)",
+      "required_fields": [
+        "ride_id",
+        "user_id"
+      ],
+      "consumers": [
+        "Notifications EventConsumer",
+        "Telephony EventConsumer"
+      ],
+      "consumer_status": "Consumers identified; producer-by-producer payload and topic compatibility is not fully verified",
+      "source_paths": [
+        "services/api/internal/modules/notifications/interfaces/event_consumer.go",
+        "services/api/internal/modules/telephony/interfaces/event_consumer.go"
+      ]
+    },
+    {
+      "type": "ride.completed",
+      "schema_version": 0,
+      "producer": "Nidus ride lifecycle workflows (multiple producers; verify each path)",
+      "topic": "nidus.rides and nidaw.events (observed subscriber topics; producer topic requires per-path verification)",
+      "required_fields": [
+        "ride_id",
+        "user_id"
+      ],
+      "consumers": [
+        "Notifications EventConsumer",
+        "Telephony EventConsumer"
+      ],
+      "consumer_status": "Consumers identified; producer-by-producer payload and topic compatibility is not fully verified",
+      "source_paths": [
+        "services/api/internal/modules/notifications/interfaces/event_consumer.go",
+        "services/api/internal/modules/telephony/interfaces/event_consumer.go"
+      ]
+    }
+  ]
+}
