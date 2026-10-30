@@ -198,15 +198,19 @@ ON CONFLICT (ride_id, seq) DO NOTHING`,
 // fetchCharge loads one stop-charge row into its full entity shape (including
 // the server-clock timer events and finalized dwell). Used by ApproveStop's
 // echo and by every timer transition response.
+//
+// approved_at is scanned into a nullable pointer: production rows always carry
+// a server-defaulted timestamp, but test fakes may legitimately present NULL,
+// and a money-echo read must never fabricate or fail on that display field.
 func (s *StopChargeService) fetchCharge(ctx context.Context, rideID uuid.UUID, seq int) (*entities.StopCharge, error) {
 	var c entities.StopCharge
-	var startedAt, endedAt *time.Time
+	var startedAt, endedAt, approvedAt *time.Time
 	err := s.db.QueryRow(ctx, `
 SELECT seq, stop_fee_santim, policy_version, approved_by_rider, approved_at,
        duration_minutes, waiting_eligible, waiting_charge_santim,
        started_at, ended_at
   FROM ride_stop_charges WHERE ride_id = $1 AND seq = $2`, rideID, seq).
-		Scan(&c.Seq, &c.StopFeeSantim, &c.StopPolicyVer, &c.ApprovedByRider, new(time.Time),
+		Scan(&c.Seq, &c.StopFeeSantim, &c.StopPolicyVer, &c.ApprovedByRider, &approvedAt,
 			&c.DurationMin, &c.WaitingEligible, &c.WaitingChargeSantim, &startedAt, &endedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrStopTimerNotRunning // no approval row exists for this stop
@@ -215,6 +219,7 @@ SELECT seq, stop_fee_santim, policy_version, approved_by_rider, approved_at,
 		return nil, err
 	}
 	c.RideID = rideID
+	c.ApprovedAt = approvedAt
 	c.TimerStartedAt = startedAt
 	c.TimerEndedAt = endedAt
 	return &c, nil
@@ -267,6 +272,31 @@ func (s *StopChargeService) SetRiderGate(g RiderOwnershipGate) { s.riderGate = g
 // root instead. A nil gate falls back to the direct rides.user_id SQL check.
 type RiderOwnershipGate interface {
 	Execute(ctx context.Context, requesterUserID, rideID uuid.UUID) (*entities.Ride, error)
+}
+
+// participantGate wraps a RiderOwnershipGate (the shared GetRideQuery, whose
+// access rules allow rider OR assigned driver) and re-narrows it to OWNER-
+// ONLY for money-creating surfaces: ApproveStop must refuse the assigned
+// driver even though the driver may legitimately view the ride. The wrapped
+// query's not-found / transport errors pass through untouched so the HTTP
+// layer can still answer 404 vs 403 honestly.
+type participantGate struct{ inner RiderOwnershipGate }
+
+// NewOwnerOnlyGate adapts any ownership-checkable gate (e.g.
+// *queries.GetRideQuery) into an owner-only gate for ApproveStop.
+func NewOwnerOnlyGate(inner RiderOwnershipGate) RiderOwnershipGate {
+	return &participantGate{inner: inner}
+}
+
+func (g *participantGate) Execute(ctx context.Context, requesterUserID, rideID uuid.UUID) (*entities.Ride, error) {
+	ride, err := g.inner.Execute(ctx, requesterUserID, rideID)
+	if err != nil {
+		return nil, err
+	}
+	if ride.UserID != requesterUserID {
+		return nil, ErrStopNotRideOwner
+	}
+	return ride, nil
 }
 
 // StopStopTimer records departure from the stop, finalizes the whole-minute

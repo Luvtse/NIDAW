@@ -344,8 +344,11 @@ func NewRouter(deps *Dependencies) http.Handler {
 	stopChargeSvc := services.NewStopChargeService(deps.DB)
 	// Rider-only approval guard: reuse the shared GetRideQuery access rules so
 	// ApproveStop refuses strangers through the same code path every other ride
-	// surface uses.
-	stopChargeSvc.SetRiderGate(queries.NewGetRideQuery(deps.DB))
+	// surface uses — then re-narrow to OWNER-ONLY: GetRideQuery also admits the
+	// assigned driver, and a driver must never freeze a stop fee on the rider's
+	// behalf. NewOwnerOnlyGate maps any non-owner participant to
+	// ErrStopNotRideOwner (403 STOP_NOT_APPROVABLE at the HTTP surface).
+	stopChargeSvc.SetRiderGate(services.NewOwnerOnlyGate(queries.NewGetRideQuery(deps.DB)))
 
 	rideHandler.SetLifecycle(nidusHttp.LifecycleCommands{
 		Accept:   commands.NewAcceptRideHandler(deps.DB, deps.EventBus, deps.MatchingEngine, deps.PricingService),
