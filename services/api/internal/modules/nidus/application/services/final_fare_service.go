@@ -87,16 +87,16 @@ type FinalFareLine struct {
 type FinalFareResult struct {
 	RideID uuid.UUID `json:"ride_id"`
 
-	BookingFareSantim int64  `json:"booking_fare_santim"`    // F0 (frozen)
-	StopFeesSantim    int64  `json:"stop_fees_santim"`       // S
-	WaitingSantim     int64  `json:"waiting_charges_santim"` // W
-	GrossFareSantim   int64  `json:"gross_fare_santim"`      // F0+S+W
-	DiscountSantim    int64  `json:"promo_discount_santim"`  // P
-	PayableSantim     int64  `json:"payable_fare_santim"`    // max(0, gross-P)
-	Currency          string `json:"currency"`
+	BookingFareSantim int64           `json:"booking_fare_santim"`    // F0 (frozen)
+	StopFeesSantim    int64           `json:"stop_fees_santim"`       // S
+	WaitingSantim     int64           `json:"waiting_charges_santim"` // W
+	GrossFareSantim   int64           `json:"gross_fare_santim"`      // F0+S+W
+	DiscountSantim    int64           `json:"promo_discount_santim"`  // P
+	PayableSantim     int64           `json:"payable_fare_santim"`    // max(0, gross-P)
+	Currency          string          `json:"currency"`
 	Lines             []FinalFareLine `json:"lines"`
-	FareSnapshotID    uuid.UUID `json:"fare_snapshot_id"`
-	IdempotencyKey    string    `json:"idempotency_key"`
+	FareSnapshotID    uuid.UUID       `json:"fare_snapshot_id"`
+	IdempotencyKey    string          `json:"idempotency_key"`
 }
 
 // ============================================================================

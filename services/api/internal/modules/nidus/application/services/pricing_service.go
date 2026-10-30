@@ -218,7 +218,7 @@ func PricingConfigFromEnvironment(defaultCurrency string) (*PricingConfig, error
 
 	for _, rideType := range knownRideTypes {
 		prefix := "NIDUS_PRICING_" + strings.ToUpper(string(rideType)) + "_"
-		base, err := requiredSantim(prefix + "BASE_FARE_SANTIM", prefix+"BASE_FARE")
+		base, err := requiredSantim(prefix+"BASE_FARE_SANTIM", prefix+"BASE_FARE")
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +230,7 @@ func PricingConfigFromEnvironment(defaultCurrency string) (*PricingConfig, error
 		if err != nil {
 			return nil, err
 		}
-		minimum, err := requiredSantim(prefix + "MINIMUM_FARE_SANTIM", prefix+"MINIMUM_FARE")
+		minimum, err := requiredSantim(prefix+"MINIMUM_FARE_SANTIM", prefix+"MINIMUM_FARE")
 		if err != nil {
 			return nil, err
 		}
@@ -340,30 +340,30 @@ func RideTypeDisplayFor(t RideType) RideTypeDisplay {
 // contract; EstimatedPickup remains an operational ETA display input only and
 // must not be used for pricing.
 type FareEstimate struct {
-	RideType        RideType  `json:"ride_type"`
-	BaseFare        int64     `json:"base_fare_santim"`     // ETB santim
-	DistanceFare    int64     `json:"distance_fare_santim"` // ETB santim
-	TimeFare        int64     `json:"time_fare_santim"`     // ETB santim
-	Subtotal        int64     `json:"subtotal_santim"`      // ETB santim
-	SurgeMultiplier float64   `json:"surge_multiplier"`
-	SurgeReason     string    `json:"surge_reason"`
-	SurgeAmount     int64     `json:"surge_amount_santim"` // ETB santim
-	MinimumFare     int64     `json:"minimum_fare_santim"` // applied floor, ETB santim
-	TotalFare       int64     `json:"total_fare_santim"`   // ETB santim (post-floor quote)
-	Currency        string    `json:"currency"`            // always "ETB"
-	DistanceKm      float64   `json:"contract_distance_km"`
-	DurationMinutes int       `json:"contract_duration_minutes"`
+	RideType        RideType `json:"ride_type"`
+	BaseFare        int64    `json:"base_fare_santim"`     // ETB santim
+	DistanceFare    int64    `json:"distance_fare_santim"` // ETB santim
+	TimeFare        int64    `json:"time_fare_santim"`     // ETB santim
+	Subtotal        int64    `json:"subtotal_santim"`      // ETB santim
+	SurgeMultiplier float64  `json:"surge_multiplier"`
+	SurgeReason     string   `json:"surge_reason"`
+	SurgeAmount     int64    `json:"surge_amount_santim"` // ETB santim
+	MinimumFare     int64    `json:"minimum_fare_santim"` // applied floor, ETB santim
+	TotalFare       int64    `json:"total_fare_santim"`   // ETB santim (post-floor quote)
+	Currency        string   `json:"currency"`            // always "ETB"
+	DistanceKm      float64  `json:"contract_distance_km"`
+	DurationMinutes int      `json:"contract_duration_minutes"`
 	// OperationalDurationMinutes is the traffic/provider trip-time estimate
 	// shown in the app for ETAs. It NEVER feeds money math — billable time is
 	// DurationMinutes (contractual). Zero when running without a routing
 	// provider and no heuristic was computed.
-	OperationalDurationMinutes int    `json:"operational_duration_minutes"`
-	ContractualDurationS       string `json:"contract_duration_display"`
-	EstimatedPickup      int       `json:"estimated_pickup_minutes"`
-	ConfigVersion        string    `json:"pricing_config_version"`
-	DurationRuleVersion  string    `json:"duration_rule_version"`
-	MinutesPerKm         float64   `json:"minutes_per_km"`
-	CalculatedAt         time.Time `json:"calculated_at"`
+	OperationalDurationMinutes int       `json:"operational_duration_minutes"`
+	ContractualDurationS       string    `json:"contract_duration_display"`
+	EstimatedPickup            int       `json:"estimated_pickup_minutes"`
+	ConfigVersion              string    `json:"pricing_config_version"`
+	DurationRuleVersion        string    `json:"duration_rule_version"`
+	MinutesPerKm               float64   `json:"minutes_per_km"`
+	CalculatedAt               time.Time `json:"calculated_at"`
 }
 
 // SnapshotFromEstimate freezes a FareEstimate produced by this service into
@@ -389,16 +389,16 @@ func (s *PricingService) SnapshotFromEstimate(
 		return nil, fmt.Errorf("%w: estimate currency %q", ErrUnsupportedCurrency, est.Currency)
 	}
 	snap := &entities.FareSnapshot{
-		ID:                uuid.New(),
-		RideID:            rideID,
-		IdempotencyKey:    idempotencyKey,
-		PickupLat:         pickupLat,
-		PickupLng:         pickupLng,
-		DropoffLat:        dropoffLat,
-		DropoffLng:        dropoffLng,
-		PickupAddress:     pickupAddress,
-		DropoffAddress:    dropoffAddress,
-		ContractDistanceKm: est.DistanceKm,
+		ID:                  uuid.New(),
+		RideID:              rideID,
+		IdempotencyKey:      idempotencyKey,
+		PickupLat:           pickupLat,
+		PickupLng:           pickupLng,
+		DropoffLat:          dropoffLat,
+		DropoffLng:          dropoffLng,
+		PickupAddress:       pickupAddress,
+		DropoffAddress:      dropoffAddress,
+		ContractDistanceKm:  est.DistanceKm,
 		ContractDurationMin: est.DurationMinutes,
 		Components: entities.FareComponents{
 			BaseFareSantim:     est.BaseFare,
@@ -588,26 +588,26 @@ func (s *PricingService) CalculateFareWithStops(
 	}
 
 	return &FareEstimate{
-		RideType:             rideType,
-		BaseFare:             baseFare,
-		DistanceFare:         distanceFare,
-		TimeFare:             timeFare,
-		Subtotal:             subtotal,
-		SurgeMultiplier:      surgeInfo.Multiplier,
-		SurgeReason:          surgeInfo.Reason,
-		SurgeAmount:          surgeAmount,
-		MinimumFare:          minimumFare,
-		TotalFare:            totalFare,
-		Currency:             s.config.DefaultCurrency,
-		DistanceKm:           math.Round(totalDistanceKm*100) / 100,
-		DurationMinutes:      durationMinutes,
+		RideType:                   rideType,
+		BaseFare:                   baseFare,
+		DistanceFare:               distanceFare,
+		TimeFare:                   timeFare,
+		Subtotal:                   subtotal,
+		SurgeMultiplier:            surgeInfo.Multiplier,
+		SurgeReason:                surgeInfo.Reason,
+		SurgeAmount:                surgeAmount,
+		MinimumFare:                minimumFare,
+		TotalFare:                  totalFare,
+		Currency:                   s.config.DefaultCurrency,
+		DistanceKm:                 math.Round(totalDistanceKm*100) / 100,
+		DurationMinutes:            durationMinutes,
 		OperationalDurationMinutes: operationalDurationMinutes,
-		ContractualDurationS: FormatDurationMinutes(durationMinutes),
-		EstimatedPickup:      s.estimatePickupTime(ctx, pickupLat, pickupLng),
-		ConfigVersion:        s.config.ConfigVersion,
-		DurationRuleVersion:  durationRule.Version,
-		MinutesPerKm:         durationRule.MinutesPerKm,
-		CalculatedAt:         time.Now(),
+		ContractualDurationS:       FormatDurationMinutes(durationMinutes),
+		EstimatedPickup:            s.estimatePickupTime(ctx, pickupLat, pickupLng),
+		ConfigVersion:              s.config.ConfigVersion,
+		DurationRuleVersion:        durationRule.Version,
+		MinutesPerKm:               durationRule.MinutesPerKm,
+		CalculatedAt:               time.Now(),
 	}, nil
 }
 

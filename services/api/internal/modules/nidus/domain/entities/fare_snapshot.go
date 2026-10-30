@@ -102,33 +102,33 @@ func (c FareComponents) SumSantim() int64 {
 // a different amount for an old ride. IdempotencyKey makes re-persistence
 // safe: creating the same key twice must return the original row unchanged.
 type FareSnapshot struct {
-	ID            uuid.UUID `json:"id" db:"id"`
-	RideID        uuid.UUID `json:"ride_id" db:"ride_id"`
-	IdempotencyKey string   `json:"idempotency_key" db:"idempotency_key"`
+	ID             uuid.UUID `json:"id" db:"id"`
+	RideID         uuid.UUID `json:"ride_id" db:"ride_id"`
+	IdempotencyKey string    `json:"idempotency_key" db:"idempotency_key"`
 
 	// Original endpoints — the contract geometry. Later destination changes
 	// produce APPROVED AMENDMENTS (a new snapshot revision), never an edit of
 	// these coordinates.
-	PickupLat       float64 `json:"pickup_lat" db:"pickup_lat"`
-	PickupLng       float64 `json:"pickup_lng" db:"pickup_lng"`
-	DropoffLat      float64 `json:"dropoff_lat" db:"dropoff_lat"`
-	DropoffLng      float64 `json:"dropoff_lng" db:"dropoff_lng"`
-	PickupAddress   string  `json:"pickup_address,omitempty" db:"pickup_address"`
-	DropoffAddress  string  `json:"dropoff_address,omitempty" db:"dropoff_address"`
+	PickupLat      float64 `json:"pickup_lat" db:"pickup_lat"`
+	PickupLng      float64 `json:"pickup_lng" db:"pickup_lng"`
+	DropoffLat     float64 `json:"dropoff_lat" db:"dropoff_lat"`
+	DropoffLng     float64 `json:"dropoff_lng" db:"dropoff_lng"`
+	PickupAddress  string  `json:"pickup_address,omitempty" db:"pickup_address"`
+	DropoffAddress string  `json:"dropoff_address,omitempty" db:"dropoff_address"`
 
 	// Contractual trip shape (frozen): authoritative route distance over the
 	// ORIGINAL endpoints and the agreed billable duration derived from the
 	// versioned minutes-per-kilometre rule. Actual metrics live on the ride
 	// row and are for operations only.
-	ContractDistanceKm   float64 `json:"contract_distance_km" db:"contract_distance_km"`
-	ContractDurationMin  int     `json:"contract_duration_minutes" db:"contract_duration_min"`
+	ContractDistanceKm  float64 `json:"contract_distance_km" db:"contract_distance_km"`
+	ContractDurationMin int     `json:"contract_duration_minutes" db:"contract_duration_min"`
 
 	// Frozen pricing rules and the resulting breakdown (all money in santim).
-	Components          FareComponents `json:"components" db:"components"`
-	PricingConfigVersion   string `json:"pricing_config_version" db:"pricing_config_version"`
-	DurationRuleVersion    string `json:"duration_rule_version" db:"duration_rule_version"`
-	MinutesPerKm               float64 `json:"minutes_per_km" db:"minutes_per_km"`
-	Currency                     string `json:"currency" db:"currency"`
+	Components           FareComponents `json:"components" db:"components"`
+	PricingConfigVersion string         `json:"pricing_config_version" db:"pricing_config_version"`
+	DurationRuleVersion  string         `json:"duration_rule_version" db:"duration_rule_version"`
+	MinutesPerKm         float64        `json:"minutes_per_km" db:"minutes_per_km"`
+	Currency             string         `json:"currency" db:"currency"`
 
 	// QuotedTotalSantim is what the rider saw and accepted: the gross fare
 	// after surge and the minimum-fare floor, BEFORE promotions/stops/tips.
