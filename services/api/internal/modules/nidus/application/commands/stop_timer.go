@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"nidaw-backend/internal/modules/nidus/domain/entities"
 )
 
@@ -42,7 +43,7 @@ import (
 // previews; it carries no mutable authority itself — every field derives from
 // persisted server-clock events.
 type StopTimerState struct {
-	RideID    uuidType
+	RideID    uuid.UUID
 	Seq       int
 	Approved  bool
 	StartedAt *time.Time
@@ -141,5 +142,5 @@ func StopTimerTransition(cur StopTimerState, action string, serverNow time.Time)
 // generated from these numbers, never hand-computed client-side.
 func PreviewWaitingChargeSantim(originalBookingFareSantim int64) (fee int64, waiting int64, thresholdMin int) {
 	waiting = entities.ComputeWaitingChargeSantim(originalBookingFareSantim)
-	return StopFeeSantimV1(), waiting, entities.StopWaitingThresholdMinutes
+	return entities.StopFeeSantimDefaultV1, waiting, entities.StopWaitingThresholdMinutes
 }

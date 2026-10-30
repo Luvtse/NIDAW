@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"nidaw-backend/internal/modules/nidus/application/services"
@@ -74,6 +75,27 @@ func computePlatformFee(fare float64) float64 {
 	// Round to santim (2 dp) half away from zero.
 	cents := int64(fee*100 + 0.5)
 	return float64(cents) / 100.0
+}
+
+// computePlatformFeeSantim is the integer-santim commission rule used by the
+// Phase 1/2 settlement contract: commission = round_half_up(gross × rate).
+// Operating on integers end-to-end keeps rider debit, platform take and
+// driver credit reconciling exactly to the santim with no float drift, and
+// gross = commission + earnings holds by construction (the remainder below is
+// assigned to the driver, so the three totals never disagree).
+func computePlatformFeeSantim(grossSantim int64) int64 {
+	if grossSantim <= 0 {
+		return 0
+	}
+	// rate is a small decimal constant; scale in two steps to avoid float
+	// precision loss on large fares: gross × numerator / denominator.
+	const scaled = PlatformCommissionRate * 10000 // e.g. 0.15 -> 1500 (basis points ×100)
+	feeFloat := float64(grossSantim) * scaled / 10000.0
+	fee := int64(math.Floor(feeFloat + 0.5)) // half up
+	if fee < 0 {
+		return 0
+	}
+	return fee
 }
 
 // ============================================================================
@@ -532,7 +554,10 @@ type CompleteRideCommand struct {
 	ActualDurationMin int
 }
 
-// CompleteRideResult reports the settled money breakdown.
+// CompleteRideResult reports the settled money breakdown. Major-unit values
+// are display projections of the authoritative integer santim totals — every
+// consumer that needs exact money reads the *_santim fields (or the ledger
+// settlement contract) instead of re-deriving from floats.
 type CompleteRideResult struct {
 	RideID         uuid.UUID
 	FinalFare      float64
@@ -543,6 +568,20 @@ type CompleteRideResult struct {
 	// §3.1: true for cash rides — the fare is owed in hand, ledger settlement
 	// is deferred until the driver confirms collection.
 	PendingCashCollection bool
+
+	// ---- Authoritative integer-santim totals (FARE INTEGRITY Phase 1/2) ---
+	BookingFareSantim    int64  `json:"booking_fare_santim"`    // F0 frozen quote
+	StopFeesSantim       int64  `json:"stop_fees_santim"`       // S approved fees
+	WaitingChargesSantim int64  `json:"waiting_charges_santim"` // W server-timed
+	GrossFareSantim      int64  `json:"gross_fare_santim"`      // F0+S+W
+	DiscountSantim       int64  `json:"discount_santim"`        // P applied
+	PayableSantim        int64  `json:"payable_fare_santim"`    // rider debit
+	CommissionSantim     int64  `json:"commission_santim"`      // platform fee
+	DriverEarningsSantim int64  `json:"driver_earnings_santim"` // gross - commission
+	Currency             string `json:"currency"`
+	// Breakdown is the itemized payable (booking | stop_fee | waiting |
+	// discount) that receipts and both apps render verbatim.
+	Breakdown []services.FinalFareLine `json:"breakdown,omitempty"`
 }
 
 // PromoFinalizer is the narrow port CompleteRideHandler needs from the
@@ -555,14 +594,42 @@ type PromoFinalizer interface {
 	FinalizeAtCompletion(ctx context.Context, rideID uuid.UUID, finalFare float64, code string) (float64, error)
 }
 
+// StopCharger is the narrow Phase 2 port CompleteRideHandler needs from the
+// stop-charge service: the rider-approved stop fees and server-timed waiting
+// charges that are permitted to raise the payable amount ABOVE the frozen
+// booking fare. Declared structurally (the concrete service lives in the
+// services package which imports this one's ApprovedStop type — an interface
+// here keeps the dependency direction clean and testable). A handler built
+// without it settles bookings that simply have no approved stops; if any
+// approved charge exists while the port is missing, completion REFUSES rather
+// than silently dropping money owed (fail closed, never under-settle).
+type StopCharger interface {
+	SettlementCharges(ctx context.Context, rideID uuid.UUID) ([]services.ApprovedStop, error)
+}
+
 type CompleteRideHandler struct {
 	lifecycleBase
 	pricingService *services.PricingService
-	promoFinalizer PromoFinalizer // nil => receipt-time promo adjustment disabled
+	finalFare      *services.FinalFareService
+	stopCharger    StopCharger // nil => approved-stop additions unavailable (fail-closed)
+	promoFinalizer PromoFinalizer
 }
 
 func NewCompleteRideHandler(db *database.Postgres, eventBus eventbus.EventBus, ps *services.PricingService, promoFinalizer PromoFinalizer) *CompleteRideHandler {
-	return &CompleteRideHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}, pricingService: ps, promoFinalizer: promoFinalizer}
+	return &CompleteRideHandler{
+		lifecycleBase:  lifecycleBase{db: db, eventBus: eventBus},
+		pricingService: ps,
+		finalFare:      services.NewFinalFareService(),
+		promoFinalizer: promoFinalizer,
+	}
+}
+
+// WithStopCharger wires the approved-stop port fluently (keeps the existing
+// constructor signature stable for all current call sites while allowing the
+// composition root to enable Phase 2 stop settlement).
+func (h *CompleteRideHandler) WithStopCharger(sc StopCharger) *CompleteRideHandler {
+	h.stopCharger = sc
+	return h
 }
 
 // requireContract enforces the Phase 1 completion rule: a ride settles ONLY
@@ -627,8 +694,9 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 	}
 
 	// --- Final fare -------------------------------------------------------
-	// FARE INTEGRITY (Phase 1): the payable amount comes EXCLUSIVELY from the
-	// frozen booking contract (ride_fare_snapshots) — never from a reprice.
+	// FARE INTEGRITY (Phase 1/2): the payable amount comes EXCLUSIVELY from
+	// the frozen booking contract (ride_fare_snapshots) plus rider-APPROVED
+	// stop fees and server-timed waiting charges — never from a reprice.
 	// cmd.ActualDistanceKm / ActualDurationMin are recorded on the ride row as
 	// OPERATIONS-ONLY metrics; they are not inputs to money math, so a longer
 	// route, deliberate delays or manipulated driver-reported trip metrics can
@@ -649,53 +717,67 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		actualDuration = cmd.ActualDurationMin
 	}
 
-	finalFare := ride.FareAmount
-	if finalFare <= 0 {
-		return nil, fmt.Errorf("%w: non-positive fare", ErrFareCalcFailed)
+	// Load the immutable contract (requireContract already proved it exists
+	// and reconciles with rides.fare_amount).
+	snapshot, err := NewPostgresFareSnapshotRepository(h.db).GetSnapshotByRideID(ctx, ride.ID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrFareCalcFailed, err)
 	}
 
-	platformFee := computePlatformFee(finalFare)
-	driverEarnings := round2(finalFare - platformFee)
+	// Phase 2: rider-approved stop fees + waiting charges. SettlementCharges
+	// refuses loudly if any persisted charge lacks rider approval, so only
+	// disclosed, accepted additions can raise the payable above F0. Fail-closed
+	// wiring guard: if approved charges exist but the stop port was never
+	// wired, refuse completion rather than under-settling owed money.
+	var approvedStops []services.ApprovedStop
+	if h.stopCharger != nil {
+		approvedStops, err = h.stopCharger.SettlementCharges(ctx, ride.ID)
+		if err != nil {
+			return nil, fmt.Errorf("%w: load approved stop charges: %v", ErrFareCalcFailed, err)
+		}
+	} else {
+		var stray int
+		if err := h.db.QueryRow(ctx,
+			`SELECT count(*) FROM ride_stop_charges WHERE ride_id = $1 AND approved_by_rider`, ride.ID).Scan(&stray); err != nil {
+			return nil, fmt.Errorf("check approved stop charges: %w", err)
+		}
+		if stray > 0 {
+			return nil, fmt.Errorf("%w: ride %s has %d approved stop charge(s) but the settlement handler is not wired for stops; refusing to under-settle",
+				ErrFareCalcFailed, ride.ID, stray)
+		}
+	}
 
-	// §3.2 receipt-time application: when the ride carries a promo code, the
-	// discount is recomputed against the FINAL fare (the projection was made
-	// against the estimate). The finalized amount replaces the request-time
-	// snapshot on both the ride row and the settlement payload, so the ledger
-	// debits exactly what the rider's receipt will show. Failure policy: if
-	// finalization errors, keep the request-time snapshot and log — the rider
-	// already saw that number at booking; silently changing money mid-ride is
-	// worse than a stale-but-shown discount. A missing redemption row returns
-	// discount=0 with no error, which we treat as "no promo on this ride".
+	// Request-time promo projection, in santim. The payable formula clamps at
+	// zero, so an over-large discount can never mint a credit.
 	promoCode := ride.PromoCode
-	promoDiscount := ride.PromoDiscount
-	if h.promoFinalizer != nil && promoCode != "" {
-		finalized, ferr := h.promoFinalizer.FinalizeAtCompletion(ctx, ride.ID, finalFare, promoCode)
-		if ferr != nil {
-			fmt.Printf("warning: promo finalization failed for ride %s (code %s), keeping request-time discount %.2f: %v\n", ride.ID, promoCode, promoDiscount, ferr)
-		} else {
-			promoDiscount = round2(finalized)
-		}
-		// Keep the redemption ledger in agreement with the finalized snapshot.
-		// recordCompleted persists promo_discount on the ride row; this optional
-		// port call keeps promo_redemptions.discount_applied honest so analytics
-		// and GET /promotions/mine never read a stale projection. Best-effort:
-		// a ledger-sync failure is logged, the authoritative ride row still wins.
-		if promoDiscount != ride.PromoDiscount {
-			if syncer, ok := h.promoFinalizer.(interface {
-				UpdateRedemptionDiscount(ctx context.Context, rideID uuid.UUID, discountApplied float64) error
-			}); ok {
-				if serr := syncer.UpdateRedemptionDiscount(ctx, ride.ID, promoDiscount); serr != nil {
-					fmt.Printf("warning: redemption ledger sync failed for ride %s (code %s): %v\n", ride.ID, promoCode, serr)
-				}
-			}
-		}
+	discountSantim := services.MajorToSantim(ride.PromoDiscount)
+	if discountSantim < 0 {
+		discountSantim = 0
 	}
-	// Money actually charged to the rider after the discount. Never negative:
-	// a misconfigured code cannot mint a credit.
-	chargeAmount := round2(finalFare - promoDiscount)
-	if chargeAmount < 0 {
-		chargeAmount = 0
+
+	finalRes, err := h.finalFare.Compute(services.FinalFareInput{
+		Snapshot:       snapshot,
+		Stops:          approvedStops,
+		DiscountSantim: discountSantim,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrFareCalcFailed, err)
 	}
+
+	// Deterministic santim totals for every consumer (receipt, ledger,
+	// payment provider, both apps). Major-unit values are derived from these
+	// integers at the display/legacy-column boundary ONLY.
+	grossPayableSantim := finalRes.GrossFareSantim // F0 + S + W
+	chargeAmountSantim := finalRes.PayableSantim   // max(0, gross - P)
+	appliedDiscountSantim := grossPayableSantim - chargeAmountSantim
+	commissionSantim := computePlatformFeeSantim(grossPayableSantim)
+	driverEarningsSantim := grossPayableSantim - commissionSantim
+
+	finalFare := services.SantimToMajor(grossPayableSantim)
+	platformFee := services.SantimToMajor(commissionSantim)
+	driverEarnings := services.SantimToMajor(driverEarningsSantim)
+	promoDiscount := services.SantimToMajor(appliedDiscountSantim)
+	chargeAmount := services.SantimToMajor(chargeAmountSantim)
 
 	// §3.1 Cash rides: the fare is collected in hand at completion, so ledger
 	// settlement must NOT be enqueued here — it is deferred until the driver
@@ -704,13 +786,20 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 	// completed + cash + cash_collected_at IS NULL (see Ride.IsPendingCashCollection).
 	isCash := ride.IsCashRide()
 
-	// FARE INTEGRITY (Phase 1): the receipt's itemized lines are the ones
-	// frozen with the booking contract — completion no longer re-prices, so
-	// there is nothing to recompute. The request-time component snapshot
-	// already reconciles exactly with FareAmount (the pricing service folded
-	// any minimum-fare uplift into the base line at quote time); we only add
-	// the service-fee line, which is a function of the FINAL fare.
+	// FARE INTEGRITY (Phase 1/2): the receipt's itemized lines come from the
+	// frozen booking contract plus approved additions. The ride row keeps the
+	// booking component snapshot (base/distance/time/surge) for display; the
+	// authoritative payable breakdown lives in final_fare_lines below and is
+	// what receipts, ledger consumers and both apps must read.
 	baseComp, distComp, timeComp, surgeComp := ride.BaseFareComponent, ride.DistanceFareComponent, ride.TimeFareComponent, ride.SurgeFareComponent
+
+	// Deterministic JSON encoding of the payable breakdown (integer santim).
+	// Same inputs ⇒ byte-identical output, so a retried settlement carries the
+	// exact same money contract as the first attempt.
+	breakdownJSON, err := json.Marshal(finalRes.Lines)
+	if err != nil {
+		return nil, fmt.Errorf("%w: encode final fare breakdown: %v", ErrFareCalcFailed, err)
+	}
 
 	// Driver ledger identity: the ledger keys balances by USER id, while
 	// rides reference the DRIVER profile id — translate before settling.
@@ -739,13 +828,28 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		// settlement honors. Consumers that ignore unknown keys are unaffected.
 		"fare_snapshot_id":        fareSnapshotIDString(ride.FareSnapshotID),
 		"pending_cash_collection": isCash,
-		// §3.2 receipt-time promo fields: the discount finalized against the
-		// actual fare and the amount charged to the rider after it. Consumers
-		// that ignore unknown keys are unaffected; the receipt surface reads
-		// these instead of recomputing.
+		// §3.2 promo fields: the discount actually applied against the gross
+		// payable and the amount charged to the rider after it. Consumers that
+		// ignore unknown keys are unaffected; the receipt surface reads these
+		// instead of recomputing.
 		"promo_code":     promoCode,
 		"promo_discount": promoDiscount,
 		"charge_amount":  chargeAmount,
+		// ---- Authoritative settlement contract (Phase 1/2) ----------------
+		// Integer ETB santim totals + the itemized payable breakdown, derived
+		// deterministically from the frozen snapshot and approved additions.
+		// The ledger consumes these verbatim; nothing re-derives money here.
+		"booking_fare_santim":    finalRes.BookingFareSantim,
+		"stop_fees_santim":       finalRes.StopFeesSantim,
+		"waiting_charges_santim": finalRes.WaitingSantim,
+		"gross_fare_santim":      finalRes.GrossFareSantim,
+		"discount_santim":        appliedDiscountSantim,
+		"payable_fare_santim":    finalRes.PayableSantim,
+		"commission_santim":      commissionSantim,
+		"driver_earnings_santim": driverEarningsSantim,
+		"tip_santim":             services.MajorToSantim(ride.TipAmount),
+		"final_fare_lines":       string(breakdownJSON),
+		"settlement_idempotency": finalRes.IdempotencyKey,
 	}
 
 	rec := settlementRecord{
@@ -810,6 +914,17 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		Tip:                   ride.TipAmount,
 		Settled:               settled,
 		PendingCashCollection: isCash,
+
+		BookingFareSantim:    finalRes.BookingFareSantim,
+		StopFeesSantim:       finalRes.StopFeesSantim,
+		WaitingChargesSantim: finalRes.WaitingSantim,
+		GrossFareSantim:      finalRes.GrossFareSantim,
+		DiscountSantim:       appliedDiscountSantim,
+		PayableSantim:        finalRes.PayableSantim,
+		CommissionSantim:     commissionSantim,
+		DriverEarningsSantim: driverEarningsSantim,
+		Currency:             entities.CurrencyETB,
+		Breakdown:            finalRes.Lines,
 	}
 	if isCash {
 		// Cash completion is a clean success: settlement is intentionally
@@ -843,10 +958,26 @@ type ConfirmCashCollectionResult struct {
 	AlreadyCollected bool
 }
 
-type ConfirmCashCollectionHandler struct{ lifecycleBase }
+type ConfirmCashCollectionHandler struct {
+	lifecycleBase
+	finalFare   *services.FinalFareService
+	stopCharger StopCharger // nil => approved-stop additions unavailable (fail-closed)
+}
 
 func NewConfirmCashCollectionHandler(db *database.Postgres, eventBus eventbus.EventBus) *ConfirmCashCollectionHandler {
-	return &ConfirmCashCollectionHandler{lifecycleBase: lifecycleBase{db: db, eventBus: eventBus}}
+	return &ConfirmCashCollectionHandler{
+		lifecycleBase: lifecycleBase{db: db, eventBus: eventBus},
+		finalFare:     services.NewFinalFareService(),
+	}
+}
+
+// WithStopCharger wires the approved-stop port fluently (same contract as
+// CompleteRideHandler.WithStopCharger — cash settlement must include exactly
+// the rider-approved additions an electronic settlement would, no more, no
+// less).
+func (h *ConfirmCashCollectionHandler) WithStopCharger(sc StopCharger) *ConfirmCashCollectionHandler {
+	h.stopCharger = sc
+	return h
 }
 
 // Execute stamps cash_collected_at and moves the ride completed -> paid, then
@@ -925,6 +1056,15 @@ func (h *ConfirmCashCollectionHandler) Execute(ctx context.Context, cmd *Confirm
 	// Emit the deferred settlement now that money physically changed hands.
 	// Same payload shape the ledger consumer already handles; deterministic
 	// event key keeps this exactly-once even if publish retries.
+	//
+	// FARE INTEGRITY (Phase 2 / cash parity): a cash ride MUST settle the SAME
+	// final payable amount an electronic ride would — frozen booking fare +
+	// rider-approved stop fees + server-timed waiting charges − applied promo,
+	// all computed from the immutable contract in integer santim. The collected
+	// figure is recorded for audit against this authoritative payable. If the
+	// contract cannot be loaded or finalized here, we log and skip emitting a
+	// money payload rather than inventing one: rides.fare_amount plus the outbox
+	// replay remain the fallback, and ops alerting owns reconciliation.
 	var driverUserID uuid.UUID
 	if err := h.db.QueryRow(ctx, `SELECT user_id FROM drivers WHERE id = $1`, driverID).Scan(&driverUserID); err != nil {
 		// Collection already recorded; settlement identity failure must not
@@ -934,19 +1074,69 @@ func (h *ConfirmCashCollectionHandler) Execute(ctx context.Context, cmd *Confirm
 		return &ConfirmCashCollectionResult{RideID: ride.ID, Status: string(entities.RideStatusPaid), CashCollectedAt: collectedAt}, nil
 	}
 
+	snapshot, snapErr := NewPostgresFareSnapshotRepository(h.db).GetSnapshotByRideID(ctx, ride.ID)
+	var cashStops []services.ApprovedStop
+	if snapErr == nil && h.stopCharger != nil {
+		cashStops, snapErr = h.stopCharger.SettlementCharges(ctx, ride.ID)
+	}
+	var cashFinal *services.FinalFareResult
+	if snapErr == nil && snapshot != nil {
+		cashDiscount := services.MajorToSantim(ride.PromoDiscount)
+		if cashDiscount < 0 {
+			cashDiscount = 0
+		}
+		cashFinal, snapErr = h.finalFare.Compute(services.FinalFareInput{
+			Snapshot:       snapshot,
+			Stops:          cashStops,
+			DiscountSantim: cashDiscount,
+		})
+	}
+	if snapErr != nil || cashFinal == nil {
+		fmt.Printf("warning: cash ride %s collected but settlement contract unavailable (%v); NOT emitting a repriced payload — reconcile from rides.fare_amount/outbox\n", ride.ID, snapErr)
+		return &ConfirmCashCollectionResult{RideID: ride.ID, Status: string(entities.RideStatusPaid), CashCollectedAt: collectedAt}, nil
+	}
+
+	cashGrossSantim := cashFinal.GrossFareSantim
+	cashPayableSantim := cashFinal.PayableSantim
+	cashAppliedDiscountSantim := cashGrossSantim - cashPayableSantim
+	cashCommissionSantim := computePlatformFeeSantim(cashGrossSantim)
+	cashEarningsSantim := cashGrossSantim - cashCommissionSantim
+	cashBreakdownJSON, jdErr := json.Marshal(cashFinal.Lines)
+	if jdErr != nil {
+		fmt.Printf("warning: cash ride %s breakdown encode failed: %v\n", ride.ID, jdErr)
+		cashBreakdownJSON = []byte("[]")
+	}
+
 	payload := map[string]interface{}{
 		"ride_id":                 ride.ID.String(),
 		"driver_id":               driverUserID.String(),
 		"user_id":                 ride.UserID.String(),
 		"actual_distance":         ride.DistanceKm,
 		"actual_duration":         ride.DurationMinutes,
-		"final_fare":              ride.FareAmount,
-		"driver_earnings":         round2(ride.FareAmount - computePlatformFee(ride.FareAmount)),
-		"platform_fee":            computePlatformFee(ride.FareAmount),
+		"final_fare":              services.SantimToMajor(cashGrossSantim),
+		"driver_earnings":         services.SantimToMajor(cashEarningsSantim),
+		"platform_fee":            services.SantimToMajor(cashCommissionSantim),
 		"currency":                ride.Currency,
 		"completed_at_unix":       collectedAt.Unix(),
 		"payment_method_type":     "cash",
 		"pending_cash_collection": false,
+		"fare_snapshot_id":        fareSnapshotIDString(ride.FareSnapshotID),
+		"promo_code":              ride.PromoCode,
+		"promo_discount":          services.SantimToMajor(cashAppliedDiscountSantim),
+		"charge_amount":           services.SantimToMajor(cashPayableSantim),
+		// Authoritative santim settlement contract — identical derivation to
+		// the electronic path, so cash and non-cash riders owe the same money.
+		"booking_fare_santim":    cashFinal.BookingFareSantim,
+		"stop_fees_santim":       cashFinal.StopFeesSantim,
+		"waiting_charges_santim": cashFinal.WaitingSantim,
+		"gross_fare_santim":      cashGrossSantim,
+		"discount_santim":        cashAppliedDiscountSantim,
+		"payable_fare_santim":    cashPayableSantim,
+		"commission_santim":      cashCommissionSantim,
+		"driver_earnings_santim": cashEarningsSantim,
+		"tip_santim":             services.MajorToSantim(ride.TipAmount),
+		"final_fare_lines":       string(cashBreakdownJSON),
+		"settlement_idempotency": cashFinal.IdempotencyKey,
 	}
 	rec := settlementRecord{
 		EventID:      ride.ID,
