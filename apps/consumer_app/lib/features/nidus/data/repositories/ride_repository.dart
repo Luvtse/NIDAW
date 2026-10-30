@@ -1396,11 +1396,30 @@ class RideRepositoryImpl implements RideRepository {
           errorCode: 'INVALID_RESPONSE',
         );
       }
+      // Phase 4 (ETB-only standardization): the destination-change quote is
+      // part of the fare contract, so it must arrive with an explicit ETB
+      // currency tag. Missing or non-ETB currencies are rejected fail-closed
+      // — never silently coerced to USD (the old fallback, which could show a
+      // Birr amount under a dollar label) and never guessed as ETB.
+      if (cur == null || cur.isEmpty) {
+        return const DestinationChangeResult.failure(
+          error: 'Destination response is missing its currency; refusing to '
+              'display an untagged fare.',
+          errorCode: 'MISSING_CURRENCY',
+        );
+      }
+      if (cur.toUpperCase() != 'ETB') {
+        return DestinationChangeResult.failure(
+          error: 'Unsupported currency "$cur" in destination quote; NIDAW '
+              'settles all fares in ETB.',
+          errorCode: 'UNSUPPORTED_CURRENCY',
+        );
+      }
       return DestinationChangeResult.success(
         rideId: rid,
         previousFare: prev.toDouble(),
         newFare: next.toDouble(),
-        currency: cur ?? 'USD',
+        currency: 'ETB',
         distanceKm: data['distance_km'] is num
             ? (data['distance_km'] as num).toDouble()
             : null,
