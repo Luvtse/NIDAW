@@ -8,6 +8,8 @@ import 'package:latlong2/latlong.dart';
 
 import 'map_health.dart';
 import 'map_tile_provider.dart';
+import '../startup/app_startup_coordinator.dart'
+    show hasStartupCoordinator, currentStartupCoordinator;
 
 /// Marker kinds understood by [LiveMapWidget]. Each kind renders with a
 /// distinct, safety-relevant visual; unknown callers should use [customPin].
@@ -110,6 +112,22 @@ class LiveMapWidget extends StatefulWidget {
   final bool showRecenterFab;
   final bool followUserLocation;
 
+  /// Phase 5 (§5.1 progressive map mounting): when true, the interactive
+  /// flutter_map engine is NOT built in the first frame of this widget. A
+  /// lightweight placeholder (last-known camera background + explicit
+  /// "preparing map" state) paints instead, and the real engine mounts one
+  /// frame later via [SchedulerFlags.hasJankEnforcement]-free post-frame
+  /// scheduling. Callers use this for cold-start paths so the home shell's
+  /// first frame never pays the tile-engine + raster-cache construction
+  /// cost. Screens that must show the map immediately (active trip) leave
+  /// it false.
+  final bool deferEngineMount;
+
+  /// Fired exactly once when the LIVE engine has mounted and its controller
+  /// is usable. A cached placeholder NEVER fires this — a fast placeholder
+  /// must not be counted as an initialized interactive map (Part 10).
+  final VoidCallback? onLiveMapReady;
+
   /// Where the recenter FAB should move the camera when tapped. Consumers set
   /// this to the rider position or the driver position depending on phase.
   final LatLng? recenterTarget;
@@ -137,6 +155,8 @@ class LiveMapWidget extends StatefulWidget {
     this.interactionMode = MapInteractionMode.full,
     this.showRecenterFab = false,
     this.followUserLocation = false,
+    this.deferEngineMount = false,
+    this.onLiveMapReady,
     this.recenterTarget,
     this.onPickupPinDragged,
     this.tileProvider,
@@ -155,6 +175,13 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
   StreamSubscription<MapHealth>? _healthSub;
   MapHealth? _lastHealth;
 
+  // Phase 5 (§5.1): progressive engine mount state. `_engineMounted` is the
+  // single gate for whether the live flutter_map tree exists yet; the map-
+  // ready milestone fires exactly once, only from the LIVE engine's first
+  // post-mount frame — never from the placeholder.
+  bool _engineMounted = true;
+  bool _liveReadyFired = false;
+
   LatLng? _dragPreview;
   bool _dragging = false;
 
@@ -163,6 +190,7 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
   @override
   void initState() {
     super.initState();
+    _engineMounted = !widget.deferEngineMount;
     if (widget.tileProvider != null) {
       _provider = widget.tileProvider!;
     } else {
@@ -171,6 +199,26 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
     _healthSub = _provider.health.listen((h) {
       if (mounted) setState(() => _lastHealth = h);
     });
+    if (widget.deferEngineMount) {
+      // Mount the real engine right after this (placeholder) frame paints.
+      // One-frame deferral is enough to keep the shell's first frame cheap;
+      // no artificial timers — readiness drives the rest, not wall clock.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _engineMounted = true);
+      });
+    }
+  }
+
+  /// Called by the live FlutterMap subtree once its controller is usable.
+  void _notifyLiveMapReadyOnce() {
+    if (_liveReadyFired) return;
+    _liveReadyFired = true;
+    widget.onLiveMapReady?.call();
+    // Startup instrumentation: only a REAL mounted engine counts as map
+    // ready (§5.1/Part 10: cached placeholder must not be counted).
+    if (hasStartupCoordinator) {
+      currentStartupCoordinator.perf.markMapReady();
+    }
   }
 
   @override
@@ -268,36 +316,47 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
 
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: options,
-          children: [
-            TileLayer(
-              urlTemplate: _provider.mirrors.isEmpty
-                  ? 'https://tiles.invalid/{z}/{x}/{y}.png'
-                  : _provider.mirrors.first.urlTemplate,
-              userAgentPackageName: 'com.nidaw.nidus',
-              maxZoom: 19,
-              tileProvider: ChainTileProvider(_provider),
-              errorTileCallback: (tile, exception, stackTrace) {
-                // Errors are already reported through MapTileProvider.health;
-                // swallow here so flutter_map renders the blank/error tile.
-              },
-            ),
-            if (widget.polylines.isNotEmpty)
-              PolylineLayer(
-                polylines: [
-                  for (final p in widget.polylines)
-                    Polyline(
-                      points: p.points,
-                      color: p.color,
-                      strokeWidth: p.width,
-                    ),
-                ],
+        // §5.1 progressive mounting: until the deferral window closes we
+        // paint a cheap, HONEST placeholder instead of constructing the
+        // tile engine. It is visibly distinct from the live map ("Preparing
+        // map…" + grid pattern) and never claims driver presence.
+        if (!_engineMounted)
+          _MapPlaceholder(center: widget.initialCenter)
+        else
+          FlutterMap(
+            mapController: _mapController,
+            options: options,
+            children: [
+              TileLayer(
+                urlTemplate: _provider.mirrors.isEmpty
+                    ? 'https://tiles.invalid/{z}/{x}/{y}.png'
+                    : _provider.mirrors.first.urlTemplate,
+                userAgentPackageName: 'com.nidaw.nidus',
+                maxZoom: 19,
+                tileProvider: ChainTileProvider(_provider),
+                errorTileCallback: (tile, exception, stackTrace) {
+                  // Errors are already reported through MapTileProvider.health;
+                  // swallow here so flutter_map renders the blank/error tile.
+                },
               ),
-            MarkerLayer(markers: _buildMarkers()),
-          ],
-        ),
+              if (widget.polylines.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    for (final p in widget.polylines)
+                      Polyline(
+                        points: p.points,
+                        color: p.color,
+                        strokeWidth: p.width,
+                      ),
+                  ],
+                ),
+              MarkerLayer(markers: _buildMarkers()),
+              // Live-engine readiness detector: this child only exists inside
+              // the real FlutterMap tree, so its first painted frame proves
+              // the engine mounted (placeholder frames can never fire it).
+              const _LiveMapReadyNotifier(),
+            ],
+          ),
         Positioned(
           left: 8,
           bottom: 4,
