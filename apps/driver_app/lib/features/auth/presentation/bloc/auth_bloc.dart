@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -6,6 +8,7 @@ import '../../domain/entities/driver.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../../../core/network/websocket_client.dart';
+import '../../../../core/startup/driver_startup_coordinator.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -110,7 +113,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LogoutRequested>(_onLogoutRequested);
   }
 
-  Future<void> _onCheckAuthStatus(
+    /// Phase 5 (§4.3): every successful authentication notifies the startup
+  /// coordinator so the WebSocket connect + `driver:offers` subscription are
+  /// wired exactly when a token exists — replacing the legacy post-runApp
+  /// delay hack. No-op in widget tests that never install a coordinator.
+  void _notifyStartupAuthenticated() {
+    if (hasDriverStartupCoordinator) {
+      unawaited(currentDriverStartupCoordinator.onAuthenticated());
+    }
+  }
+
+Future<void> _onCheckAuthStatus(
     CheckAuthStatus event,
     Emitter<AuthState> emit,
   ) async {
@@ -133,6 +146,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       final onboardingComplete = driver.isVerified;
       await _webSocketClient.connect();
+      _notifyStartupAuthenticated();
 
       emit(AuthAuthenticated(
         driver: driver,
@@ -157,6 +171,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       final onboardingComplete = driver.isVerified;
       await _webSocketClient.connect();
+      _notifyStartupAuthenticated();
 
       emit(AuthAuthenticated(
         driver: driver,
@@ -177,6 +192,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final driver = await _registerUseCase.execute(event.data);
 
       await _webSocketClient.connect();
+      _notifyStartupAuthenticated();
       emit(AuthAuthenticated(
         driver: driver,
         onboardingComplete: false,

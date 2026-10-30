@@ -24,7 +24,16 @@ class LocationService {
   /// Broadcast stream of driver positions while tracking is active.
   Stream<Position> get locationStream => _controller.stream;
 
+  bool get isTracking => _subscription != null;
+
   /// Request permissions and start streaming GPS fixes.
+  ///
+  /// Phase 5 (§4.3/§5.2): callers must only invoke this when the driver
+  /// state machine permits collection (server-confirmed online OR an active
+  /// trip). The startup coordinator enforces that gate via
+  /// `DriverStartupSnapshot.trackingPermitted`; this service stays focused on
+  /// the mechanics (permissions, stream, disposal) and remains independent of
+  /// map rendering and screen startup.
   Future<void> startTracking() async {
     if (_subscription != null) return;
 
