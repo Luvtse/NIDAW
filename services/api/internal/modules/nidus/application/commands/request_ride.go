@@ -250,6 +250,23 @@ func (h *RequestRideHandler) Execute(ctx context.Context, cmd *RequestRideComman
 	rideID := uuid.New()
 	now := time.Now().UTC()
 
+	// FARE INTEGRITY (Phase 1): freeze the authoritative booking contract from
+	// the ORIGINAL endpoints and the just-computed quote BEFORE persisting
+	// anything. The snapshot pins the contractual distance/duration, every
+	// component in integer ETB santim, and the pricing-config / duration-rule
+	// versions — so no later stage (dispatch, driver app, completion, receipt,
+	// ledger) ever needs to re-derive money, and actual trip metrics can never
+	// rewrite it. IdempotencyKey = ride id: exactly one contract per ride; a
+	// retried request returns the stored row unchanged.
+	fareSnapshot, snapErr := h.pricingService.SnapshotFromEstimate(
+		fareEstimate, rideID, "booking:"+rideID.String(),
+		cmd.PickupLat, cmd.PickupLng, cmd.DropoffLat, cmd.DropoffLng,
+		cmd.PickupAddress, cmd.DropoffAddress,
+	)
+	if snapErr != nil {
+		return nil, fmt.Errorf("%w: could not freeze booking fare contract: %v", ErrRideCreationFailed, snapErr)
+	}
+
 	// §3.2: apply the rider's projected promo code (if any) to the freshly
 	// minted ride id BEFORE persisting, so the discount snapshot lands on the
 	// same INSERT that creates the ride — there is no window where a ride
@@ -304,6 +321,10 @@ func (h *RequestRideHandler) Execute(ctx context.Context, cmd *RequestRideComman
 		TimeFareComponent:     ptrFenToF(fareEstimate.TimeFare),
 		SurgeFareComponent:    ptrFenToF(fareEstimate.SurgeAmount),
 		ServiceFeeComponent:   nil,
+		// FARE INTEGRITY (Phase 1): the contract pointer is stamped in the same
+		// INSERT that creates the ride (see saveRideAndSnapshot) — there is no
+		// window where a ride exists without its frozen fare row.
+		FareSnapshotID: &fareSnapshot.ID,
 		// §3.1: method snapshot resolved before creation (empty when the
 		// payments module is not wired — legacy rides behave as before).
 		PaymentMethodType: paymentType,
@@ -317,10 +338,13 @@ func (h *RequestRideHandler) Execute(ctx context.Context, cmd *RequestRideComman
 		UpdatedAt:   now,
 	}
 
-	// 4. Persist ride to database. If the INSERT fails while a redemption was
-	// already attached (§3.2), detach it so the per-user limit is not burned
-	// against a ride that does not exist.
-	if err := h.saveRide(ctx, ride); err != nil {
+	// 4. Persist ride AND its frozen fare contract to the database in one
+	// transaction (FARE INTEGRITY Phase 1). If either write fails, nothing
+	// commits: no ride may exist without its authoritative pricing snapshot,
+	// and no snapshot may exist for a phantom ride. If the whole INSERT fails
+	// while a redemption was already attached (§3.2), detach it so the
+	// per-user limit is not burned against a ride that does not exist.
+	if err := h.saveRideAndSnapshot(ctx, ride, fareSnapshot); err != nil {
 		if promoCode != "" {
 			detachFromRide(ctx, h.promoApplier, rideID)
 		}
@@ -489,7 +513,69 @@ func isValidCoordinate(lat, lng float64) bool {
 // PERSISTENCE
 // ============================================================================
 
-func (h *RequestRideHandler) saveRide(ctx context.Context, ride *entities.Ride) error {
+// saveRideAndSnapshot writes the ride row and its frozen fare contract in ONE
+// transaction (FARE INTEGRITY Phase 1). Order inside the tx: snapshot first,
+// then the rides INSERT which carries rides.fare_snapshot_id — the FK to the
+// snapshot is satisfied in the same statement batch and the rides.id ->
+// snapshot FK cascade means a rolled-back ride never leaves an orphaned
+// contract. A duplicate idempotency key (retried request that partially
+// committed before) resolves create-or-get style: the stored contract wins
+// and the rides insert proceeds against the SAME quoted total, so a retry can
+// never mint two different prices for one booking.
+func (h *RequestRideHandler) saveRideAndSnapshot(ctx context.Context, ride *entities.Ride, snap *entities.FareSnapshot) error {
+	return h.db.WithTx(ctx, func(tx *database.Tx) error {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO ride_fare_snapshots (
+				id, ride_id, idempotency_key,
+				pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
+				pickup_address, dropoff_address,
+				contract_distance_km, contract_duration_min,
+				base_fare_santim, distance_fare_santim, time_fare_santim,
+				surge_amount_santim, minimum_fare_santim, gross_fare_santim,
+				ride_type, distance_rate_per_km, time_rate_per_minute,
+				surge_multiplier, surge_reason, minutes_per_km,
+				pricing_config_version, duration_rule_version,
+				currency, quoted_total_santim, frozen_at
+			) VALUES (
+				$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28
+			)
+			ON CONFLICT (idempotency_key) DO NOTHING`,
+			snap.ID, snap.RideID, snap.IdempotencyKey,
+			snap.PickupLat, snap.PickupLng, snap.DropoffLat, snap.DropoffLng,
+			nullString(snap.PickupAddress), nullString(snap.DropoffAddress),
+			snap.ContractDistanceKm, snap.ContractDurationMin,
+			snap.Components.BaseFareSantim, snap.Components.DistanceFareSantim, snap.Components.TimeFareSantim,
+			snap.Components.SurgeAmountSantim, snap.Components.MinimumFareSantim, snap.Components.GrossFareSantim,
+			snap.Components.RideType, snap.Components.DistanceRatePerKm, snap.Components.TimeRatePerMinute,
+			snap.Components.SurgeMultiplier, nullString(snap.Components.SurgeReason), snap.MinutesPerKm,
+			snap.PricingConfigVersion, snap.DurationRuleVersion,
+			snap.Currency, snap.QuotedTotalSantim, snap.FrozenAt,
+		); err != nil {
+			return fmt.Errorf("persist fare snapshot: %w", err)
+		}
+
+		// If the conflict path fired, the authoritative contract is the STORED
+		// row; adopt it so the pointer we stamp and everything downstream reads
+		// refer to the original numbers, not this attempt's recomputation.
+		stored, err := scanFareSnapshot(tx.QueryRow(ctx,
+			`SELECT `+fareSnapshotColumns+` FROM ride_fare_snapshots WHERE idempotency_key = $1`, snap.IdempotencyKey))
+		if err != nil {
+			return fmt.Errorf("read back fare snapshot: %w", err)
+		}
+		*snap = *stored
+		ride.FareSnapshotID = &stored.ID
+
+		return insertRideRow(ctx, tx, ride)
+	})
+}
+
+// insertRideRow performs the rides INSERT. Split from saveRideAndSnapshot so
+// both the transactional path and any future single-statement caller share
+// exactly one column list (no drift between "with snapshot" and "plain"
+// inserts).
+func insertRideRow(ctx context.Context, tx interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (interface{}, error)
+}, ride *entities.Ride) error {
 	query := `
 		INSERT INTO rides (
 			id, user_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
@@ -497,16 +583,21 @@ func (h *RequestRideHandler) saveRide(ctx context.Context, ride *entities.Ride) 
 			fare_amount, currency, distance_km, duration_minutes,
 			payment_method_type, scheduled_at, promo_code, promo_discount,
 			base_fare_component, distance_fare_component, time_fare_component,
-			surge_fare_component, service_fee_component,
+			surge_fare_component, service_fee_component, fare_snapshot_id,
 			requested_at, created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-			$21, $22, $23, $24, $25, $26
+			$21, $22, $23, $24, $25, $26, $27
 		)
 	`
 
-	_, err := h.db.Exec(ctx, query,
+	var snapshotArg interface{}
+	if ride.FareSnapshotID != nil {
+		snapshotArg = *ride.FareSnapshotID
+	}
+
+	_, err := tx.Exec(ctx, query,
 		ride.ID,
 		ride.UserID,
 		ride.PickupLat, ride.PickupLng,
@@ -523,10 +614,21 @@ func (h *RequestRideHandler) saveRide(ctx context.Context, ride *entities.Ride) 
 		// honest "itemization unavailable" state rather than a fabricated zero.
 		ride.BaseFareComponent, ride.DistanceFareComponent, ride.TimeFareComponent,
 		ride.SurgeFareComponent, ride.ServiceFeeComponent,
+		// FARE INTEGRITY (Phase 1, migration 027): pointer to the immutable
+		// contract row written moments earlier in the same transaction.
+		snapshotArg,
 		ride.RequestedAt, ride.CreatedAt, ride.UpdatedAt,
 	)
 
 	return err
+}
+
+// saveRide keeps the historical single-INSERT entry point for callers/tests
+// that persist a ride without going through the snapshot flow. New request
+// traffic must use saveRideAndSnapshot; this wrapper exists only so the
+// pre-Phase-1 call sites keep compiling against the shared column list.
+func (h *RequestRideHandler) saveRide(ctx context.Context, ride *entities.Ride) error {
+	return insertRideRow(ctx, h.db, ride)
 }
 
 // saveRideStops batch-inserts the §3.5 intermediate stops for a freshly
@@ -634,6 +736,16 @@ func (h *RequestRideHandler) publishRideRequestedEvent(
 			// Empty array when the trip is direct — never null, so clients can
 			// iterate without nil-checks.
 			"stops": stopPayload(ride.Stops),
+			// FARE INTEGRITY (Phase 1): the authoritative quote travels with
+			// the event. fare_snapshot_id locates the immutable contract row;
+			// quoted_total_santim / contract_* let dispatch and the driver app
+			// render THE price without re-deriving money from coordinates.
+			"fare_snapshot_id":       ride.FareSnapshotID,
+			"quoted_total_santim":    fareEstimate.TotalFare,
+			"contract_distance_km":   fareEstimate.DistanceKm,
+			"contract_duration_min":  fareEstimate.DurationMinutes,
+			"pricing_config_version": fareEstimate.ConfigVersion,
+			"duration_rule_version":  fareEstimate.DurationRuleVersion,
 		},
 		Timestamp: time.Now().Unix(),
 	}
