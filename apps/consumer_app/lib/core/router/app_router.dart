@@ -41,6 +41,7 @@ import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/nidus/presentation/pages/ar_navigation_page.dart';
 import '../config/feature_flag_service.dart';
+import '../startup/app_startup_coordinator.dart' show hasStartupCoordinator;
 import '../constants/app_constants.dart';
 
 /// Stable per-install identifier used for deterministic feature-flag rollout
@@ -597,16 +598,28 @@ class _SplashPageState extends State<_SplashPage> {
   }
 
   Future<void> _initialize() async {
-    // Initialize offline service
-    await GetIt.instance<OfflineService>().initialize();
-    
-    // Wait for auth state to be determined
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      // AuthBloc will trigger redirect based on state
-      GetIt.instance<AuthBloc>().add(CheckAuthStatus());
+    // Phase 5 (render first, initialize second): NO artificial 2-second wait
+    // and NO eager OfflineService.initialize() here — offline initialization
+    // belongs to the startup coordinator's deferred Stage B. The splash only
+    // has to hand off to AuthBloc promptly so session hydration can begin;
+    // routing stays gated on real AuthBloc state, never on a timer.
+    if (!hasStartupCoordinator) {
+      // Widget tests / tooling that mount the router without main()'s
+      // coordinator: dispatch immediately so auth flows still progress.
+      _kickoffAuth();
+      return;
     }
+    // Production: wait for the very next frame boundary (shell painted), then
+    // dispatch. No network or storage work happens before this point.
+    await WidgetsBinding.instance.endOfFrame;
+    _kickoffAuth();
+  }
+
+  void _kickoffAuth() {
+    if (!mounted) return;
+    // AuthBloc triggers the redirect based on validated state; CheckAuthStatus
+    // is idempotent under retries (re-reading Hive + one server round-trip).
+    GetIt.instance<AuthBloc>().add(const CheckAuthStatus());
   }
 
   @override
