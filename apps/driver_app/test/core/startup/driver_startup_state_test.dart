@@ -80,14 +80,27 @@ void main() {
       expect(n.snapshot.trackingPermitted, isTrue);
     });
 
-    test('going OFFLINE revokes tracking permission mid-session', () {
+    test('going OFFLINE while idle revokes tracking permission', () {
       n.markAvailabilityConfirmed(true);
       n.markReady(DriverStartupSubsystem.locationTracking);
       n.markAvailabilityConfirmed(false);
       expect(n.snapshot.trackingPermitted, isFalse);
       expect(
           n.snapshot.isReady(DriverStartupSubsystem.locationTracking), isFalse,
-          reason: 'offline drivers stop continuous collection (battery/§4.3)');
+          reason: 'offline + no active trip stops continuous collection (§4.3)');
+    });
+
+    test('an active trip keeps tracking permitted even when the toggle goes '
+        'offline mid-session (rider safety beats battery)', () {
+      n.markActiveRideFound('ride-1');
+      n.markAvailabilityConfirmed(true);
+      n.markReady(DriverStartupSubsystem.locationTracking);
+      // Driver flips offline while carrying a passenger: collection stays on.
+      n.markAvailabilityConfirmed(false);
+      expect(n.snapshot.trackingPermitted, isTrue);
+      expect(
+          n.snapshot.isReady(DriverStartupSubsystem.locationTracking), isTrue,
+          reason: 'in-progress trips must not drop live driver position');
     });
 
     test('active trip permits tracking even when availability offline', () {

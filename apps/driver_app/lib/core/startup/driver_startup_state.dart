@@ -125,8 +125,12 @@ class DriverStartupSnapshot {
       isReady(DriverStartupSubsystem.realtimeChannel) &&
       isReady(DriverStartupSubsystem.dispatchSubscription);
 
-  /// Location may stream only when the driver state machine allows it; the
-  /// coordinator flips this via markTrackingAllowed() (online or on-trip).
+  /// Continuous GPS collection requires an explicit grant from the startup
+  /// state machine: the server confirmed the driver ONLINE, or an ACTIVE TRIP
+  /// was recovered from the authoritative backend. Going offline while idle
+  /// revokes the grant immediately (battery + §4.3); an in-progress trip keeps
+  /// collection alive even when the availability toggle reads offline, because
+  /// riders depend on live driver position for safety.
   bool get trackingPermitted => availabilityConfirmed || isOnActiveTrip;
 
   bool get isOnActiveTrip =>
@@ -228,9 +232,11 @@ class DriverStartupStateNotifier extends ChangeNotifier {
       availabilityProvisional: true,
       availabilityConfirmed: true,
     ));
-    // Online grants tracking permission; offline revokes it (coordinator will
-    // stop continuous collection — battery + §4.3 "only when permitted").
+    // Online grants tracking permission; offline revokes it UNLESS a settled
+    // active trip still requires live position for rider safety (coordinator
+    // will stop continuous collection — battery + §4.3 "only when permitted").
     if (!online &&
+        !_snapshot.isOnActiveTrip &&
         _snapshot.isReady(DriverStartupSubsystem.locationTracking)) {
       _setStatus(DriverStartupSubsystem.locationTracking,
           DriverStartupPhaseStatus.pending);
