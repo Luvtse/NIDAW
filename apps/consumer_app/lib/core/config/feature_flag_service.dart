@@ -23,10 +23,17 @@ class FeatureFlagService {
 
   final Map<String, dynamic> _flags;
 
+  /// Empty, all-disabled instance. Used as the synchronous DI fallback during
+  /// Phase 5 deferred startup: until the real asset load completes (and the
+  /// coordinator re-registers the loaded service), early consumers evaluate
+  /// every flag OFF — the safe default — instead of throwing or waiting.
+  factory FeatureFlagService.empty() =>
+      FeatureFlagService._(<String, dynamic>{});
+
   /// Loads `assets/config/feature-flags/flags.json` from the bundled app
-  /// assets. Call once during bootstrap before runApp. Never throws —
-  /// failures resolve to an empty flag set with a debug-mode log line, so
-  /// every flag evaluates to disabled.
+  /// assets. Called from the deferred startup stage (never on the first-frame
+  /// path). Never throws — failures resolve to an empty flag set with a
+  /// debug-mode log line, so every flag evaluates to disabled.
   static Future<FeatureFlagService> load() async {
     try {
       final raw = await rootBundle.loadString(

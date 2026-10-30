@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:get_it/get_it.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
 
 import 'package:dio/dio.dart';
 
@@ -20,6 +21,7 @@ import '../network/websocket_client.dart';
 import '../network/event_bus.dart';
 import '../offline/offline_service.dart';
 import '../router/app_router.dart';
+import '../startup/startup_state.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/domain/usecases/register_usecase.dart';
@@ -53,32 +55,118 @@ final GetIt getIt = GetIt.instance;
 // INITIALIZATION
 // ============================================================================
 
-/// Initialize all dependencies. Call this once in main() before runApp().
+/// Startup-critical dependency registration. SYNCHRONOUS by contract (Phase 5:
+/// "render first, initialize second"): every registration below is a lazy
+/// singleton or factory closure — nothing is constructed and no I/O happens
+/// until first resolution. The only awaited work left in the pre-runApp path
+/// is Hive.initFlutter + opening the three boxes the first frame and session
+/// hydration genuinely need ('auth', 'settings', 'cache').
+///
+/// Deliberately moved OFF the startup-critical path into the deferred Stage B
+/// (see core/startup/app_startup_coordinator.dart):
+///   - GeocodingCache.open()      -> registerGeocodingCache() after first frame
+///   - FeatureFlagService.load()  -> registerFeatureFlags() after first frame
+///   - OfflineService.initialize()-> coordinator step (opens its own boxes)
+///   - Firebase/FCM bootstrap     -> coordinator step (permission prompts must
+///                                    never gate the first frame)
+/// Until those phases report `ready` on StartupStateNotifier, consumers render
+/// honest provisional states (loading / cached / signed-out), never fabricated
+/// live data.
+void registerCoreDependencies(StartupStateNotifier startupState) {
+  getIt.registerLazySingleton<StartupStateNotifier>(() => startupState);
+
+  // 1. Core services (lazy — construction deferred to first use)
+  _registerCoreServices();
+
+  // 2. Network layer
+  _registerNetworkLayer();
+
+  // 3. Repositories
+  _registerRepositories();
+
+  // 4. Use cases
+  _registerUseCases();
+
+  // 5. BLoCs (factories - new instance per screen)
+  _registerBlocs();
+
+  // 6. Router
+  _registerRouter();
+
+  debugPrint('✅ Startup-critical dependencies registered (deferred init pending)');
+}
+
+/// Deferred initialization entry points that still need to happen before the
+/// app is fully usable but MUST NOT block the first frame. Called by the
+/// AppStartupCoordinator's Stage B. Kept as thin wrappers so external callers
+/// (tests, integration harnesses) have one stable API.
+Future<void> configureDeferredDependencies() async {
+  final state = getIt<StartupStateNotifier>();
+  await _initializeDeferred(state);
+}
+
+Future<void> _initializeDeferred(StartupStateNotifier state) async {
+  // Geocoding cache (dedicated Hive box; cache-first reads afterwards).
+  state.markRunning(StartupSubsystem.geocodingCache);
+  try {
+    final geocodingCache = await GeocodingCache.open();
+    registerGeocodingCache(geocodingCache);
+    state.markReady(StartupSubsystem.geocodingCache);
+  } catch (e) {
+    debugPrint('[startup] geocoding cache open failed: $e');
+    state.markFailed(StartupSubsystem.geocodingCache);
+    rethrow;
+  }
+
+  // Feature flags (bundled asset read; missing file => all flags disabled).
+  state.markRunning(StartupSubsystem.featureFlags);
+  try {
+    final featureFlags = await FeatureFlagService.load();
+    registerFeatureFlags(featureFlags);
+    state.markReady(StartupSubsystem.featureFlags);
+  } catch (e) {
+    debugPrint('[startup] feature flag load failed: $e');
+    state.markFailed(StartupSubsystem.featureFlags);
+    rethrow;
+  }
+}
+
+/// Late registration hooks used by the startup coordinator once a deferred
+/// subsystem actually exists. Idempotent: a retry that re-opens the same box
+/// or re-loads the same asset simply replaces the earlier instance.
+void registerGeocodingCache(GeocodingCache cache) {
+  if (getIt.isRegistered<GeocodingCache>()) {
+    // Retry path: replacing an instance must not leave the old Hive box
+    // attached; GeocodingCache holds no disposables beyond the shared box.
+    getIt.unregister<GeocodingCache>();
+  }
+  getIt.registerLazySingleton<GeocodingCache>(() => cache);
+}
+
+void registerFeatureFlags(FeatureFlagService flags) {
+  if (getIt.isRegistered<FeatureFlagService>()) {
+    getIt.unregister<FeatureFlagService>();
+  }
+  getIt.registerLazySingleton<FeatureFlagService>(() => flags);
+}
+
+/// Firebase is initialized lazily and ONLY from the deferred push-bootstrap
+/// step — the first frame never waits on it. Safe to call repeatedly.
+Future<void> ensureFirebaseInitialized() async {
+  if (Firebase.apps.isNotEmpty) return;
+  await Firebase.initializeApp();
+}
+
+/// Back-compatible full configuration for tests and tooling that do not care
+/// about frame timing: registers everything and performs the deferred work
+/// eagerly. Production main() uses registerCoreDependencies + the coordinator.
 Future<void> configureDependencies() async {
-  // 1. Initialize Hive for local storage
   await Hive.initFlutter();
   await Hive.openBox('auth');
   await Hive.openBox('cache');
   await Hive.openBox('settings');
-
-  // 2. Register core services (singletons)
-  await _registerCoreServices();
-
-  // 3. Register network layer
-  _registerNetworkLayer();
-
-  // 4. Register repositories
-  _registerRepositories();
-
-  // 5. Register use cases
-  _registerUseCases();
-
-  // 6. Register BLoCs (factories - new instance per screen)
-  _registerBlocs();
-
-  // 7. Register router
-  _registerRouter();
-
+  registerCoreDependencies(StartupStateNotifier());
+  await configureDeferredDependencies();
   debugPrint('✅ All dependencies configured successfully');
 }
 
@@ -86,7 +174,7 @@ Future<void> configureDependencies() async {
 // CORE SERVICES
 // ============================================================================
 
-Future<void> _registerCoreServices() async {
+void _registerCoreServices() {
   // Connectivity
   getIt.registerLazySingleton<Connectivity>(() => Connectivity());
 
@@ -94,14 +182,17 @@ Future<void> _registerCoreServices() async {
   // external hosts — never reuse the authenticated API client), Hive-backed
   // cache, and the 1 rps Nominatim rate limiter. The service walks the
   // provider chain Nominatim -> Photon -> device -> cache.
+  //
+  // Phase 5: the GeocodingCache INSTANCE is registered by the deferred stage
+  // (registerGeocodingCache). GeocodingService itself stays lazy and resolves
+  // the cache at first use; search UI renders "cache warming" honestly until
+  // then instead of blocking startup on an external provider.
   getIt.registerLazySingleton<Dio>(
     () => Dio(BaseOptions(connectTimeout: const Duration(seconds: 8))),
   );
   getIt.registerLazySingleton<GeocodingRateLimiter>(
     () => GeocodingRateLimiter(requestsPerSecond: 1.0),
   );
-  final geocodingCache = await GeocodingCache.open();
-  getIt.registerLazySingleton<GeocodingCache>(() => geocodingCache);
   getIt.registerLazySingleton<GeocodingService>(
     () => GeocodingService(
       dio: getIt<Dio>(),
@@ -126,12 +217,18 @@ Future<void> _registerCoreServices() async {
   );
 
   // Feature flags (Global Rule 6): client-side view of the canonical
-  // config/feature-flags/flags.json bundled as an app asset. Loads once at
-  // boot; a missing or malformed file degrades every flag to disabled —
-  // never an accidental ON. The router consults this for gated surfaces
-  // such as /nidus/ar-nav/:rideId.
-  final featureFlags = await FeatureFlagService.load();
-  getIt.registerLazySingleton<FeatureFlagService>(() => featureFlags);
+  // config/feature-flags/flags.json bundled as an app asset. A missing or
+  // malformed file degrades every flag to disabled — never an accidental ON.
+  // The router consults this for gated surfaces such as /nidus/ar-nav/:rideId.
+  //
+  // Phase 5: the actual load() moved to the deferred stage
+  // (registerFeatureFlags). This lazy factory is a defensive fallback so any
+  // early consumer still resolves a valid, all-disabled service instead of
+  // throwing; the coordinator's registration replaces it once the real file
+  // has been read.
+  getIt.registerLazySingleton<FeatureFlagService>(
+    () => FeatureFlagService.empty(),
+  );
 
   // Event Bus (cross-feature communication)
   getIt.registerLazySingleton<EventBus>(() => EventBus());
