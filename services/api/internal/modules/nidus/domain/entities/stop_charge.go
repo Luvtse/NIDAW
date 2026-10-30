@@ -110,9 +110,9 @@ type StopCharge struct {
 	// Server-measured dwell (auditable stop events; zero until stopped).
 	// TimerStartedAt / TimerEndedAt are the server-clock stop-window events:
 	// nil until the driver starts/stops the timer for this stop.
-	DurationMin    int
-	TimerStartedAt *time.Time
-	TimerEndedAt   *time.Time
+	DurationMin     int
+	TimerStartedAt  *time.Time
+	TimerEndedAt    *time.Time
 	WaitingEligible bool
 
 	// Waiting charge earned by crossing the threshold, computed EXCLUSIVELY
