@@ -1,0 +1,171 @@
+import 'dart:math' as math;
+
+import '../../data/repositories/ride_repository.dart';
+
+/// Use case for requesting a new ride
+class RequestRideUseCase {
+  final RideRepository _rideRepository;
+
+  const RequestRideUseCase(this._rideRepository);
+
+  /// Execute the ride request
+  ///
+  /// Parameters:
+  /// - [pickupLat]: Pickup latitude
+  /// - [pickupLng]: Pickup longitude
+  /// - [dropoffLat]: Dropoff latitude
+  /// - [dropoffLng]: Dropoff longitude
+  /// - [pickupAddress]: Optional pickup address
+  /// - [dropoffAddress]: Optional dropoff address
+  /// - [rideType]: Type of ride (standard, premium, electric, etc.)
+  /// - [paymentMethodId]: Payment method identifier
+  /// - [stops]: §3.5 intermediate waypoints in visit order (max 3). The
+  ///   default `const []` keeps every existing caller compiling untouched;
+  ///   the repository omits the `stops` key entirely when empty so an
+  ///   on-demand direct request stays byte-identical to before.
+  ///
+  /// Returns:
+  /// - [Ride]: Created ride entity
+  ///
+  /// Throws:
+  /// - [Exception]: If validation fails or request fails
+  Future<RideResult> execute({
+    required double pickupLat,
+    required double pickupLng,
+    required double dropoffLat,
+    required double dropoffLng,
+    String? pickupAddress,
+    String? dropoffAddress,
+    String rideType = 'standard',
+    String? paymentMethodId,
+    String? paymentMethodType,
+    String? promoCode,
+    DateTime? scheduledAt,
+    List<RideStop> stops = const [],
+  }) async {
+    // Validate inputs
+    _validateInputs(
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      dropoffLat: dropoffLat,
+      dropoffLng: dropoffLng,
+      rideType: rideType,
+    );
+
+    // §3.5 client-side cap mirrors the backend MaxRideStops limit and the
+    // TOO_MANY_STOPS error message, so an over-cap request fails locally with
+    // the same wording instead of a confusing round-trip 400.
+    if (stops.length > maxRideStops) {
+      throw Exception('A maximum of $maxRideStops stops per ride is allowed');
+    }
+
+    // Check if pickup and dropoff are different
+    if (pickupLat == dropoffLat && pickupLng == dropoffLng) {
+      throw Exception('Pickup and dropoff locations must be different');
+    }
+
+    // Calculate distance (optional pre-check)
+    final distance = _calculateDistance(
+      pickupLat,
+      pickupLng,
+      dropoffLat,
+      dropoffLng,
+    );
+
+    if (distance < 0.1) {
+      throw Exception('Distance is too short');
+    }
+
+    if (distance > 500) {
+      throw Exception('Distance is too long (max 500 km)');
+    }
+
+    // Request ride from repository
+    try {
+      return await _rideRepository.requestRide(
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        dropoffLat: dropoffLat,
+        dropoffLng: dropoffLng,
+        pickupAddress: pickupAddress,
+        dropoffAddress: dropoffAddress,
+        rideType: rideType,
+        paymentMethodId: paymentMethodId,
+        paymentMethodType: paymentMethodType,
+        promoCode: promoCode,
+        scheduledAt: scheduledAt?.toUtc().toIso8601String(),
+      );
+    } on Exception {
+      // Preserve coded failures (PAYMENT_FAILED, NO_DRIVERS, ...) for the Bloc.
+      rethrow;
+    } catch (e) {
+      throw Exception('Failed to request ride: ${e.toString()}');
+    }
+  }
+
+  /// Validate input parameters
+  void _validateInputs({
+    required double pickupLat,
+    required double pickupLng,
+    required double dropoffLat,
+    required double dropoffLng,
+    required String rideType,
+  }) {
+    // Validate latitude
+    if (pickupLat < -90 || pickupLat > 90) {
+      throw Exception('Invalid pickup latitude');
+    }
+    if (dropoffLat < -90 || dropoffLat > 90) {
+      throw Exception('Invalid dropoff latitude');
+    }
+
+    // Validate longitude
+    if (pickupLng < -180 || pickupLng > 180) {
+      throw Exception('Invalid pickup longitude');
+    }
+    if (dropoffLng < -180 || dropoffLng > 180) {
+      throw Exception('Invalid dropoff longitude');
+    }
+
+    // Validate ride type
+    const validRideTypes = [
+      'standard',
+      'premium',
+      'electric',
+      'shared',
+      'wheelchair',
+    ];
+
+    if (!validRideTypes.contains(rideType)) {
+      throw Exception('Invalid ride type: $rideType');
+    }
+  }
+
+  /// Calculate distance between two points (Haversine formula)
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const earthRadiusKm = 6371.0;
+
+    final dLat = _degreesToRadians(lat2 - lat1);
+    final dLng = _degreesToRadians(lng2 - lng1);
+
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(lat1)) *
+            math.cos(_degreesToRadians(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadiusKm * c;
+  }
+
+  /// Convert degrees to radians
+  double _degreesToRadians(double degrees) {
+    return degrees * math.pi / 180;
+  }
+}
