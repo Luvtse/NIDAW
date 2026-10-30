@@ -45,6 +45,11 @@ enum StartupSubsystem {
 
   /// Authenticated WebSocket connection (started by AuthBloc on login).
   realtimeChannel,
+
+  /// Live map engine readiness (§5.1). Ready ONLY when the mounted
+  /// flutter_map tree reports its first usable frame — a cached placeholder
+  /// never sets this.
+  mapEngine,
 }
 
 enum StartupPhaseStatus { pending, running, ready, failed }

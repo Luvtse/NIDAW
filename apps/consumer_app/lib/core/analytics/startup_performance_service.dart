@@ -18,13 +18,22 @@ import 'package:flutter/scheduler.dart';
 ///  - Every getter is honest: an unmeasured milestone reports null, never a
 ///    fabricated default.
 class StartupPerformanceService {
-  StartupPerformanceService({void Function(Map<String, dynamic> report)? reportSink})
-      : _reportSink = reportSink {
+  /// [autoFirstFrameDetection] defaults to true for production: the very next
+  /// painted frame stamps the first-frame milestone. Integration/unit tests
+  /// that pump widgets while asserting *pre*-first-frame behavior pass false
+  /// and call [markFirstFrame] manually — otherwise the auto callback would
+  /// fire during the test's own pumps and race the assertions.
+  StartupPerformanceService({
+    void Function(Map<String, dynamic> report)? reportSink,
+    bool autoFirstFrameDetection = true,
+  }) : _reportSink = reportSink {
     // Capture the earliest possible anchor: construction happens at the top
     // of main(), before any await.
     _launchAnchor = Stopwatch()..start();
-    // Schedule first-frame detection immediately after the binding exists.
-    SchedulerBinding.instance.addPostFrameCallback((_) => markFirstFrame());
+    if (autoFirstFrameDetection) {
+      // Schedule first-frame detection immediately after the binding exists.
+      SchedulerBinding.instance.addPostFrameCallback((_) => markFirstFrame());
+    }
   }
 
   final void Function(Map<String, dynamic> report)? _reportSink;
@@ -83,7 +92,15 @@ class StartupPerformanceService {
     if (_mapReady != null) return;
     _mapReady = _launchAnchor.elapsed;
     debugPrint('[startup-perf] map ready @ ${_fmt(_mapReady)}');
+    // Once-only instrumentation hook used by the LIVE-engine path of
+    // LiveMapWidget (and integration tests). Placeholder frames never reach
+    // this method, so a fast cached map can never be counted as ready.
+    onMapReady?.call();
   }
+
+  /// Fired exactly once, from [markMapReady]. Wired by AppStartupCoordinator
+  /// in Stage B step 0 to forward readiness into the startup state machine.
+  VoidCallback? onMapReady;
 
   /// Live booking actions became available (server-validated session +
   /// realtime/offline services ready).
