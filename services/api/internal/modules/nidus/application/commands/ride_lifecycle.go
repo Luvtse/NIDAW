@@ -721,9 +721,9 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 
 	completedAt := time.Now().UTC()
 	payload := map[string]interface{}{
-		"ride_id":                 ride.ID.String(),
-		"driver_id":               driverUserID.String(), // ledger identity (user id)
-		"user_id":                 ride.UserID.String(),
+		"ride_id":   ride.ID.String(),
+		"driver_id": driverUserID.String(), // ledger identity (user id)
+		"user_id":   ride.UserID.String(),
 		// Operations-only trip actuals. The ledger MUST NOT derive money from
 		// these; final_fare/charge_amount below are authoritative and come
 		// exclusively from the frozen booking contract (FARE INTEGRITY Phase 1).
@@ -737,7 +737,7 @@ func (h *CompleteRideHandler) Execute(ctx context.Context, cmd *CompleteRideComm
 		"payment_method_type": ride.PaymentMethodType,
 		// FARE INTEGRITY (Phase 1): locate the immutable contract this
 		// settlement honors. Consumers that ignore unknown keys are unaffected.
-		"fare_snapshot_id": fareSnapshotIDString(ride.FareSnapshotID),
+		"fare_snapshot_id":        fareSnapshotIDString(ride.FareSnapshotID),
 		"pending_cash_collection": isCash,
 		// §3.2 receipt-time promo fields: the discount finalized against the
 		// actual fare and the amount charged to the rider after it. Consumers

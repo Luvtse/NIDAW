@@ -890,3 +890,81 @@ func (s *PricingService) validateChain(chain [][2]float64) error {
 	}
 	return nil
 }
+
+// ============================================================================
+// STOP FEE CONFIG (Phase 2 — rider-requested stoppage pricing)
+// ============================================================================
+
+// envStopFeeSantim is the deploy-time override for the fixed per-stop fee.
+// The VALUE is frozen onto each approval row at approval time, so changing
+// the environment later never rewrites historical contracts.
+const envStopFeeSantim = "NIDUS_STOP_FEE_SANTIM"
+
+// StopFeeConfig carries the disclosed, versioned stoppage-pricing policy in
+// integer ETB santim. It is exposed on PricingService so every surface that
+// quotes a stop (approval preview, receipt, driver contract view) reads the
+// SAME numbers the settlement finalizer will use.
+type StopFeeConfig struct {
+	// FixedFeeSantim is the visible additional fare for each approved stop.
+	FixedFeeSantim int64
+	// WaitingThresholdMinutes: dwell at/above this triggers the waiting charge.
+	WaitingThresholdMinutes int
+	// PolicyVersion names the rule set (mirrors entities.StopPolicyVersion).
+	PolicyVersion string
+}
+
+// DefaultStopFeeConfig returns the approved stops-v1 policy. An out-of-range
+// env override (negative or absurdly large) fails closed to the default
+// rather than minting surprise charges.
+func DefaultStopFeeConfig() StopFeeConfig {
+	fee := entities.StopFeeSantimDefaultV1
+	if raw := strings.TrimSpace(os.Getenv(envStopFeeSantim)); raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 64); err == nil && v >= 0 && v <= 1_000_000 {
+			fee = v
+		}
+	}
+	return StopFeeConfig{
+		FixedFeeSantim:          fee,
+		WaitingThresholdMinutes: entities.StopWaitingThresholdMinutes,
+		PolicyVersion:           entities.StopPolicyVersion,
+	}
+}
+
+// StopFeeConfig exposes the active stop-charge policy for quoting surfaces.
+func (s *PricingService) StopFeeConfig() StopFeeConfig { return DefaultStopFeeConfig() }
+
+// StopQuotePreview is the authoritative "what does adding/approving this stop
+// cost me?" answer computed from the frozen booking fare alone. Amounts are
+// integer ETB santim; both apps render them verbatim.
+type StopQuotePreview struct {
+	Seq                       int    `json:"seq"`
+	FixedFeeSantim            int64  `json:"fixed_fee_santim"`
+	WaitingChargeIfLongSantim int64  `json:"waiting_charge_if_long_santim"`
+	WaitingThresholdMinutes   int    `json:"waiting_threshold_minutes"`
+	PolicyVersion             string `json:"policy_version"`
+	Currency                  string `json:"currency"`
+}
+
+// QuoteStopPreview discloses the exact amounts attached to one intermediate
+// stop BEFORE it becomes part of the contract: the fixed fee always, plus the
+// waiting charge that applies IF the server-recorded dwell reaches the
+// threshold. The waiting figure is computed from originalBookingFareSantim
+// (the frozen quoted total F0) — never from any gross that already contains
+// other stop fees — which is what keeps multi-stop charges non-compounding.
+func QuoteStopPreview(seq int, originalBookingFareSantim int64) (*StopQuotePreview, error) {
+	if seq < 1 || seq > entities.MaxRideStops {
+		return nil, entities.ErrStopSeqOutOfRange
+	}
+	if originalBookingFareSantim <= 0 {
+		return nil, fmt.Errorf("%w: cannot quote a stop against a non-positive booking fare", ErrPricingFailed)
+	}
+	cfg := DefaultStopFeeConfig()
+	return &StopQuotePreview{
+		Seq:                       seq,
+		FixedFeeSantim:            cfg.FixedFeeSantim,
+		WaitingChargeIfLongSantim: entities.ComputeWaitingChargeSantim(originalBookingFareSantim),
+		WaitingThresholdMinutes:   cfg.WaitingThresholdMinutes,
+		PolicyVersion:             cfg.PolicyVersion,
+		Currency:                  entities.CurrencyETB,
+	}, nil
+}

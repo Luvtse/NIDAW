@@ -572,10 +572,9 @@ func (h *RequestRideHandler) saveRideAndSnapshot(ctx context.Context, ride *enti
 // insertRideRow performs the rides INSERT. Split from saveRideAndSnapshot so
 // both the transactional path and any future single-statement caller share
 // exactly one column list (no drift between "with snapshot" and "plain"
-// inserts).
-func insertRideRow(ctx context.Context, tx interface {
-	Exec(ctx context.Context, sql string, args ...interface{}) (interface{}, error)
-}, ride *entities.Ride) error {
+// inserts). The executor is the shared DBTX port (satisfied by both
+// *database.Postgres and *database.Tx — both return pgconn.CommandTag).
+func insertRideRow(ctx context.Context, tx DBTX, ride *entities.Ride) error {
 	query := `
 		INSERT INTO rides (
 			id, user_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
