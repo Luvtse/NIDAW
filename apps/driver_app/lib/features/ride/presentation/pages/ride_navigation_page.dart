@@ -6,7 +6,7 @@ import '../bloc/active_ride_bloc.dart';
 import '../widgets/rider_info_card.dart';
 import '../widgets/navigation_controls.dart';
 import '../widgets/stop_contract_card.dart';
-import '../data/repositories/masked_call_repository.dart' show MaskedCallRepository, MaskedCallException;
+import '../../data/repositories/masked_call_repository.dart' show MaskedCallRepository, MaskedCallException;
 import 'driver_chat_page.dart';
 import 'ride_completion_page.dart';
 
@@ -212,7 +212,7 @@ class RideNavigationPage extends StatelessWidget {
                       topLeft: Radius.circular(30),
                       topRight: Radius.circular(30),
                     ),
-                    border: Border.all(color: const Color(0xFFE8E1F2)),
+                    border: Border(top: BorderSide(color: Color(0xFFE8E1F2))),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

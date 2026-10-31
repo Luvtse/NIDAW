@@ -8,7 +8,7 @@ import 'package:get_it/get_it.dart';
 import '../../../documents/data/repositories/document_repository.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../bloc/auth_bloc.dart';
+
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
