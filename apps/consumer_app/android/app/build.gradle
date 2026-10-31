@@ -79,6 +79,14 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            // Phase 6.1 — Baseline Profiles: integration hook. This module
+            // has no checked-in Gradle wrapper/AGP pinning, so the
+            // androidx.benchmark profile-gradle-plugin cannot be applied and
+            // verified here. When the toolchain lands, apply the plugin and
+            // drop the generated artifact at src/main/baseline-prof.txt;
+            // measure first-frame gains against the shipped
+            // core/analytics/startup_performance_service.dart instrumentation.
         }
         debug {
             signingConfig signingConfigs.debug

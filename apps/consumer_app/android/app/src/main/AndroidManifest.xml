@@ -20,7 +20,7 @@
 
     <application
         android:label="NIDAW"
-        android:name="${applicationName}"
+        android:name=".NidawConsumerApplication"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
