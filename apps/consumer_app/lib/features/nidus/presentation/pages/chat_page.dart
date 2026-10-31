@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../auth/data/repositories/auth_repository.dart';
 import '../../data/repositories/chat_repository.dart';
 
 class ChatPage extends StatefulWidget {
@@ -279,8 +280,9 @@ class _ChatPageState extends State<ChatPage> {
             Text('Ride messages', style: TextStyle(fontSize: 11, color: Color(0xFF7D748C))),
           ]),
         ]),
-        semanticsLabel: 'Rider driver chat',
       ),
+      // Accessibility label for the chat screen.
+
       body: Column(
         children: [
           if (_historyError != null)
@@ -383,12 +385,12 @@ class _ChatPageState extends State<ChatPage> {
                             Icon(
                               Icons.translate,
                               size: 14,
-                              color: theme.textTheme.caption?.color,
+                              color: theme.textTheme.bodySmall?.color,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Translated from ${message.translatedFrom}',
-                              style: theme.textTheme.caption,
+                              style: theme.textTheme.bodySmall,
                             ),
                           ],
                         ),
@@ -401,7 +403,7 @@ class _ChatPageState extends State<ChatPage> {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     'Sending…',
-                    style: theme.textTheme.caption,
+                    style: theme.textTheme.bodySmall,
                   ),
                 ),
               if (isFailed)
@@ -420,7 +422,7 @@ class _ChatPageState extends State<ChatPage> {
                         const SizedBox(width: 4),
                         Text(
                           'Not delivered — Retry',
-                          style: theme.textTheme.caption?.copyWith(
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.error,
                           ),
                         ),

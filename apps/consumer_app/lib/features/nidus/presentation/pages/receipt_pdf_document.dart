@@ -1,3 +1,5 @@
+library;
+
 import 'dart:io';
 
 import 'package:intl/intl.dart';
@@ -13,7 +15,6 @@ import '../../data/repositories/ride_repository.dart';
 /// sent. When [Ride.fareBreakdown] is absent (legacy rides), the document
 /// prints the total with an explicit "itemization unavailable for this
 /// ride" note instead of inventing components.
-library;
 
 /// Builds and saves the receipt PDF into the app's documents directory.
 /// Returns the saved file so callers can share it. Throws on I/O failure —

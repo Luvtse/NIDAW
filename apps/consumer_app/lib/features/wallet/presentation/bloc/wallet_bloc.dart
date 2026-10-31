@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../data/repositories/wallet_repository.dart';
 import '../../domain/entities/ledger_models.dart';
 

@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/config/feature_flag_service.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../data/repositories/pre_selfie_repository.dart';
 import '../../data/repositories/ride_repository.dart';
 import '../../data/repositories/safety_repository.dart';
 import '../../domain/usecases/request_ride_usecase.dart';
@@ -565,6 +566,10 @@ class RideAnomaly {
 /// No drivers found for the request — offer recovery actions.
 class NoDriversFound extends RideState {
   final String rideId;
+
+  /// Seconds elapsed since the request was placed (for honest "searched for
+  /// N seconds" messaging).
+  final int searchedSeconds;
 
   /// §4.6: the fare that was broadcast when the search failed, so the
   /// price-extension sheet can show real "+10% / +20%" projections derived
@@ -1446,7 +1451,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
           add(UnsubscribeFromRideUpdates(rideId));
           emit(RideCancelled(
             rideId: event.rideId,
-            reason: result.message,
+            reason: result.message ?? 'Cancelled by driver',
             cancelledBy: 'driver',
           ));
           return;
@@ -1826,7 +1831,8 @@ class RideBloc extends Bloc<RideEvent, RideState> {
               _lastKnownMatchedEtaMinutes ??
               (matchedDriver.etaMinutes > 0
                   ? matchedDriver.etaMinutes
-                  : null);
+                  : null) ??
+              0;
           final fare = _stateFare();
           emit(DriverMatched(
             rideId: update.rideId,
@@ -2011,7 +2017,8 @@ class RideBloc extends Bloc<RideEvent, RideState> {
           // positive driver-card value, then null (chip hidden — never a
           // fabricated constant).
           final eta = ride.matchedEtaMinutes ??
-              (ride.driver!.etaMinutes > 0 ? ride.driver!.etaMinutes : null);
+              (ride.driver!.etaMinutes > 0 ? ride.driver!.etaMinutes : null) ??
+              0;
           emit(DriverMatched(
             rideId: ride.id,
             driver: ride.driver!,

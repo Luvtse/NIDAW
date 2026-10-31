@@ -11,8 +11,9 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 // EXCEPTIONS (Typed, with error codes)
 // ============================================================================
 
-/// Base exception for all API errors
-abstract class ApiException implements Exception {
+/// Base exception for all API errors.
+/// Concrete (not abstract) so generic API failures can be thrown directly.
+class ApiException implements Exception {
   final String message;
   final int? statusCode;
   final String? errorCode;

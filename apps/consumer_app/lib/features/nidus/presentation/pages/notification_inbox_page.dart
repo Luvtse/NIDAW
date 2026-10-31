@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/notifications/notification_models.dart';
@@ -143,7 +144,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
       case NotificationCategory.driverArriving:
         return Icons.location_searching_rounded;
       case NotificationCategory.paymentFailed:
-        return Icons.credit_card_gear_ready_rounded;
+        return Icons.credit_card_error_rounded;
       case NotificationCategory.promo:
         return Icons.local_offer_rounded;
       case NotificationCategory.safety:
