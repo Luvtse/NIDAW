@@ -100,6 +100,11 @@ type Postgres struct {
 	// unit tests can exercise repository/service SQL logic without a live
 	// Postgres. Production construction never sets it.
 	testConn PgConn
+
+	// testBeginTx, when set (NewPostgresWithTestTx), backs Begin so unit tests
+	// can exercise WithTx decision logic (finalize/settlement paths) without
+	// a live Postgres. Production construction never sets it.
+	testBeginTx pgx.Tx
 }
 
 // PgConn is the narrow connection surface used by the production methods and
@@ -125,6 +130,15 @@ func (p *Postgres) conn() PgConn {
 // a live database). The returned client is considered ready for queries.
 func NewPostgresWithDriver(c PgConn) *Postgres {
 	return &Postgres{testConn: c, config: DefaultConfig(), logger: zap.NewNop()}
+}
+
+// NewPostgresWithTestTx builds a Postgres client whose Begin returns the
+// injected pgx.Tx (test-only constructor; used by WithTx-based command paths
+// such as fare finalization and settlement outbox enqueueing). Queries fall
+// back to the injected conn fake when provided. Production construction never
+// uses this.
+func NewPostgresWithTestTx(tx pgx.Tx, c PgConn) *Postgres {
+	return &Postgres{testBeginTx: tx, testConn: c, config: DefaultConfig(), logger: zap.NewNop()}
 }
 
 // NewPostgres creates a new database connection pool
@@ -231,7 +245,7 @@ var ErrDatabaseClosed = errors.New("database client not initialized")
 
 // ready reports whether the pool and config are usable.
 func (p *Postgres) ready() bool {
-	return p != nil && (p.testConn != nil || (p.pool != nil && p.config != nil))
+	return p != nil && (p.testConn != nil || p.testBeginTx != nil || (p.pool != nil && p.config != nil))
 }
 
 // IsReady reports whether the pool is initialized. Exported for module
@@ -314,6 +328,9 @@ type Tx struct {
 func (p *Postgres) Begin(ctx context.Context) (*Tx, error) {
 	if !p.ready() {
 		return nil, fmt.Errorf("%w: %v", ErrTransactionFailed, ErrDatabaseClosed)
+	}
+	if p.testBeginTx != nil {
+		return &Tx{tx: p.testBeginTx, logger: p.logger}, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, p.config.QueryTimeout)
 	defer cancel()
