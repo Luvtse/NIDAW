@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+
+import '../di/injection.dart' show getIt;
 import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
 
@@ -180,7 +182,7 @@ class AppRouter {
   // ROUTE TREE
   // ============================================================================
 
-  List<GoRoute> _buildRoutes() {
+  List<RouteBase> _buildRoutes() {
     return [
       // Splash screen (initial loading)
       GoRoute(
