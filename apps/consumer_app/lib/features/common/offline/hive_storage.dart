@@ -180,7 +180,8 @@ class HiveStorage {
   T? _deserialize<T>(dynamic value) {
     if (value == null) return null;
     
-    if (T == Map<String, dynamic> || T == List<dynamic>) {
+    final typeName = '$T';
+    if (typeName == 'Map<String, dynamic>' || typeName == 'List<dynamic>') {
       return jsonDecode(value as String) as T;
     }
     

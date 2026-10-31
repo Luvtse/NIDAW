@@ -110,8 +110,9 @@ class FcmService {
             AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional;
 
-    await _messaging.setBackgroundMessageHandler(
-        nidusFirebaseMessagingBackgroundHandler);
+    // The background isolate entrypoint is registered via the top-level
+    // @pragma('vm:entry-point') function above and referenced by the native
+    // service configuration; firebase_messaging has no instance method for it.
 
     // Local notifications plugin — used to re-post data-only pushes that
     // arrive while the app is in the background but not visible.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../domain/entities/user.dart';
 
 // ============================================================================
 // ABSTRACT INTERFACE
@@ -56,71 +57,8 @@ abstract class AuthRepository {
 }
 
 // ============================================================================
-// DOMAIN ENTITIES
+// AUTH RESULT
 // ============================================================================
-
-/// User entity
-class User {
-  final String id;
-  final String email;
-  final String fullName;
-  final String phone;
-  final String? profileImageUrl;
-  final String role;
-  final DateTime createdAt;
-
-  const User({
-    required this.id,
-    required this.email,
-    required this.fullName,
-    required this.phone,
-    this.profileImageUrl,
-    required this.role,
-    required this.createdAt,
-  });
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      fullName: json['full_name'] as String,
-      phone: json['phone'] as String,
-      profileImageUrl: json['profile_image_url'] as String?,
-      role: json['role'] as String? ?? 'rider',
-      createdAt: DateTime.parse(json['created_at'] as String),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'email': email,
-      'full_name': fullName,
-      'phone': phone,
-      'profile_image_url': profileImageUrl,
-      'role': role,
-      'created_at': createdAt.toIso8601String(),
-    };
-  }
-
-  User copyWith({
-    String? email,
-    String? fullName,
-    String? phone,
-    String? profileImageUrl,
-    String? role,
-  }) {
-    return User(
-      id: id,
-      email: email ?? this.email,
-      fullName: fullName ?? this.fullName,
-      phone: phone ?? this.phone,
-      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      role: role ?? this.role,
-      createdAt: createdAt,
-    );
-  }
-}
 
 /// Auth result from login/register
 class AuthResult {

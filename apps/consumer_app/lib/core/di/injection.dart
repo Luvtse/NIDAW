@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:get_it/get_it.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:dio/dio.dart';
 
@@ -43,7 +44,7 @@ import '../../features/haven/presentation/bloc/hotel_search_bloc.dart';
 import '../../features/vorax/data/repositories/restaurant_repository.dart';
 import '../../features/vorax/presentation/bloc/restaurant_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart'
-    show ProfileBloc, ProfileRepository, UserProfile;
+    show ProfileBloc, ProfileRepository, ProfileRepositoryImpl, UserProfile;
 import '../../features/wallet/data/repositories/wallet_repository.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -275,7 +276,7 @@ void _registerNetworkLayer() {
         'WS_BASE_URL',
         defaultValue: 'ws://localhost:8080/ws',
       ),
-      tokenProvider: () => Hive.box('auth').get('access_token') as String?,
+      tokenProvider: () => (Hive.box('auth').get('access_token') as String?) ?? '',
     ),
   );
 }

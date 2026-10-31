@@ -60,7 +60,6 @@ class _RegisterPageState extends State<RegisterPage> {
           final isLoading = state is AuthLoading;
 
           return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,

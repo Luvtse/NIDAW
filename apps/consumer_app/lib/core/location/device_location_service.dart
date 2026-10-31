@@ -75,13 +75,11 @@ class DeviceLocationService {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(
-          accuracy: switch (accuracy) {
-            LocationAccuracyLevel.low => LocationAccuracy.low,
-            LocationAccuracyLevel.balanced => LocationAccuracy.medium,
-            LocationAccuracyLevel.high => LocationAccuracy.high,
-          },
-        ),
+        desiredAccuracy: switch (accuracy) {
+          LocationAccuracyLevel.low => LocationAccuracy.low,
+          LocationAccuracyLevel.balanced => LocationAccuracy.medium,
+          LocationAccuracyLevel.high => LocationAccuracy.high,
+        },
       ).timeout(timeout);
       return LocationGranted(
         latitude: position.latitude,
