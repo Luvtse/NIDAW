@@ -170,6 +170,10 @@ class ApiClientConfig {
 // TOKEN STORAGE INTERFACE (For auth interceptor)
 // ============================================================================
 
+/// Contract for persisting auth tokens. The canonical definition lives in
+/// features/auth/data/repositories/auth_repository.dart; this declaration is
+/// kept structurally compatible (all members implemented there) so ApiClient
+/// can depend on the abstraction without importing the feature layer.
 abstract class TokenStorage {
   Future<String?> getAccessToken();
   Future<String?> getRefreshToken();
@@ -178,6 +182,8 @@ abstract class TokenStorage {
     required String refreshToken,
   });
   Future<void> clearTokens();
+  Future<DateTime?> getTokenExpiration();
+  Future<void> saveTokenExpiration(DateTime expiresAt);
 }
 
 // ============================================================================

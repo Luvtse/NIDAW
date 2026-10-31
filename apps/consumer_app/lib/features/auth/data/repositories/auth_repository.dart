@@ -81,17 +81,8 @@ class AuthResult {
 // ============================================================================
 
 /// Interface for secure token storage
-abstract class TokenStorage {
-  Future<String?> getAccessToken();
-  Future<String?> getRefreshToken();
-  Future<void> saveTokens({
-    required String accessToken,
-    required String refreshToken,
-  });
-  Future<void> clearTokens();
-  Future<DateTime?> getTokenExpiration();
-  Future<void> saveTokenExpiration(DateTime expiresAt);
-}
+// NOTE: TokenStorage abstract contract intentionally not redeclared here;
+// the single canonical definition lives in core/network/api_client.dart.
 
 // ============================================================================
 // IMPLEMENTATION

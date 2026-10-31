@@ -41,7 +41,7 @@ class AnalyticsService {
 
   /// Set user ID for analytics
   Future<void> setUserId(String? userId) async {
-    await _firebaseAnalytics.setUserId(userId);
+    await _firebaseAnalytics.setUserId(id: userId);
     if (userId != null) {
       _userProperties['user_id'] = userId;
     }
@@ -74,7 +74,7 @@ class AnalyticsService {
   }
 
   Future<void> trackLogout() async {
-    await _trackEvent(const AnalyticsEvent(name: 'logout'));
+    await _trackEvent(AnalyticsEvent.named(name: 'logout'));
   }
 
   // ============================================================================
@@ -300,15 +300,23 @@ class AnalyticsEvent {
   final Map<String, dynamic>? parameters;
   final DateTime timestamp;
 
-  const AnalyticsEvent({
+  AnalyticsEvent({
     required this.name,
     this.parameters,
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? _fallbackTimestamp;
+  }) : timestamp = timestamp ?? DateTime.now();
 
-  // Const-friendly fallback; evaluated lazily per instance use instead of
-  // DateTime.now() which is not a const expression.
-  static final DateTime _fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(0);
+  /// Convenience constructor with an epoch default timestamp (used by
+  /// fire-and-forget tracking such as logout). Not const: DateTime's epoch
+  /// constructors are not const in the Dart core library.
+  AnalyticsEvent.named({
+    required this.name,
+    this.parameters,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? _kEpochDefault;
+
+  static final DateTime _kEpochDefault =
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   Map<String, dynamic> toJson() {
     return {
