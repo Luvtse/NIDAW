@@ -115,6 +115,7 @@ class ActiveRideBloc extends Bloc<ActiveRideEvent, ActiveRideState> {
   final AcceptRideUseCase _acceptRideUseCase;
   final StartRideUseCase _startRideUseCase;
   final CompleteRideUseCase _completeRideUseCase;
+  // ignore: unused_field — retained for trip-scoped location wiring (Phase 5 §4.3).
   final LocationService _locationService;
   final GetActiveRideUseCase _getActiveRideUseCase;
   final RideRepository _rideRepository;

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart' show Bloc;
 import 'package:go_router/go_router.dart';
 
 import '../startup/driver_startup_coordinator.dart'
@@ -36,7 +35,7 @@ class AppRouter {
       routes: [
         GoRoute(
           path: '/splash',
-          builder: (context, state) => const _SplashPage(),
+          builder: (context, state) => _SplashPage(authBloc: _authBloc),
         ),
         
         // Auth routes
@@ -142,13 +141,16 @@ class AppRouter {
 }
 
 class _SplashPage extends StatefulWidget {
-  const _SplashPage();
+  final AuthBloc authBloc;
+
+  const _SplashPage({required this.authBloc});
 
   @override
   State<_SplashPage> createState() => _SplashPageState();
 }
 
 class _SplashPageState extends State<_SplashPage> {
+  AuthBloc get _authBloc => widget.authBloc;
   @override
   void initState() {
     super.initState();

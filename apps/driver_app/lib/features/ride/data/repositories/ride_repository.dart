@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/websocket_client.dart';
 import '../../domain/entities/active_ride.dart';
-import '../../domain/entities/stop_charge.dart';
 
 abstract class RideRepository {
   Future<ActiveRide> acceptRide(String rideId);
