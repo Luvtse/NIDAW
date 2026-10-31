@@ -40,7 +40,7 @@ class StopChargeQuoteView {
   });
 
   factory StopChargeQuoteView.fromJson(Map<String, dynamic> json) {
-    int i(Object? v, int fallback) => v is num ? (v as num).toInt() : fallback;
+    int i(Object? v, int fallback) => v is num ? v.toInt() : fallback;
     return StopChargeQuoteView(
       seq: i(json['seq'], 0),
       fixedFeeSantim: i(json['fixed_fee_santim'], 0),

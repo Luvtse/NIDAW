@@ -228,16 +228,19 @@ class DriverStartupStateNotifier extends ChangeNotifier {
       _emit(_snapshot._copyWith(availabilityProvisional: true));
 
   void markAvailabilityConfirmed(bool online) {
+    // Online grants tracking permission; offline revokes it UNLESS a settled
+    // active trip still requires live position for rider safety (coordinator
+    // will stop continuous collection — battery + §4.3 "only when permitted").
+    // Read the pre-emit snapshot: `isOnActiveTrip` must reflect the settled
+    // trip-recovery answer, not availability flags being written right now.
+    final keepsTracking = !online &&
+        _snapshot.isOnActiveTrip &&
+        _snapshot.isReady(DriverStartupSubsystem.locationTracking);
     _emit(_snapshot._copyWith(
       availabilityProvisional: true,
       availabilityConfirmed: true,
     ));
-    // Online grants tracking permission; offline revokes it UNLESS a settled
-    // active trip still requires live position for rider safety (coordinator
-    // will stop continuous collection — battery + §4.3 "only when permitted").
-    if (!online &&
-        !_snapshot.isOnActiveTrip &&
-        _snapshot.isReady(DriverStartupSubsystem.locationTracking)) {
+    if (keepsTracking) {
       _setStatus(DriverStartupSubsystem.locationTracking,
           DriverStartupPhaseStatus.pending);
     }

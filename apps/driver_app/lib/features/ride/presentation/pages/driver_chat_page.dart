@@ -128,7 +128,7 @@ class _DriverChatPageState extends State<DriverChatPage> {
                           margin: const EdgeInsets.symmetric(vertical: 5),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isDriver ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceVariant,
+                            color: isDriver ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(message['body'] as String? ?? ''),

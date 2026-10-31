@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +25,30 @@ import '../../features/profile/presentation/pages/driver_profile_page.dart';
 import '../../features/profile/presentation/pages/vehicle_info_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 
+/// Bridges [AuthBloc] state changes to a [Listenable] for GoRouter's
+/// `refreshListenable`.
+///
+/// With the pinned `bloc: ^8.1.x` dependency, `BlocBase` does not implement
+/// `Listenable`, so it cannot be passed to `refreshListenable` directly.
+/// This adapter subscribes to the bloc's public stream and notifies GoRouter
+/// to re-evaluate its redirects whenever the auth state changes. It only
+/// listens; it never mutates bloc state, and all other AuthBloc consumers
+/// continue to use `add(...)`/`state` exclusively.
+class _AuthRefreshListenable extends ChangeNotifier {
+  StreamSubscription<AuthState>? _sub;
+
+  _AuthRefreshListenable(AuthBloc bloc) {
+    _sub = bloc.stream.listen((_) => notifyListeners());
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _sub = null;
+    super.dispose();
+  }
+}
+
 class AppRouter {
   final AuthBloc _authBloc;
   late final GoRouter _router;
@@ -30,7 +56,7 @@ class AppRouter {
   AppRouter({required AuthBloc authBloc}) : _authBloc = authBloc {
     _router = GoRouter(
       initialLocation: '/splash',
-      refreshListenable: _authBloc,
+      refreshListenable: _AuthRefreshListenable(_authBloc),
       redirect: _globalRedirect,
       routes: [
         GoRoute(
