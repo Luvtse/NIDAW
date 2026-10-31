@@ -85,7 +85,7 @@ class _InAppNotificationBannerState extends State<InAppNotificationBanner>
       case NotificationCategory.driverArriving:
         return Icons.location_searching_rounded;
       case NotificationCategory.paymentFailed:
-        return Icons.credit_card_gear_ready_rounded;
+        return Icons.credit_card_rounded;
       case NotificationCategory.promo:
         return Icons.local_offer_rounded;
       case NotificationCategory.safety:

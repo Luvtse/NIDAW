@@ -335,8 +335,8 @@ class PaymentMethodListResult {
     this.failureCode,
   });
 
-  const PaymentMethodListResult.success(this.methods)
-      : this._(ok: true, methods: methods);
+  const factory PaymentMethodListResult.success(List<SavedPaymentMethod> methods) =
+      _PaymentMethodListResultSuccess;
 
   const PaymentMethodListResult.failure({
     required String message,
@@ -488,4 +488,10 @@ class PromoListResult {
 
   const PromoListResult.failure({required String message, required String code})
       : this._(message: message, code: code);
+}
+
+
+class _PaymentMethodListResultSuccess extends PaymentMethodListResult {
+  const _PaymentMethodListResultSuccess(List<SavedPaymentMethod> methods)
+      : super._(ok: true, methods: methods);
 }

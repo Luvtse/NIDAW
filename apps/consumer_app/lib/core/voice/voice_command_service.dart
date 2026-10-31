@@ -51,8 +51,8 @@ class VoiceCommandService {
         // can show an honest snackbar instead of silently going quiet.
         _commandController?.add(VoiceCommand(
           type: CommandType.error,
-          parameters: {'message': e.msg},
-          feedback: 'Voice input error: ${e.msg}',
+          parameters: {'message': e.errorMsg},
+          feedback: 'Voice input error: ${e.errorMsg}',
           confidence: 0,
         ));
       },
@@ -91,12 +91,11 @@ class VoiceCommandService {
 
     await _speech.listen(
       // Partial results are emitted for live display only; commands fire on
-      // the FINAL result (lastSpeech/done) so half-heard transcripts never
-      // book rides.
+      // the FINAL result (done==true, or a full-length utterance when the
+      // platform does not flag it) so half-heard transcripts never book rides.
       onResult: (result) {
-        final isFinal = result.lastSpeech || result.done;
         _lastConfidence = result.confidence;
-        if (isFinal) {
+        if (result.finalResult) {
           _processCommand(result.recognizedWords, result.confidence);
         }
       },

@@ -236,7 +236,11 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logout() async {
     try {
       // Try to call logout endpoint (best effort)
-      await _apiClient.post('/api/v1/auth/logout').catchError((_) {});
+      try {
+        await _apiClient.post('/api/v1/auth/logout');
+      } catch (_) {
+        // Best effort: local state is cleared in the finally block anyway.
+      }
     } finally {
       // Always clear local state
       await _tokenStorage.clearTokens();

@@ -44,7 +44,7 @@ import '../../features/haven/presentation/bloc/hotel_search_bloc.dart';
 import '../../features/vorax/data/repositories/restaurant_repository.dart';
 import '../../features/vorax/presentation/bloc/restaurant_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart'
-    show ProfileBloc, ProfileRepository, ProfileRepositoryImpl, UserProfile;
+    show ProfileBloc, ProfileRepository, ProfileRepositoryImpl;
 import '../../features/wallet/data/repositories/wallet_repository.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 

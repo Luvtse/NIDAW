@@ -101,11 +101,9 @@ class _ARNavigationPageState extends State<ARNavigationPage> {
     var present = false;
     try {
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      present = manifest
-              .getList()
-              .whereType<String>()
-              .contains('assets/models/arrow.glb') ||
-          manifest.listAssets().any((a) => a.startsWith('assets/models/'));
+      final assets = manifest.listAssets();
+      present = assets.contains('assets/models/arrow.glb') ||
+          assets.any((a) => a.startsWith('assets/models/'));
     } catch (_) {
       // Bundle unreadable (tests): assume absent → bearing overlay path.
       present = false;
@@ -174,21 +172,12 @@ class _ARNavigationPageState extends State<ARNavigationPage> {
       },
     );
 
-    try {
-      _headingSub = Geolocator.getHeadingStream().listen(
-        (value) {
-          if (!mounted) return;
-          setState(() => _heading = value);
-        },
-        onError: (_) {
-          _safeSetState(() => _heading = null);
-        },
-      );
-    } catch (_) {
-      // Platform without heading support: bearing-only guidance.
-      _headingSub = null;
-      _heading = null;
-    }
+    // geolocator 10.x exposes no device-heading stream on any supported
+    // platform, so compass heading is unavailable here. Honest degradation:
+    // _heading stays null and both the AR scene and the 2D fallback render
+    // bearing-only guidance (the existing null-heading code paths).
+    _headingSub = null;
+    _heading = null;
   }
 
   void _safeSetState(VoidCallback fn) {
@@ -445,7 +434,7 @@ class _ARNavigationPageState extends State<ARNavigationPage> {
                         setState(() => _show2DFallback = !_show2DFallback)
                     : null,
                 icon: Icon(_show2DFallback
-                    ? Icons.view_ar
+                    ? Icons.threed_rotation
                     : Icons.map_outlined),
                 label: Text(_show2DFallback ? 'AR View' : 'Map View'),
               ),
@@ -511,14 +500,10 @@ class _ArSceneViewState extends State<_ArSceneView> {
         handlePans: false,
         handleRotation: false,
       );
-      objectManager.onInitialize(onImagesTracked: _onImagesTracked);
+      objectManager.onInitialize();
     } catch (_) {
       widget.onRenderError();
     }
-  }
-
-  void _onImagesTracked(List<ARNode> images) {
-    // No image anchors are configured; kept as the required callback sink.
   }
 
   void _syncArrowNodes() {
@@ -538,8 +523,11 @@ class _ArSceneViewState extends State<_ArSceneView> {
     _nodes.clear();
 
     final arrow = ARNode(
-      type: NodeType.LOCAL_AND_WEB,
-      uri: 'assets/models/arrow.glb',
+      // Asset-bundled node. localGLTF2 renders from the app's asset bundle;
+      // webGLB would require a remote URL, which we deliberately avoid so AR
+      // guidance never depends on the network (offline-first rule).
+      type: NodeType.localGLTF2,
+      uri: 'assets/models/arrow.gltf',
       scale: vector_math.Vector3(0.5, 0.5, 0.5),
       position: vector_math.Vector3(0.0, 0.0, -2.0),
       rotation: vector_math.Vector4(
