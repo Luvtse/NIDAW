@@ -10,6 +10,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Phase 6 dependency audit (reference-checked): flutter_svg, percent_indicator,
+  # shared_preferences and shimmer had zero importers across lib/, test/ and
+  # integration_test/ and no native references; removed to reduce pub resolution
+  # surface and asset/binary weight. firebase_crashlytics is intentionally
+  # RETAINED: the crashlytics Gradle plugin in android/app/build.gradle consumes
+  # its native artifact through this plugin's version pinning.
   # §4.3 Localization (Amharic / Oromo). gen-l10n reads lib/l10n/*.arb via
   # l10n.yaml; intl is already pinned below for message formatting.
   flutter_localizations:
@@ -47,17 +54,13 @@ dependencies:
   # Storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  shared_preferences: ^2.2.2
 
   # Connectivity
   connectivity_plus: ^5.0.2
 
   # UI Components
   cached_network_image: ^3.3.0
-  shimmer: ^3.0.0
-  flutter_svg: ^2.0.9
   fl_chart: ^0.65.0
-  percent_indicator: ^4.2.3
 
   # Utilities
   # NOTE(Phase 5 verification): Flutter 3.24.x's flutter_localizations pins
@@ -71,9 +74,9 @@ dependencies:
   share_plus: ^7.2.1
 
   # §3.4 Receipt PDF: generated client-side from the ride DTO and saved via
-  # path_provider; printing provides the PdfDoc -> bytes pipeline.
+  # Phase 6 dependency audit: `printing` removed (zero importers — the receipt
+  # PDF pipeline uses package:pdf directly and saves via path_provider).
   pdf: ^3.10.8
-  printing: ^5.12.0
   path_provider: ^2.1.2
 
   # Firebase
