@@ -181,8 +181,11 @@ class _RideTrackingPageState extends State<RideTrackingPage>
       if (lat != null && lng != null) return LatLng(lat, lng);
       return null;
     }
-    if (state is RideInProgress || state is RideCompleted) {
-      return LatLng(state.ride.pickupLat, state.ride.pickupLng);
+    if (state case final RideInProgress s) {
+      return LatLng(s.ride.pickupLat, s.ride.pickupLng);
+    }
+    if (state case final RideCompleted s) {
+      return LatLng(s.ride.pickupLat, s.ride.pickupLng);
     }
     return null;
   }
@@ -206,8 +209,11 @@ class _RideTrackingPageState extends State<RideTrackingPage>
       if (lat != null && lng != null) return LatLng(lat, lng);
       return null;
     }
-    if (state is RideInProgress || state is RideCompleted) {
-      return LatLng(state.ride.dropoffLat, state.ride.dropoffLng);
+    if (state case final RideInProgress s) {
+      return LatLng(s.ride.dropoffLat, s.ride.dropoffLng);
+    }
+    if (state case final RideCompleted s) {
+      return LatLng(s.ride.dropoffLat, s.ride.dropoffLng);
     }
     return null;
   }
@@ -254,13 +260,16 @@ class _RideTrackingPageState extends State<RideTrackingPage>
     final deviceId = await _resolveInstallId();
     if (!mounted) return;
     final name = _pickupNameOf(state);
-    final params = <String>{
+    final params = <String, String>{
       'lat': pickup.latitude.toStringAsFixed(6),
       'lng': pickup.longitude.toStringAsFixed(6),
     };
     if (name != null && name.isNotEmpty) params['name'] = name;
-    context.push('/nidus/ar-nav/${widget.rideId}',
-        extra: null, queryParameters: params);
+    // go_router 13.x context.push() has no queryParameters argument —
+    // build the query string into the location manually.
+    final uri = Uri.parse('/nidus/ar-nav/${widget.rideId}')
+        .replace(queryParameters: params);
+    context.push(uri.toString(), extra: null);
   }
 
   Future<void> _callDriver() async {
@@ -717,7 +726,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
         if (meters == null) {
           return l10n.ridecheckBodyDeviationUnmeasured;
         }
-        return l10n.ridecheckBodyDeviationMeasured(meters);
+        return l10n.ridecheckBodyDeviationMeasured(meters.round());
       case RideAnomalyKind.lowEtaConfidence:
         final c = anomaly.confidence;
         if (c == null) {
@@ -1344,7 +1353,7 @@ class _CashRideBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.accentLight.withValues(alpha: 0.25),
+        color: AppColors.accentLight.withOpacity(0.25),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.accent),
       ),
@@ -1481,7 +1490,7 @@ class _ArNavigationButtonState extends State<_ArNavigationButton> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: widget.onTap,
-              icon: const Icon(Icons.ar_home),
+              icon: const Icon(Icons.accessibility_new),
               label: Text(context.l10n.trackingWalkToPickupAr),
             ),
           ),
