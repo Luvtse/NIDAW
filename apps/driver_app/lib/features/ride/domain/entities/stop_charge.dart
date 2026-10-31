@@ -84,7 +84,7 @@ class StopChargeState extends Equatable {
 
   factory StopChargeState.fromJson(Map<String, dynamic> json) {
     DateTime? d(Object? v) => v is String ? DateTime.tryParse(v) : null;
-    int i(Object? v, int fallback) => v is num ? (v as num).toInt() : fallback;
+    int i(Object? v, int fallback) => v is num ? v.toInt() : fallback;
     return StopChargeState(
       seq: i(json['seq'], 0),
       approvedByRider: json['approved_by_rider'] == true,

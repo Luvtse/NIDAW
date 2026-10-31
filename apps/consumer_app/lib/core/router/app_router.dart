@@ -126,7 +126,10 @@ class AppRouter {
     _router = GoRouter(
       initialLocation: '/splash',
       debugLogDiagnostics: true,
-      refreshListenable: _authBloc, // Re-evaluate routes on auth state change
+      // Re-evaluate routes on auth state change. With bloc ^8.1.x the Bloc
+      // itself is not a Listenable; the bloc's dedicated authNotifier
+      // (ValueNotifier<AuthState>) is the supported refresh signal.
+      refreshListenable: _authBloc.authNotifier,
       redirect: _globalRedirect,
       routes: _buildRoutes(),
       errorBuilder: (context, state) => _ErrorPage(error: state.error),
