@@ -145,6 +145,22 @@ func NewFinalizeFareHandler(db *database.Postgres, eventBus eventbus.EventBus, s
 	}
 }
 
+// newFinalizeFareHandlerForTest builds the handler with injected ports so the
+// finalize DECISION logic is unit-testable without a live Postgres/Kafka
+// (see dispatch_test.go's documented policy: lifecycle SQL itself stays under
+// the NIDUS_TEST_DATABASE_URL-guarded integration suite). Production code must
+// use NewFinalizeFareHandler.
+func newFinalizeFareHandlerForTest(db *database.Postgres, bus eventbus.EventBus,
+	snaps FareSnapshotRepository, stops FinalizeStopCharger) *FinalizeFareHandler {
+	return &FinalizeFareHandler{
+		db:         db,
+		eventBus:   bus,
+		snapshots:  snaps,
+		finalFare:  services.NewFinalFareService(),
+		stopCharge: stops,
+	}
+}
+
 // Execute performs the full finalize flow. See file header for the contract.
 func (h *FinalizeFareHandler) Execute(ctx context.Context, cmd FinalizeFareCommand) (*FinalizeFareResult, error) {
 	if h.db == nil {
