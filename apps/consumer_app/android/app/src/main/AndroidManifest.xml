@@ -22,9 +22,21 @@
         android:label="NIDAW"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="true">
 
-        <!-- Main Activity -->
+        <!-- Main Activity.
+             Phase 6 startup contract (verified, not assumed):
+               * @style/LaunchTheme / @style/NormalTheme are defined in
+                 res/values/styles.xml and paint the native window splash
+                 before the Flutter engine boots — no Flutter-built splash
+                 imitation on the first-frame path.
+               * No network calls or disk-heavy work happens in
+                 MainActivity.onCreate / configureFlutterEngine; both only
+                 wire the deep-link MethodChannel. All heavier services
+                 (Firebase, Hive geocoding cache, FCM) initialize after the
+                 first Flutter frame via AppStartupCoordinator. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

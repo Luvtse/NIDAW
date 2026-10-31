@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launch splash background for the driver app (Phase 6).
+
+  Vector-only, identical brand navy to the consumer app so the native splash
+  hands off seamlessly to the lightweight Flutter shell rendered by
+  driver_startup_coordinator before Hive/dispatch initialization completes.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/black" />
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0A2540" />
+        </shape>
+    </item>
+</layer-list>

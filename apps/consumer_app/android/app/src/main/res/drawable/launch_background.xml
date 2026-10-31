@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launch splash background for the consumer app (Phase 6).
+
+  Pure vector drawable: no bitmap decode cost on the first-frame path, and it
+  survives resource shrinking because it is referenced from styles.xml which
+  is referenced from AndroidManifest.xml. The brand navy (#0A2540) matches the
+  NIDAW theme's primary color used by the Flutter shell, so the handoff from
+  native splash to the first Flutter frame is visually seamless.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/black" />
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0A2540" />
+        </shape>
+    </item>
+</layer-list>

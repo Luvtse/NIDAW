@@ -21,8 +21,22 @@
         android:label="NIDAW Driver"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="true">
 
+        <!-- Main Activity.
+             Phase 6 startup contract (verified, not assumed):
+               * @style/LaunchTheme / @style/NormalTheme are defined in
+                 res/values/styles.xml and paint the native window splash
+                 before the Flutter engine boots.
+               * The driver cold path renders its shell first; Hive box
+                 opening, dispatch WebSocket connection and location
+                 tracking start after the first frame via
+                 DriverStartupCoordinator — never on the Android main
+                 thread's first-frame path.
+               * Foreground-service declarations below are REQUIRED for
+                 driver ride execution and must be preserved. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
