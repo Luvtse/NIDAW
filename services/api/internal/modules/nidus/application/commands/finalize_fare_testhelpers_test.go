@@ -42,11 +42,16 @@ func fzScanVal(i int, dest any, v any) error {
 		}
 		*p = x
 	case *int:
-		x, ok := v.(int)
-		if !ok {
+		switch x := v.(type) {
+		case int:
+			*p = x
+		case int64:
+			*p = int(x)
+		case float64:
+			*p = int(x)
+		default:
 			return fmt.Errorf("fakeRow: want int at %d, got %T", i, v)
 		}
-		*p = x
 	case *float64:
 		switch x := v.(type) {
 		case float64:
@@ -110,6 +115,15 @@ func fzScanVal(i int, dest any, v any) error {
 			return fmt.Errorf("fakeRow: want status string at %d, got %T", i, v)
 		}
 		*p = entities.RideStatus(s)
+	case *int32:
+		switch x := v.(type) {
+		case int32:
+			*p = x
+		case int:
+			*p = int32(x)
+		default:
+			return fmt.Errorf("fakeRow: want int32 at %d, got %T", i, v)
+		}
 	default:
 		return fmt.Errorf("fakeRow: unsupported scan target %T at %d", dest, i)
 	}
@@ -173,50 +187,82 @@ type fzRule struct {
 	present bool
 }
 
+// add installs a rule. Re-adding the same substring REPLACES the previous
+// rule: production code has exactly one query per SQL shape, so a test that
+// overrides a lookup (e.g. unauthorized driver) must not leave two competing
+// fake rows for the same statement.
 func (c *fzConn) add(substr string, row pgx.Row) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.rules = append(c.rules, fzRule{substr: substr, present: true,
-		rowFn: func(...any) pgx.Row { return row }})
+	c.addFn(substr, func(...any) pgx.Row { return row })
 }
 
 func (c *fzConn) addFn(substr string, fn func(args ...any) pgx.Row) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.rules = append(c.rules, fzRule{substr: substr, present: true, rowFn: fn})
+	r := fzRule{substr: substr, present: true, rowFn: fn}
+	for i := range c.rules {
+		if strings.EqualFold(c.rules[i].substr, substr) {
+			c.rules[i] = r
+			return
+		}
+	}
+	c.rules = append(c.rules, r)
 }
 
 // addSeq installs a rule that returns successive rows on repeated calls
-// (models the winner committing between our read and re-read).
+// (models the winner committing between our read and re-read). Like addFn it
+// replaces any existing rule for the same substring.
 func (c *fzConn) addSeq(substr string, rows ...pgx.Row) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	i := 0
-	c.rules = append(c.rules, fzRule{substr: substr, present: true,
+	r := fzRule{substr: substr, present: true,
 		rowFn: func(...any) pgx.Row {
 			if i < len(rows)-1 {
 				i++
 			}
 			return rows[i]
-		}})
+		}}
+	for j := range c.rules {
+		if strings.EqualFold(c.rules[j].substr, substr) {
+			c.rules[j] = r
+			return
+		}
+	}
+	c.rules = append(c.rules, r)
 }
 
 func (c *fzConn) addRows(substr string, rows [][]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.rules = append(c.rules, fzRule{substr: substr, present: true,
-		rowsFn: func(...any) (pgx.Rows, error) { return &fzRows{rows: rows, idx: -1}, nil }})
+	r := fzRule{substr: substr, present: true,
+		rowsFn: func(...any) (pgx.Rows, error) { return &fzRows{rows: rows, idx: -1}, nil }}
+	for i := range c.rules {
+		if strings.EqualFold(c.rules[i].substr, substr) {
+			c.rules[i] = r
+			return
+		}
+	}
+	c.rules = append(c.rules, r)
 }
 
 func (c *fzConn) find(sql string) *fzRule {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	low := strings.ToLower(sql)
-	// Later-installed rules take precedence (allow targeted overrides).
-	for i := len(c.rules) - 1; i >= 0; i-- {
-		if strings.Contains(low, c.rules[i].substr) {
-			return &c.rules[i]
+	// Match the MOST SPECIFIC rule first (longest substring), not insertion
+	// order: "select user_id from drivers where id" is a case-insensitive
+	// substring of "select id from drivers where user_id = $1", so an
+	// insertion-order scan would route the wrong query to the wrong fake row.
+	best := -1
+	bestLen := -1
+	for i := range c.rules {
+		sub := strings.ToLower(c.rules[i].substr)
+		if strings.Contains(low, sub) && len(sub) > bestLen {
+			best, bestLen = i, len(sub)
 		}
+	}
+	if best >= 0 {
+		return &c.rules[best]
 	}
 	return nil
 }
@@ -300,7 +346,7 @@ func (t *fzTx) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandT
 	t.conn.mu.Unlock()
 
 	low := strings.ToLower(sql)
-	if strings.Contains(low, "update rides set status = 'completed'") {
+	if strings.Contains(low, "set status = 'completed'") {
 		if t.failTerminal {
 			return pgconn.CommandTag{}, errors.New("fzTx: simulated terminal update failure")
 		}
@@ -414,13 +460,19 @@ func newFzWorld() *fzWorld {
 	return w
 }
 
-// rideVals builds the 34-column loadRide scan row in exact production order.
+// rideVals builds the 34-column loadRide scan row in exact production order:
+// id, user_id, driver_id, p_lat, p_lng, d_lat, d_lng, p_addr, d_addr,
+// ride_type, status, fare_amount, currency, tip_amount, cancel_fee,
+// cancelled_by, cancel_reason, distance_km, duration_minutes,
+// fare_snapshot_id, payment_method_type, cash_collected_at, scheduled_at,
+// promo_code, promo_discount, base/dist/time/surge/service components,
+// requested_at, matched_at, started_at, completed_at, rating, created_at, updated_at.
 func (w *fzWorld) rideVals(status string, fare float64, promoDiscount float64, tip float64, method string) []any {
 	now := time.Unix(1700000001, 0).UTC()
-	base := fzPtr(3000.0)
-	dist := fzPtr(5000.0)
-	tm := fzPtr(1500.0)
-	var surge *float64
+	base := fzPtr(30.00)
+	dist := fzPtr(50.00)
+	tm := fzPtr(15.00)
+	var surge *float64 // nil component => receipt shows honest unavailable state
 	sfee := fzPtr(0.0)
 	return []any{
 		w.rideID, w.userID, &w.driverProfile,
@@ -435,8 +487,8 @@ func (w *fzWorld) rideVals(status string, fare float64, promoDiscount float64, t
 		"", promoDiscount,
 		base, dist, tm,
 		surge, sfee,
-		now, nil, nil, nil,
-		0.0, now, now,
+		now, nil, &now, nil,
+		0, now, now,
 	}
 }
 
