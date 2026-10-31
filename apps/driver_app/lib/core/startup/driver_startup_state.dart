@@ -87,6 +87,7 @@ class DriverStartupSnapshot {
     required this.serverValidated,
     required this.availabilityProvisional,
     required this.availabilityConfirmed,
+    required this.availabilityOnline,
     required this.tripRecoverySettled,
     this.activeRideId,
   });
@@ -97,6 +98,7 @@ class DriverStartupSnapshot {
         serverValidated: false,
         availabilityProvisional: false,
         availabilityConfirmed: false,
+        availabilityOnline: false,
         tripRecoverySettled: false,
       );
 
@@ -126,12 +128,17 @@ class DriverStartupSnapshot {
       isReady(DriverStartupSubsystem.dispatchSubscription);
 
   /// Continuous GPS collection requires an explicit grant from the startup
-  /// state machine: the server confirmed the driver ONLINE, or an ACTIVE TRIP
-  /// was recovered from the authoritative backend. Going offline while idle
-  /// revokes the grant immediately (battery + §4.3); an in-progress trip keeps
-  /// collection alive even when the availability toggle reads offline, because
-  /// riders depend on live driver position for safety.
-  bool get trackingPermitted => availabilityConfirmed || isOnActiveTrip;
+  /// state machine: the server confirmed the driver is currently ONLINE, or an
+  /// ACTIVE TRIP was recovered from the authoritative backend. Going offline
+  /// while idle revokes the grant immediately (battery + §4.3); an
+  /// in-progress trip keeps collection alive even when the availability toggle
+  /// reads offline, because riders depend on live driver position for safety.
+  bool get trackingPermitted => availabilityOnline || isOnActiveTrip;
+
+  /// Whether the LAST server-confirmed availability echo said ONLINE. Distinct
+  /// from [availabilityConfirmed], which only records that a definitive server
+  /// answer has arrived (online OR offline).
+  final bool availabilityOnline;
 
   bool get isOnActiveTrip =>
       tripRecoverySettled && (activeRideId?.isNotEmpty ?? false);
@@ -147,6 +154,7 @@ class DriverStartupSnapshot {
     bool? serverValidated,
     bool? availabilityProvisional,
     bool? availabilityConfirmed,
+    bool? availabilityOnline,
     bool? tripRecoverySettled,
     String? activeRideId,
     bool clearActiveRide = false,
@@ -159,6 +167,7 @@ class DriverStartupSnapshot {
           availabilityProvisional ?? this.availabilityProvisional,
       availabilityConfirmed:
           availabilityConfirmed ?? this.availabilityConfirmed,
+      availabilityOnline: availabilityOnline ?? this.availabilityOnline,
       tripRecoverySettled: tripRecoverySettled ?? this.tripRecoverySettled,
       activeRideId: clearActiveRide
           ? null
@@ -233,14 +242,15 @@ class DriverStartupStateNotifier extends ChangeNotifier {
     // will stop continuous collection — battery + §4.3 "only when permitted").
     // Read the pre-emit snapshot: `isOnActiveTrip` must reflect the settled
     // trip-recovery answer, not availability flags being written right now.
-    final keepsTracking = !online &&
-        _snapshot.isOnActiveTrip &&
-        _snapshot.isReady(DriverStartupSubsystem.locationTracking);
+    final keepsTracking = !online && _snapshot.isOnActiveTrip;
     _emit(_snapshot._copyWith(
       availabilityProvisional: true,
       availabilityConfirmed: true,
+      availabilityOnline: online,
     ));
-    if (keepsTracking) {
+    if (!keepsTracking &&
+        _snapshot.isReady(DriverStartupSubsystem.locationTracking)) {
+      // Offline while idle: revoke continuous collection immediately (§4.3).
       _setStatus(DriverStartupSubsystem.locationTracking,
           DriverStartupPhaseStatus.pending);
     }

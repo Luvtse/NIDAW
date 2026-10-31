@@ -1,1 +1,14 @@
-apps/driver_app/android/local.properties
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+build/
+*.dill.track.dill
+android/local.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+**/GeneratedPluginRegistrant.*
+*.log
+*.tmp
+.DS_Store
