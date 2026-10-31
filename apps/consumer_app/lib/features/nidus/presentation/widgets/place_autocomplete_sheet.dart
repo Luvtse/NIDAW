@@ -45,6 +45,10 @@ class PlaceAutocompleteSheet extends StatefulWidget {
   final String title;
   final LatLng? bias;
 
+  /// §4.2 voice-fallback seed: a raw transcript to prefill the search field
+  /// with, so the rider can correct it and pick a real place.
+  final String? initialQuery;
+
   /// Called when the rider taps the pinned "Use current location" row. The
   /// sheet pops with [PlaceAutocompleteOutcome.currentLocation]; the caller
   /// owns the GPS read so permission handling stays in one place.

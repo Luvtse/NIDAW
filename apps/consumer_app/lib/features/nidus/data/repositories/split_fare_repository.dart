@@ -39,14 +39,14 @@ class SplitFareRepository {
       );
       final body = response.data;
       if (body == null) {
-        return const SplitStatusResult.failure(
+        return SplitStatusResult.failure(
           message: 'Server returned an empty response',
           code: 'EMPTY_RESPONSE',
         );
       }
       final payload = _unwrap(body);
       if (payload == null) {
-        return const SplitStatusResult.failure(
+        return SplitStatusResult.failure(
           message: 'Unexpected response shape from split service',
           code: 'BAD_SHAPE',
         );
@@ -72,14 +72,14 @@ class SplitFareRepository {
       );
       final body = response.data;
       if (body == null) {
-        return const SplitStatusResult.failure(
+        return SplitStatusResult.failure(
           message: 'Server returned an empty response',
           code: 'EMPTY_RESPONSE',
         );
       }
       final payload = _unwrap(body);
       if (payload == null) {
-        return const SplitStatusResult.failure(
+        return SplitStatusResult.failure(
           message: 'Unexpected response shape from split service',
           code: 'BAD_SHAPE',
         );
@@ -104,13 +104,14 @@ class SplitFareRepository {
         '/api/v1/nidus/split/$inviteToken/accept',
       );
       final body = response.data;
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
         return SplitOpResult.success();
       }
       final message = body != null ? _extractMessage(_unwrap(body) ?? body) : null;
       return SplitOpResult.failure(
         message: message ?? 'Server rejected the invite',
-        code: 'SERVER_${response.statusCode}',
+        code: 'SERVER_$status',
       );
     } on ApiException catch (e) {
       return SplitOpResult.failure(message: e.message, code: e.errorCode);

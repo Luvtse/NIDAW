@@ -144,7 +144,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
       case NotificationCategory.driverArriving:
         return Icons.location_searching_rounded;
       case NotificationCategory.paymentFailed:
-        return Icons.credit_card_error_rounded;
+        return Icons.credit_card_off_rounded;
       case NotificationCategory.promo:
         return Icons.local_offer_rounded;
       case NotificationCategory.safety:

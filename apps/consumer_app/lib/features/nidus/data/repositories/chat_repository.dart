@@ -230,7 +230,9 @@ class ChatRepository {
 
   static const String _base = '/api/v1/chat';
 
-  ChatRepository({required ApiClient api, required WebSocketClient ws});
+  ChatRepository({required ApiClient api, required WebSocketClient ws})
+      : _api = api,
+        _ws = ws;
 
   // --------------------------------------------------------------------------
   // Real-time subscription

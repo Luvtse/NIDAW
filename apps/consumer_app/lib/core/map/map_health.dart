@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:latlong2/latlong.dart';
 

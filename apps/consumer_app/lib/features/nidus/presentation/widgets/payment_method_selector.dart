@@ -652,7 +652,7 @@ class PaymentFailureSheet extends StatelessWidget {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: topUpFirst,
-              icon: const Icon(Icons.add_money_online),
+              icon: const Icon(Icons.add_card_outlined),
               label: const Text('Top up wallet first'),
             ),
           ],

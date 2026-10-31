@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -16,13 +14,16 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
-  final String? errorCode;
+  /// Machine-readable error code. Always present: transport/unknown failures
+  /// map to UNKNOWN_ERROR at the throw sites, business errors carry the
+  /// server code.
+  final String errorCode;
   final dynamic responseData;
 
   const ApiException({
     required this.message,
     this.statusCode,
-    this.errorCode,
+    this.errorCode = 'UNKNOWN_ERROR',
     this.responseData,
   });
 
@@ -256,7 +257,6 @@ class ApiClient {
       );
     } on DioException catch (e) {
       _handleDioError(e);
-      rethrow;
     }
   }
 
@@ -277,7 +277,6 @@ class ApiClient {
       );
     } on DioException catch (e) {
       _handleDioError(e);
-      rethrow;
     }
   }
 
@@ -298,7 +297,6 @@ class ApiClient {
       );
     } on DioException catch (e) {
       _handleDioError(e);
-      rethrow;
     }
   }
 
@@ -319,7 +317,6 @@ class ApiClient {
       );
     } on DioException catch (e) {
       _handleDioError(e);
-      rethrow;
     }
   }
 
@@ -340,7 +337,6 @@ class ApiClient {
       );
     } on DioException catch (e) {
       _handleDioError(e);
-      rethrow;
     }
   }
 
@@ -374,7 +370,9 @@ class ApiClient {
   Never _handleBadResponse(Response response) {
     final data = response.data;
     final message = _extractErrorMessage(data) ?? 'Request failed';
-    final errorCode = _extractErrorCode(data);
+    // Server code when present; otherwise the documented UNKNOWN_ERROR
+    // default keeps the non-nullable errorCode contract intact.
+    final errorCode = _extractErrorCode(data) ?? 'UNKNOWN_ERROR';
 
     switch (response.statusCode) {
       case 400:

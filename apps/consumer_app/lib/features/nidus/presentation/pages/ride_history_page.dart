@@ -349,7 +349,7 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     onPressed: () => _cancelScheduledRide(ride),
-                    icon: const Icon(Icons.event_cancel_outlined, size: 16),
+                    icon: const Icon(Icons.cancel_outlined, size: 16),
                     label: const Text('Cancel scheduled ride'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.error,
