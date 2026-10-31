@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -205,7 +204,7 @@ class AuthRepositoryImpl implements AuthRepository {
       _onboardingComplete = false;
 
       return AuthResult.success(user);
-    } on ConflictException catch (e) {
+    } on ConflictException {
       return AuthResult.failure(
         error: 'An account with this email already exists',
         errorCode: 'EMAIL_EXISTS',

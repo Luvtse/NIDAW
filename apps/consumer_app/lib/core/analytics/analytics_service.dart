@@ -270,7 +270,7 @@ class AnalyticsService {
     _eventQueue.clear();
 
     try {
-      await _apiClient!.post(
+      await _apiClient.post(
         '/api/v1/analytics/events',
         data: {
           'events': events.map((e) => e.toJson()).toList(),

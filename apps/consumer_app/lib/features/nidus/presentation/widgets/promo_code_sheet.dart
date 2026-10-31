@@ -293,8 +293,8 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
     } else {
       parts.add('${widget.currency} ${c.value.toStringAsFixed(2)} off');
     }
-    if (c.minFare != null && c.minFare! > 0) {
-      parts.add('min fare ${widget.currency} ${c.minFare!.toStringAsFixed(2)}');
+    if (c.minFare > 0) {
+      parts.add('min fare ${widget.currency} ${c.minFare.toStringAsFixed(2)}');
     }
     if (c.validTo != null) {
       parts.add('until ${c.validTo!.toLocal().toString().split(' ').first}');

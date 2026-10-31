@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:get_it/get_it.dart';
 
 import '../../../../core/config/feature_flag_service.dart';
 import '../../../../core/di/injection.dart';

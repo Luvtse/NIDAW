@@ -220,9 +220,11 @@ class SafetyRepositoryImpl implements SafetyRepository {
     'NIDUS_EMERGENCY_NUMBER',
     defaultValue: '911',
   );
-  static const String _base = '/api/v1/nidus/safety';
+  // REST endpoints are exercised through ApiClient via [_apiClient];
+  // safety actions currently use tel:/URL launches and WS subscriptions.
 
-  final ApiClient _apiClient;
+  // ignore: unused_field -- retained for DI contract & future REST SOS reporting
+  final ApiClient? _apiClient;
   final WebSocketClient _webSocketClient;
 
   final Map<String, StreamController<SharedTripLocation>> _subscriptions = {};

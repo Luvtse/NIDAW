@@ -68,7 +68,7 @@ pw.Document buildReceiptDocument(Ride ride) {
           pw.Text('Ride ${ride.id}', style: const pw.TextStyle(fontSize: 11)),
           pw.Divider(),
           _row('Status', ride.status.replaceAll('_', ' ')),
-          if (ride.requestedAt != null) _row('Requested', df.format(ride.requestedAt!)),
+          _row('Requested', df.format(ride.requestedAt)),
           if (ride.completedAt != null) _row('Completed', df.format(ride.completedAt!)),
           if (ride.driver != null) ...[
             _row('Driver', ride.driver!.name),

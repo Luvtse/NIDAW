@@ -118,7 +118,7 @@ class GeocodingService {
     if ((results == null || results.isEmpty) && deviceAutocomplete != null) {
       try {
         results = await deviceAutocomplete!(trimmed, bias);
-        if (results != null && results.isNotEmpty) {
+        if (results.isNotEmpty) {
           health.record(GeocodeProvider.device);
         }
       } on Object {
@@ -194,17 +194,15 @@ class GeocodingService {
         options: _options(),
       );
       final feature = _firstPhotonFeature(resp.data);
-      if (feature != null) {
-        final result = GeocodeResult(
-          displayAddress: _photonDisplayName(feature),
-          location: point,
-          provider: GeocodeProvider.photon,
-        );
-        health.record(GeocodeProvider.photon);
-        unawaited(_cache.putReverse(result));
-        return result;
-      }
-    } on Object {
+      final result = GeocodeResult(
+        displayAddress: _photonDisplayName(feature),
+        location: point,
+        provider: GeocodeProvider.photon,
+      );
+      health.record(GeocodeProvider.photon);
+      unawaited(_cache.putReverse(result));
+      return result;
+        } on Object {
       // fall through
     }
 

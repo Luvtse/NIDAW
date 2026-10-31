@@ -5,7 +5,6 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/repositories/phase2_money_repository.dart';
 import '../../data/repositories/ride_repository.dart';
-import '../../data/repositories/split_fare_repository.dart';
 import '../widgets/split_fare_sheet.dart';
 import 'receipt_pdf_document.dart';
 

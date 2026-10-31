@@ -55,7 +55,7 @@ class GeocodingCache {
       return null;
     }
     // Touch lastAccessed so eviction prefers stale entries.
-    _box.put(key, {...raw as Map, 'accessed': DateTime.now().toIso8601String()});
+    _box.put(key, {...raw, 'accessed': DateTime.now().toIso8601String()});
     return entry.items
         .map((j) => PlaceSuggestion.fromJson(Map<String, dynamic>.from(j)))
         .toList();

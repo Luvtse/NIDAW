@@ -15,7 +15,6 @@
 // - No placeholder imagery: preview uses actual captured file bytes.
 // - Oversize after every rung => explicit user-facing reason, never a
 //   silent corrupt-bytes upload; the server's 413 stays authoritative.
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';

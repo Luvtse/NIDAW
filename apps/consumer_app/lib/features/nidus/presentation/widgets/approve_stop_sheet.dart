@@ -153,7 +153,7 @@ class _ApproveStopSheetState extends State<ApproveStopSheet> {
       messenger.showSnackBar(SnackBar(
         content: Text(e.errorCode == 'FORBIDDEN'
             ? 'Only the rider who booked this ride can approve stop fees.'
-            : 'Approval failed (${e.errorCode ?? 'ERROR'}). Nothing changed.'),
+            : 'Approval failed (${e.errorCode}). Nothing changed.'),
       ));
     } catch (_) {
       if (!mounted) return;

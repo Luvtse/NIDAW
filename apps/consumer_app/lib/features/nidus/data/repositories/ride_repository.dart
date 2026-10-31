@@ -1726,7 +1726,7 @@ class RideRepositoryImpl implements RideRepository {
       );
     } on ApiException catch (e) {
       return PriceExtensionResult.failure(
-        errorCode: e.errorCode 'PRICE_EXTENSION_FAILED',
+        errorCode: e.errorCode,,
         message: e.message,
       );
     } catch (e) {
@@ -1765,7 +1765,7 @@ class RideRepositoryImpl implements RideRepository {
       );
     } on ApiException catch (e) {
       return CancelRideResult.failure(
-        errorCode: e.errorCode 'CANCEL_FAILED',
+        errorCode: e.errorCode,,
         message: e.message,
       );
     } catch (e) {
@@ -1795,7 +1795,7 @@ class RideRepositoryImpl implements RideRepository {
       return const RateRideResult.rated();
     } on ApiException catch (e) {
       return RateRideResult.failure(
-        errorCode: e.errorCode 'RATE_FAILED',
+        errorCode: e.errorCode,,
         message: e.message,
       );
     } catch (e) {

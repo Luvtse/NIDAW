@@ -1189,12 +1189,10 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     }
     if (s is RideInProgress &&
         s.tripStartOrigin != null &&
-        s.ride.dropoffLat != null &&
-        s.ride.dropoffLng != null &&
         s.ride.id == _detectorRideId) {
       return (
         s.tripStartOrigin!,
-        LatLng(s.ride.dropoffLat!, s.ride.dropoffLng!),
+        LatLng(s.ride.dropoffLat, s.ride.dropoffLng),
       );
     }
     return null;
@@ -1366,7 +1364,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       }
       emit(RideError(
         message: e.message,
-        errorCode: e.errorCode ?? 'REQUEST_FAILED',
+        errorCode: e.errorCode,
       ));
     } catch (e) {
       emit(RideError(
@@ -1383,14 +1381,9 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     emit(const RideLoading());
 
     try {
-      final ride = await _rideRepository.getRide(event.rideId);
-      if (ride == null) {
-        emit(const RideError(
-          message: 'Ride not found',
-          errorCode: 'NOT_FOUND',
-        ));
-        return;
-      }
+      // Route through the injected GetRideStatusUseCase so every ride load
+      // honors the same validation/retry contract as the rest of the app.
+      final ride = await _getRideStatusUseCase.execute(event.rideId);
 
       _emitStateForRide(emit, ride);
     } catch (e) {
@@ -1562,7 +1555,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     } on ApiException catch (e) {
       emit(RideError(
         message: e.message,
-        errorCode: e.errorCode ?? 'RATE_FAILED',
+        errorCode: e.errorCode,
       ));
     } catch (e) {
       emit(RideError(
