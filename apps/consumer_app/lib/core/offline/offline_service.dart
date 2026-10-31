@@ -187,7 +187,6 @@ class OfflineService {
     // For now, just a placeholder
     final endpoint = operation['endpoint'] as String;
     final method = operation['method'] as String;
-    final data = operation['data'] as Map<String, dynamic>;
 
     // TODO: Call actual API
     print('Executing offline operation: $method $endpoint');

@@ -234,7 +234,7 @@ class ApiClient {
           error: true,
           compact: false,
         ),
-      _ErrorInterceptor(this),
+      _ErrorInterceptor(),
     ]);
   }
 
@@ -584,9 +584,7 @@ class _RetryInterceptor extends Interceptor {
 // ============================================================================
 
 class _ErrorInterceptor extends Interceptor {
-  final ApiClient _client;
-
-  _ErrorInterceptor(this._client);
+  _ErrorInterceptor();
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {

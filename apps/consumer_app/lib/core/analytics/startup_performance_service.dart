@@ -115,7 +115,7 @@ class StartupPerformanceService {
   // ==========================================================================
 
   StageStopwatch startStopwatch(String name) {
-    final sw = StageStopwatch._(name, this);
+    final sw = StageStopwatch._(name);
     _active[name] = sw;
     return sw;
   }
@@ -183,10 +183,9 @@ class StartupPerformanceService {
 /// Hierarchical stopwatch used by the coordinator: one total, many named
 /// steps. Steps nested via [time] measure only their own body duration.
 class StageStopwatch {
-  StageStopwatch._(this.name, this._owner);
+  StageStopwatch._(this.name);
 
   final String name;
-  final StartupPerformanceService _owner;
   final Stopwatch _total = Stopwatch()..start();
   final Map<String, int> _steps = {};
 

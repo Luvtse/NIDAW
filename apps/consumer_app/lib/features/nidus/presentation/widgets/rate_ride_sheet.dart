@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
-import '../../data/repositories/ride_repository.dart';
 import '../bloc/ride_bloc.dart';
 
 /// Post-trip rating sheet. Dispatches the existing [RateRide] event, which

@@ -119,7 +119,7 @@ class _StopChargeCardState extends State<StopChargeCard> {
             'This dwell window is already finalized. It cannot be rewritten.',
           'STOP_NOT_APPROVED' =>
             'The rider has not approved a fee for this stop yet.',
-          _ => '$failurePrefix (${e.errorCode ?? 'ERROR'}).',
+          _ => '$failurePrefix (${e.errorCode}).',
         };
       });
     } catch (_) {

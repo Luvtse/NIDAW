@@ -19,7 +19,6 @@ import '../../data/repositories/ride_repository.dart'
     show
         Ride,
         RideRepository,
-        DestinationChangeResult,
         PriceExtensionResult;
 import '../widgets/cancel_ride_sheet.dart';
 import '../widgets/stop_charge_card.dart';
@@ -257,7 +256,6 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   Future<void> _openArNavigation(RideState state) async {
     final pickup = _pickupOf(state);
     if (pickup == null) return;
-    final deviceId = await _resolveInstallId();
     if (!mounted) return;
     final name = _pickupNameOf(state);
     final params = <String, String>{
