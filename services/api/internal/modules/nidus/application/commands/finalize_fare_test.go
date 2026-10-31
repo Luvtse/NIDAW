@@ -322,8 +322,13 @@ func TestFinalize_LoserSeesNonTerminalStateFailsClosed(t *testing.T) {
 	if !errors.Is(err, ErrCompletionStateInvalid) {
 		t.Fatalf("err = %v, want ErrCompletionStateInvalid", err)
 	}
-	if len(w.bus.events()) != 0 {
-		t.Fatal("failed persist path must not leave extra publishes beyond the pre-tx fast path")
+	// The pre-transaction fast-path publish DID fire for this wallet ride;
+	// the ledger consumes by deterministic event_id == ride UUID, so the
+	// winner's duplicate delivery is idempotent and the loser's outbox row
+	// (never committed — rolled back) adds nothing. No outbox persistence may
+	// have been committed on the failed path.
+	if len(w.bus.events()) > 1 {
+		t.Fatalf("bus publishes = %d, want at most the single pre-tx fast-path attempt", len(w.bus.events()))
 	}
 }
 
