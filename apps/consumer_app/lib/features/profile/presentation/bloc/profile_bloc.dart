@@ -186,3 +186,47 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     }
   }
 }
+// ============================================================================
+// DATA LAYER ADAPTER (Phase 5)
+// ============================================================================
+
+/// ApiClient-backed implementation of [ProfileRepository]. Maps the
+/// `/api/v1/auth/me` payload onto [UserProfile] and posts profile updates
+/// back to the same endpoint family. Registered in DI as a lazy singleton.
+class ProfileRepositoryImpl implements ProfileRepository {
+  final ApiClient api;
+
+  const ProfileRepositoryImpl({required this.api});
+
+  Future<UserProfile> _fetchProfile() async {
+    final response = await api.get<dynamic>('/api/v1/auth/me');
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      final userJson =
+          data['user'] is Map<String, dynamic> ? data['user'] : data;
+      return UserProfile.fromJson(userJson as Map<String, dynamic>);
+    }
+    throw const FormatException('Unexpected profile payload shape');
+  }
+
+  @override
+  Future<UserProfile> getProfile() => _fetchProfile();
+
+  @override
+  Future<UserProfile> updateProfile(Map<String, dynamic> data) async {
+    await api.put<dynamic>('/api/v1/auth/me', data: data);
+    return _fetchProfile();
+  }
+
+  @override
+  Future<UserProfile> updateProfilePicture(String imagePath) async {
+    // Uploads are handled by the object-storage flow; after a successful
+    // avatar upload the server exposes the URL on auth/me, so we re-read it.
+    final fileName = Uri.file(imagePath).pathSegments.last;
+    await api.post<dynamic>(
+      '/api/v1/auth/me/avatar',
+      data: {'avatar_file_name': fileName},
+    );
+    return _fetchProfile();
+  }
+}
