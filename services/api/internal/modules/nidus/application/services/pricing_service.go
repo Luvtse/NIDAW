@@ -426,6 +426,15 @@ func (s *PricingService) SnapshotFromEstimate(
 	return snap, nil
 }
 
+// RatesForRideType exposes the frozen monetary rates (ETB major units per km /
+// per minute) for a ride type. Amendment writers (destination changes) pin
+// the same rate pair SnapshotFromEstimate records on booking snapshots, so an
+// amendment revision and its original contract never disagree about which
+// rules minted their numbers.
+func (s *PricingService) RatesForRideType(rt RideType) (perKm, perMinute float64) {
+	return s.config.PerKmRate[rt], s.config.PerMinuteRate[rt]
+}
+
 // SurgeInfo contains information about current surge pricing
 type SurgeInfo struct {
 	Multiplier    float64 `json:"multiplier"`
