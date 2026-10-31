@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../../core/theme/app_colors.dart';
 
 class DriverMap extends StatefulWidget {
   final Position? currentPosition;
@@ -52,7 +51,7 @@ class _DriverMapState extends State<DriverMap> {
       zoomControlsEnabled: false,
       compassEnabled: true,
       mapToolbarEnabled: false,
-      onCameraMove: () {},
+      onCameraMove: (position) {},
     );
   }
 
@@ -74,6 +73,7 @@ class _DriverMapState extends State<DriverMap> {
     });
   }
 
+  // ignore: unused_element — kept for follow-up "recenter" affordance wiring.
   void _moveToPosition(LatLng position) {
     _mapController?.animateCamera(
       CameraUpdate.newLatLng(position),

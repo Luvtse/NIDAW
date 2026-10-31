@@ -1,5 +1,6 @@
+import 'package:flutter_bloc/flutter_bloc.dart' show Bloc;
 import 'package:get_it/get_it.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../network/api_client.dart';
 import '../network/websocket_client.dart';
