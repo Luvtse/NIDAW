@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/legal_consent_bloc.dart';
@@ -20,6 +19,20 @@ class LegalConsentPage extends StatefulWidget {
 }
 
 class _LegalConsentPageState extends State<LegalConsentPage> {
+  /// Minimal HTML-to-text fallback (flutter_html dependency removed from pubspec).
+  static String _stripHtml(String input) {
+    var text = input.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    text = text.replaceAll(RegExp(r'</(p|div|h[1-6]|li|ul|ol)>', caseSensitive: false), '\n');
+    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
+    text = text
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"');
+    return text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  }
+
   bool _hasConsented = false;
   bool _isLoading = true;
   String _documentContent = '';
@@ -70,17 +83,9 @@ class _LegalConsentPageState extends State<LegalConsentPage> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: Html(
-                      data: _documentContent,
-                      style: {
-                        "body": Style(
-                          fontSize: FontSize(14),
-                          lineHeight: LineHeight(1.6),
-                        ),
-                        "h1": Style(fontSize: FontSize(20), fontWeight: FontWeight.bold),
-                        "h2": Style(fontSize: FontSize(18), fontWeight: FontWeight.bold),
-                        "h3": Style(fontSize: FontSize(16), fontWeight: FontWeight.bold),
-                      },
+                    child: SelectableText(
+                      _stripHtml(_documentContent),
+                      style: const TextStyle(fontSize: 14, height: 1.6),
                     ),
                   ),
                 ),

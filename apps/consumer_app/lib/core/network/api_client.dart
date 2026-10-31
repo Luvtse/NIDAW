@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -127,6 +128,14 @@ class TimeoutException extends ApiException {
   const TimeoutException({
     required super.message,
     super.errorCode = 'TIMEOUT',
+  });
+}
+
+/// Request explicitly cancelled (e.g. widget disposed)
+class CancelledException extends ApiException {
+  const CancelledException({
+    required super.message,
+    super.errorCode = 'CANCELLED',
   });
 }
 
@@ -346,8 +355,7 @@ class ApiClient {
         _handleBadResponse(error.response!);
 
       case DioExceptionType.cancel:
-        throw const ApiException(message: 'Request cancelled')
-            as Never;
+        throw const CancelledException(message: 'Request cancelled');
 
       default:
         throw NetworkException(
@@ -418,7 +426,7 @@ class ApiClient {
           statusCode: response.statusCode,
           errorCode: errorCode,
           responseData: data,
-        ) as Never;
+        );
     }
   }
 

@@ -41,7 +41,7 @@ class AnalyticsService {
 
   /// Set user ID for analytics
   Future<void> setUserId(String? userId) async {
-    await _firebaseAnalytics.setUserId(userId: userId);
+    await _firebaseAnalytics.setUserId(userId);
     if (userId != null) {
       _userProperties['user_id'] = userId;
     }

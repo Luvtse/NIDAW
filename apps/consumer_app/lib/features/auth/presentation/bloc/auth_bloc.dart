@@ -159,6 +159,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RegisterUseCase _registerUseCase;
   final AuthRepository _authRepository;
 
+  /// Callbacks wired by DI (WebSocket connect/disconnect)
+  final Future<void> Function()? onAuthenticated;
+  final Future<void> Function()? onLogout;
+
   /// ValueNotifier for GoRouter's refreshListenable
   /// This allows the router to react to auth state changes
   final ValueNotifier<AuthState> authNotifier = ValueNotifier<AuthState>(
@@ -169,6 +173,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required LoginUseCase loginUseCase,
     required RegisterUseCase registerUseCase,
     required AuthRepository authRepository,
+    this.onAuthenticated,
+    this.onLogout,
   })  : _loginUseCase = loginUseCase,
         _registerUseCase = registerUseCase,
         _authRepository = authRepository,
@@ -437,22 +443,3 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 }
 
-// ============================================================================
-// RESULT TYPE (for use cases)
-// ============================================================================
-
-/// Represents the result of an auth operation
-class AuthResult {
-  final User? user;
-  final String? error;
-  final String? errorCode;
-
-  const AuthResult._({this.user, this.error, this.errorCode});
-
-  const AuthResult.success(User user) : this._(user: user);
-  const AuthResult.failure({required String error, String? errorCode})
-      : this._(error: error, errorCode: errorCode);
-
-  bool get isSuccess => user != null;
-  bool get isFailure => error != null;
-}
