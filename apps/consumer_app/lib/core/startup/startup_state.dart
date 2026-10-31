@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 /// ============================================================================
 /// STARTUP STATE MACHINE (NIDAW Phase 5 — render first, initialize second)
 /// ============================================================================

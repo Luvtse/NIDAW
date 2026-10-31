@@ -16,15 +16,17 @@ import '../map/map_tile_provider.dart';
 import '../notifications/fcm_service.dart';
 import '../notifications/notification_repository.dart';
 import '../notifications/notification_service.dart';
-import '../network/api_client.dart';
+import '../network/api_client.dart' hide TokenStorage;
 import '../network/websocket_client.dart';
 import '../network/event_bus.dart';
 import '../offline/offline_service.dart';
 import '../router/app_router.dart';
 import '../startup/startup_state.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
-import '../../features/auth/domain/usecases/login_usecase.dart';
-import '../../features/auth/domain/usecases/register_usecase.dart';
+import '../../features/auth/domain/usecases/login_usecase.dart'
+    show LoginUseCase;
+import '../../features/auth/domain/usecases/register_usecase.dart'
+    show RegisterUseCase;
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/legal_consent_bloc.dart';
 import '../../features/nidus/data/repositories/chat_repository.dart';
@@ -40,8 +42,8 @@ import '../../features/haven/data/repositories/hotel_repository.dart';
 import '../../features/haven/presentation/bloc/hotel_search_bloc.dart';
 import '../../features/vorax/data/repositories/restaurant_repository.dart';
 import '../../features/vorax/presentation/bloc/restaurant_bloc.dart';
-import '../../features/profile/data/repositories/user_repository.dart';
-import '../../features/profile/presentation/bloc/profile_bloc.dart';
+import '../../features/profile/presentation/bloc/profile_bloc.dart'
+    show ProfileBloc, ProfileRepository, UserProfile;
 import '../../features/wallet/data/repositories/wallet_repository.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -291,9 +293,10 @@ void _registerRepositories() {
     ),
   );
 
-  // User Repository
-  getIt.registerLazySingleton<UserRepository>(
-    () => UserRepositoryImpl(apiClient: getIt<ApiClient>()),
+  // User/Profile Repository — thin adapter over ApiClient mapping the
+  // auth/me payload onto the profile feature's UserProfile entity.
+  getIt.registerLazySingleton<ProfileRepository>(
+    () => ProfileRepositoryImpl(api: getIt<ApiClient>()),
   );
 
   // Ride Repository
@@ -446,7 +449,7 @@ void _registerBlocs() {
 
   // Profile BLoC (singleton - global user state)
   getIt.registerLazySingleton<ProfileBloc>(
-    () => ProfileBloc(userRepository: getIt<UserRepository>()),
+    () => ProfileBloc(userRepository: getIt<ProfileRepository>()),
   );
 
   // Wallet BLoC (factory - new instance per wallet screen)
