@@ -110,6 +110,15 @@ func fzScanVal(i int, dest any, v any) error {
 			return fmt.Errorf("fakeRow: want status string at %d, got %T", i, v)
 		}
 		*p = entities.RideStatus(s)
+	case *int32:
+		switch x := v.(type) {
+		case int32:
+			*p = x
+		case int:
+			*p = int32(x)
+		default:
+			return fmt.Errorf("fakeRow: want int32 at %d, got %T", i, v)
+		}
 	default:
 		return fmt.Errorf("fakeRow: unsupported scan target %T at %d", dest, i)
 	}
@@ -212,11 +221,20 @@ func (c *fzConn) find(sql string) *fzRule {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	low := strings.ToLower(sql)
-	// Later-installed rules take precedence (allow targeted overrides).
-	for i := len(c.rules) - 1; i >= 0; i-- {
-		if strings.Contains(low, c.rules[i].substr) {
-			return &c.rules[i]
+	// Match the MOST SPECIFIC rule first (longest substring), not insertion
+	// order: "select user_id from drivers where id" is a case-insensitive
+	// substring of "select id from drivers where user_id = $1", so an
+	// insertion-order scan would route the wrong query to the wrong fake row.
+	best := -1
+	bestLen := -1
+	for i := range c.rules {
+		sub := strings.ToLower(c.rules[i].substr)
+		if strings.Contains(low, sub) && len(sub) > bestLen {
+			best, bestLen = i, len(sub)
 		}
+	}
+	if best >= 0 {
+		return &c.rules[best]
 	}
 	return nil
 }
