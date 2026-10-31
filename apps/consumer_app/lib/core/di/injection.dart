@@ -17,7 +17,7 @@ import '../map/map_tile_provider.dart';
 import '../notifications/fcm_service.dart';
 import '../notifications/notification_repository.dart';
 import '../notifications/notification_service.dart';
-import '../network/api_client.dart' hide TokenStorage;
+import '../network/api_client.dart';
 import '../network/websocket_client.dart';
 import '../network/event_bus.dart';
 import '../offline/offline_service.dart';
@@ -481,6 +481,7 @@ void _registerRouter() {
 class HiveTokenStorage implements TokenStorage {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
+  static const _expiresAtKey = 'token_expires_at';
 
   late final _authBox = Hive.box('auth');
 
@@ -507,6 +508,20 @@ class HiveTokenStorage implements TokenStorage {
   Future<void> clearTokens() async {
     await _authBox.delete(_accessTokenKey);
     await _authBox.delete(_refreshTokenKey);
+    await _authBox.delete(_expiresAtKey);
+  }
+
+  @override
+  Future<DateTime?> getTokenExpiration() async {
+    final raw = _authBox.get(_expiresAtKey);
+    if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+    if (raw is String) return DateTime.tryParse(raw);
+    return null;
+  }
+
+  @override
+  Future<void> saveTokenExpiration(DateTime expiresAt) async {
+    await _authBox.put(_expiresAtKey, expiresAt.toIso8601String());
   }
 }
 
