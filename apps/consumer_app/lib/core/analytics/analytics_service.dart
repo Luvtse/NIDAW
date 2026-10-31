@@ -300,11 +300,15 @@ class AnalyticsEvent {
   final Map<String, dynamic>? parameters;
   final DateTime timestamp;
 
-  AnalyticsEvent({
+  const AnalyticsEvent({
     required this.name,
     this.parameters,
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+  }) : timestamp = timestamp ?? _fallbackTimestamp;
+
+  // Const-friendly fallback; evaluated lazily per instance use instead of
+  // DateTime.now() which is not a const expression.
+  static final DateTime _fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(0);
 
   Map<String, dynamic> toJson() {
     return {

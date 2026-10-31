@@ -27,8 +27,8 @@ class OfflineServiceNotReadyException implements Exception {
 }
 
 class OfflineService {
-  static const String _pendingOperationsBox = 'pending_operations';
-  static const String _cachedDataBox = 'cached_data';
+  static const String _kPendingOperationsBox = 'pending_operations';
+  static const String _kCachedDataBox = 'cached_data';
 
   /// Cache key under which the last successful ride summary projection is
   /// stored. The home shell may render it with a "last known" freshness
@@ -80,8 +80,8 @@ class OfflineService {
     }
     _status = OfflineServiceStatus.initializing;
     try {
-      _pendingOpsBox = await Hive.openBox(_pendingOperationsBox);
-      _cachedDataBox = await Hive.openBox(_cachedDataBox);
+      _pendingOpsBox = await Hive.openBox(_kPendingOperationsBox);
+      _cachedDataBox = await Hive.openBox(_kCachedDataBox);
 
       // Check initial connectivity
       final result = await _connectivity.checkConnectivity();
