@@ -40,8 +40,6 @@ class _SettingsPageState extends State<SettingsPage> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         title: const Text('Settings'),
-        backgroundColor: Colors.white,
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

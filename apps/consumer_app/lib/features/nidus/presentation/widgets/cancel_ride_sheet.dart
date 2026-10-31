@@ -317,7 +317,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
                 Expanded(
                   child: Semantics(
                     button: true,
-                    destructive: true,
+                    excludeSemantics: true,
                     label: context.l10n.cancelSheetConfirm +
                         _feeLabelForSemantics(context, showFeeLine, quote),
                     child: ElevatedButton.icon(
@@ -352,8 +352,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
   String _confirmLabel(
       BuildContext context, bool showFeeLine, CancellationQuote? quote) {
     if (showFeeLine && quote != null && quote.fee > 0) {
-      return context.l10n.cancelSheetConfirmWithFee(
-          amount: quote.fee.toStringAsFixed(2), currency: quote.currency);
+      return context.l10n.cancelSheetConfirmWithFee(quote.currency, quote.fee.toStringAsFixed(2));
     }
     return context.l10n.cancelSheetConfirm;
   }
@@ -425,8 +424,7 @@ class _CancelRideSheetState extends State<CancelRideSheet> {
         Text(
           q.isFree
               ? context.l10n.cancelSheetNoFee
-              : context.l10n.cancelSheetCostNow(
-                  amount: q.fee.toStringAsFixed(2), currency: q.currency),
+              : context.l10n.cancelSheetCostNow(q.currency, q.fee.toStringAsFixed(2)),
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,

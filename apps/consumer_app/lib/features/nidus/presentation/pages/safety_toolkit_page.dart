@@ -50,7 +50,7 @@ class SafetyToolkitPage extends StatelessWidget {
     if (state is RideRequested) return state.rideId;
     if (state is DriverMatched) return state.rideId;
     if (state is DriverEnRoute) return state.rideId;
-    if (state is RideInProgress) return state.rideId;
+    if (state is RideInProgress) return state.ride.id;
     return null;
   }
 

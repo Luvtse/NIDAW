@@ -106,9 +106,10 @@ class _RateRideSheetState extends State<RateRideSheet> {
     try {
       await Future.any<void>(<Future<void>>[
         bloc.stream
-            .first((state) =>
+            .where((state) =>
                 (state is RideRated && state.rideId == widget.rideId) ||
                 state is RideError)
+            .first
             .then<void>((state) {
           if (state is RideError) {
             throw StateError(state.message);

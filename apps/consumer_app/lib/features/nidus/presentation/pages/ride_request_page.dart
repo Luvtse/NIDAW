@@ -796,7 +796,7 @@ class _RideRequestPageState extends State<RideRequestPage>
           ),
         if (_stops.length < maxRideStops)
           Material(
-            color: AppColors.surfaceMuted ?? AppColors.surface,
+            color: AppColors.surfaceVariant,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
@@ -1214,7 +1214,7 @@ class _RideRequestPageState extends State<RideRequestPage>
     }
     final hasCode = _promoCode != null;
     return Material(
-      color: AppColors.surfaceMuted ?? AppColors.surface,
+      color: AppColors.surfaceVariant,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -1286,7 +1286,7 @@ class _RideRequestPageState extends State<RideRequestPage>
   Widget _buildScheduleRow(RideState state) {
     final isScheduled = _scheduledAt != null;
     return Material(
-      color: AppColors.surfaceMuted ?? AppColors.surface,
+      color: AppColors.surfaceVariant,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

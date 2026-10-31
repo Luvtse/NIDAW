@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../bloc/profile_bloc.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -18,8 +19,6 @@ class ProfilePage extends StatelessWidget {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         title: const Text('Profile'),
-        backgroundColor: Colors.white,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -36,11 +35,10 @@ class ProfilePage extends StatelessWidget {
           if (state is ProfileLoaded) {
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   // Profile header
-                  _buildProfileHeader(state.user),
+                  _buildProfileHeader(state.profile),
 
                   const SizedBox(height: 24),
 

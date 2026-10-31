@@ -34,7 +34,7 @@ class TransactionTypeVisual {
       label: 'Ride earning (on hold)',
     ),
     'escrow_release': TransactionTypeVisual(
-      icon: Icons.unlock,
+      icon: Icons.lock_open,
       color: AppColors.success,
       label: 'Escrow released',
     ),

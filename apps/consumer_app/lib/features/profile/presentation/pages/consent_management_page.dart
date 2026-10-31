@@ -287,7 +287,7 @@ class _ConsentManagementPageState extends State<ConsentManagementPage> {
   Future<void> _withdrawConsent(String documentType, String reason) async {
     final bloc = context.read<LegalConsentBloc>();
     
-    await bloc.add(WithdrawConsent(
+    bloc.add(WithdrawConsent(
       documentType: documentType,
       reason: reason,
     ));
