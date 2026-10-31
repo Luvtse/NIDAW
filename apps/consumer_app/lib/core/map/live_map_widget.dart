@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -73,31 +74,84 @@ enum MapInteractionMode {
 /// mandated [MapTileProvider] fallback chain (primary → secondary → Hive
 /// cache → last-known-good). Failures never throw into flutter_map's loader;
 /// they surface via [MapTileProvider.health].
+///
+/// flutter_map 6.x contract: providers return a Flutter [ImageProvider] from
+/// [getImage]; resolved bytes are wrapped in a [MemoryImage], cached per tile
+/// key so rebuilds never re-decode the same tile.
 class ChainTileProvider extends TileProvider {
   final MapTileProvider provider;
+  final Map<String, ImageProvider> _imageCache = {};
 
   ChainTileProvider(this.provider);
 
   @override
-  Future<Uint8List?> getUrlWithRetry(
-    String url,
-    int retries,
-    Duration retryInterval,
-  ) async {
-    final coords = _coordsFromUrl(url);
-    if (coords == null) return super.getUrlWithRetry(url, retries, retryInterval);
-    return provider.getTile(coords);
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
+    final key = '${coordinates.z}/${coordinates.x}/${coordinates.y}';
+    return _imageCache.putIfAbsent(key, () {
+      final completer = Completer<Uint8List>();
+      // provider.getTile never throws — null means "every tier failed".
+      provider
+          .getTile(TileCoords(coordinates.z, coordinates.x, coordinates.y))
+          .then((bytes) => completer.complete(bytes ?? Uint8List(0)));
+      return _BytesImageProvider(completer.future);
+    });
   }
 
-  static TileCoords? _coordsFromUrl(String url) {
-    final match = RegExp(r'/(\d+)/(\d+)/(\d+)').firstMatch(url);
-    if (match == null) return null;
-    return TileCoords(
-      int.parse(match.group(1)!),
-      int.parse(match.group(2)!),
-      int.parse(match.group(3)!),
-    );
+  /// Retry hook: drop resolved-tile images so the next paint re-walks the
+  /// fallback chain (flutter_map 6.x has no controller-level reloadTiles()).
+  void clearImageCache() => _imageCache.clear();
+}
+
+/// Minimal async [ImageProvider] over a byte future produced by the fallback
+/// chain. Empty byte lists decode to an transparent 1x1 image placeholder.
+class _BytesImageProvider extends ImageProvider<_BytesImageProvider> {
+  final Future<Uint8List> bytes;
+
+  const _BytesImageProvider(this.bytes);
+
+  @override
+  Future<_BytesImageProvider> obtainKey(ImageConfiguration configuration) =>
+      Future.value(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _BytesImageProvider key,
+    ImageDecoderCallback decode,
+  ) =>
+      MultiFrameImageStreamCompleter(
+        codec: _loadAsync(key, decode),
+        scale: 1.0,
+        debugLabel: 'ChainTile',
+      );
+
+  Future<ui.Codec> _loadAsync(
+    _BytesImageProvider key,
+    ImageDecoderCallback decode,
+  ) async {
+    var data = await key.bytes;
+    if (data.isEmpty) {
+      data = _transparentPng;
+    }
+    final buffer = await ui.ImmutableBuffer.fromUint8List(data);
+    return decode(buffer);
   }
+
+  static final Uint8List _transparentPng = Uint8List.fromList(const [
+    // 1x1 fully-transparent PNG.
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+  ]);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BytesImageProvider && identical(other.bytes, bytes);
+
+  @override
+  int get hashCode => bytes.hashCode;
 }
 
 /// The single, live, OSM-backed map used by both Request and Tracking
@@ -170,6 +224,7 @@ class LiveMapWidget extends StatefulWidget {
 class LiveMapWidgetState extends State<LiveMapWidget> {
   final MapController _mapController = MapController();
   late final MapTileProvider _provider;
+  ChainTileProvider? _tileProviderChain;
   final bool _ownsProvider;
 
   StreamSubscription<MapHealth>? _healthSub;
@@ -278,38 +333,34 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final flags = switch (widget.interactionMode) {
-      MapInteractionMode.none => const MapOptions(
-          interactionOptions:
-              InteractionOptions(flags: InteractiveFlag.none),
-        ),
-      MapInteractionMode.pan => const MapOptions(
-          interactionOptions:
-              InteractionOptions(flags: InteractiveFlag.drag),
-        ),
-      MapInteractionMode.full => const MapOptions(
-          interactionOptions: InteractionOptions(
-            flags: InteractiveFlag.drag |
-                InteractiveFlag.flingAnimation |
-                InteractiveFlag.pinchMove |
-                InteractiveFlag.pinchZoom |
-                InteractiveFlag.doubleTapZoom,
-          ),
-        ),
+    final interactionFlags = switch (widget.interactionMode) {
+      MapInteractionMode.none => InteractiveFlag.none,
+      MapInteractionMode.pan => InteractiveFlag.drag,
+      MapInteractionMode.full =>
+        InteractiveFlag.drag |
+        InteractiveFlag.flingAnimation |
+        InteractiveFlag.pinchMove |
+        InteractiveFlag.pinchZoom |
+        InteractiveFlag.doubleTapZoom,
     };
 
-    final options = flags.copyWith(
+    // flutter_map 6.x: MapOptions is immutable and exposes no copyWith —
+    // construct the single authoritative options object directly.
+    final options = MapOptions(
       initialCenter: widget.initialCenter,
       initialZoom: widget.initialZoom,
       minZoom: 3,
       maxZoom: 19,
+      interactionOptions: InteractionOptions(flags: interactionFlags),
       onMapEvent: (event) {
         if (event.source == MapEventSource.mapController) return;
         if (event is MapEventWithMove &&
             (event.source == MapEventSource.dragEnd ||
-                event.source == MapEventSource.pinchZoom ||
+                event.source == MapEventSource.multiFingerEnd ||
                 event.source == MapEventSource.doubleTap)) {
-          widget.onCameraIdle?.call(event.center);
+          // flutter_map 6.x MapEvent carries the post-event camera; the
+          // center lives on the camera, not the event itself.
+          widget.onCameraIdle?.call(event.camera.center);
         }
       },
     );
@@ -333,7 +384,7 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
                     : _provider.mirrors.first.urlTemplate,
                 userAgentPackageName: 'com.nidaw.nidus',
                 maxZoom: 19,
-                tileProvider: ChainTileProvider(_provider),
+                tileProvider: (_tileProviderChain ??= ChainTileProvider(_provider)),
                 errorTileCallback: (tile, exception, stackTrace) {
                   // Errors are already reported through MapTileProvider.health;
                   // swallow here so flutter_map renders the blank/error tile.
@@ -395,8 +446,10 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
             child: MapHealthBanner(
               health: _lastHealth!,
               onRetry: () {
-                _provider.rePrime();
-                _mapController.reloadTiles();
+                // flutter_map 6.x has no reloadTiles(): evicting our own
+                // per-tile image cache forces fresh loads through the
+                // fallback chain on the next paint pass.
+                _tileProviderChain?.clearImageCache();
               },
             ),
           ),
@@ -413,20 +466,22 @@ class LiveMapWidgetState extends State<LiveMapWidget> {
           : m.position;
       result.add(
         Marker(
-          markerId: MarkerId(m.id),
+          key: ValueKey(m.id),
           point: position,
           width: 48,
           height: 64,
           child: isPickup
               ? _DraggablePickupPin(
+                  markerId: m.id,
                   marker: m,
                   onDragUpdate: (globalPosition) {
                     final box = context.findRenderObject() as RenderBox?;
                     if (box == null) return;
                     final local = box.globalToLocal(globalPosition);
+                    // flutter_map 6.x: camera.pointToLatLng takes a
+                    // math.Point (not Offset); zoom comes from the camera.
                     final latLng = _mapController.camera.pointToLatLng(
-                      local,
-                      _mapCameraZoom(),
+                      math.Point(local.dx, local.dy),
                     );
                     setState(() {
                       _dragging = true;
@@ -610,11 +665,13 @@ class _LiveMapReadyNotifierState extends State<_LiveMapReadyNotifier> {
 /// Pickup pin that responds to long-press-drag gestures, updating its LatLng
 /// through the parent's preview mechanism.
 class _DraggablePickupPin extends StatelessWidget {
+  final String markerId;
   final MapMarkerModel marker;
   final ValueChanged<Offset> onDragUpdate;
   final VoidCallback onDragEnd;
 
   const _DraggablePickupPin({
+    required this.markerId,
     required this.marker,
     required this.onDragUpdate,
     required this.onDragEnd,
@@ -635,10 +692,10 @@ class _DraggablePickupPin extends StatelessWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(
-                color: Color(0xFF43A047),
+              decoration: BoxDecoration(
+                color: const Color(0xFF43A047),
                 shape: BoxShape.circle,
-                border: Border(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.white, width: 2),
               ),
               child: const Icon(Icons.place, color: Colors.white, size: 18),
             ),
