@@ -56,23 +56,32 @@ class FakeRideRepository implements RideRepository {
   /// reload failing while a ride is live.
   bool failListRides = false;
 
-  @override
-  Stream<RideStatusUpdate> subscribeToRideUpdates(String rideId) =>
-      updates.stream;
+  /// Records every repository method reached, so tests can assert the
+  /// banner scenario never secretly cancels/completes the live ride.
+  final List<String> calls = [];
 
   @override
-  void unsubscribeFromRideUpdates(String rideId) {}
+  Stream<RideStatusUpdate> subscribeToRideUpdates(String rideId) {
+    calls.add('subscribeToRideUpdates');
+    return updates.stream;
+  }
 
   @override
-  Future<Ride?> getRide(String rideId) async =>
-      nextRide?.id == rideId ? nextRide : null;
+  void unsubscribeFromRideUpdates(String rideId) {
+    calls.add('unsubscribeFromRideUpdates');
+  }
 
   @override
-  Future<Ride?> getActiveRide() async => nextRide;
+  Future<Ride?> getRide(String rideId) async {
+    calls.add('getRide');
+    return nextRide?.id == rideId ? nextRide : null;
+  }
 
   @override
-  Future<bool> cancelRide(String rideId, {String? reason}) async =>
-      throw StateError('cancelRide must not be reached in Phase 1 tests');
+  Future<Ride?> getActiveRide() async {
+    calls.add('getActiveRide');
+    return nextRide;
+  }
 
   @override
   Future<RideListResult> listRides({
@@ -80,6 +89,7 @@ class FakeRideRepository implements RideRepository {
     int limit = 20,
     int offset = 0,
   }) async {
+    calls.add('listRides');
     if (failListRides) throw Exception('history unavailable');
     return RideListResult(
         rides: nextRide == null ? [] : [nextRide!],
@@ -180,11 +190,28 @@ void main() {
 
     test('LoadRideHistory failure after DriverEnRoute leaves ride intact: '
         'the banner\'s "trip is still active" claim stays truthful', () async {
-      // Drive the bloc to a live DriverEnRoute via REST load.
-      repo.nextRide = Ride.fromJson(minimalEnRouteJson());
+      // Drive the bloc to a live DriverEnRoute via REST load. Built directly
+      // (not from JSON) so it matches exactly what _emitStateForRide reads:
+      // pinCode is client-derived via RideBloc.pinCodeForRide, never a DTO
+      // field. currentUserIdResolver is left null so the §2.3 role split
+      // takes the RIDER branch (DriverEnRoute, not DriverEnRouteForDriver).
+      repo.nextRide = Ride(
+        id: 'ride-1',
+        userId: 'user-1',
+        driverId: 'driver-1',
+        pickupLat: 8.98,
+        pickupLng: 38.75,
+        dropoffLat: 9.03,
+        dropoffLng: 38.79,
+        rideType: 'standard',
+        status: 'driver_en_route',
+        fareAmount: 100,
+        currency: 'ETB',
+        requestedAt: DateTime.utc(2026, 10, 20, 9),
+        matchedAt: DateTime.utc(2026, 10, 20, 9, 1),
+        driver: testDriver(),
+      );
       bloc.add(LoadRide('ride-1'));
-      // Await the transition deterministically (the stream is single-subscription
-      // over Bloc's state changed; skip initial RideInitial).
       final enRoute = await bloc.stream
           .firstWhere((s) => s is DriverEnRoute) as DriverEnRoute;
 
@@ -192,8 +219,8 @@ void main() {
       // exactly the event that used to eject the rider from tracking.
       repo.failListRides = true;
       bloc.add(const LoadRideHistory());
-      final err = await bloc.stream
-          .firstWhere((s) => s is RideError) as RideError;
+      final err =
+          await bloc.stream.firstWhere((s) => s is RideError) as RideError;
       expect(err.errorCode, 'LOAD_HISTORY_FAILED');
 
       // Bloc contract: the failed history handler emitted an error STATE,
@@ -201,8 +228,12 @@ void main() {
       // returns to the identical live trip — so re-emitting the last known
       // good state on reconnect is safe, and the banner body ("your ride
       // has not been cancelled") is backed by the repository, which never
-      // received a cancel call (noSuchMethod fakes would have thrown).
-      expect(enRoute.pinCode, isNotEmpty);
+      // received a cancel call (noSuchMethod fake would have thrown).
+      expect(repo.calls, isNot(contains('cancelRide')));
+      expect(enRoute.rideId, 'ride-1');
+      expect(enRoute.pinCode, RideBloc.pinCodeForRide('ride-1'),
+          reason: 'PIN must be the deterministic per-ride code, matching '
+              'what the driver app derives from the same ride id');
       expect(bloc.state, isA<RideError>());
       expect(hasActiveRide(bloc.state), isFalse,
           reason: 'the error itself is not a ride state; the page keeps '
@@ -211,30 +242,3 @@ void main() {
     });
   });
 }
-
-Map<String, dynamic> minimalEnRouteJson() => <String, dynamic>{
-      'id': 'ride-1',
-      'user_id': 'user-1',
-      'driver_id': 'driver-1',
-      'pickup_lat': 8.98,
-      'pickup_lng': 38.75,
-      'dropoff_lat': 9.03,
-      'dropoff_lng': 38.79,
-      'ride_type': 'standard',
-      'status': 'driver_en_route',
-      'currency': 'ETB',
-      'fare_amount': 100.0,
-      'pin_code': '1234',
-      'requested_at': '2026-10-20T09:00:00Z',
-      'matched_at': '2026-10-20T09:01:00Z',
-      'driver': {
-        'id': 'driver-1',
-        'name': 'Abebe K.',
-        'rating': 4.8,
-        'vehicle_type': 'sedan',
-        'vehicle_plate': '3-ABC-123',
-        'current_lat': 8.99,
-        'current_lng': 38.76,
-        'eta_minutes': 5,
-      },
-    };
