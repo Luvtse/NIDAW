@@ -293,5 +293,178 @@
   "paymentNoneSaved": "No saved methods yet. Add one below.",
   "@paymentNoneSaved": {
     "description": "§4.3 extracted from payment_method_selector.dart empty state."
+  },
+  "trackingErrorLiveRideTitle": "Problem connecting — your trip is still active",
+  "@trackingErrorLiveRideTitle": {
+    "description": "Phase 1: headline of the persistent error banner shown while a ride is live on the tracking page (replaces silent pop())."
+  },
+  "trackingErrorLiveRideBody": "We lost some ride information, but your ride has not been cancelled. You can stay on this screen or leave it.",
+  "@trackingErrorLiveRideBody": {
+    "description": "Phase 1: body of the live-ride error banner; reassures the rider the trip continues."
+  },
+  "trackingErrorGenericTitle": "Something went wrong",
+  "@trackingErrorGenericTitle": {
+    "description": "Phase 1: headline when an error arrives but no live ride exists (e.g. failed cancellation)."
+  },
+  "trackingErrorGenericBody": "The last action did not complete. Check the details below before trying again.",
+  "@trackingErrorGenericBody": {
+    "description": "Phase 1: body for the non-live-ride banner variant (CANCEL_FAILED durable outcome)."
+  },
+  "trackingErrorStay": "Stay",
+  "@trackingErrorStay": {
+    "description": "Phase 1: primary action keeping the rider on the tracking screen."
+  },
+  "trackingErrorLeave": "Leave",
+  "@trackingErrorLeave": {
+    "description": "Phase 1: explicit user-chosen exit from tracking (never automatic)."
+  },
+  "trackingErrorRetry": "Retry",
+  "@trackingErrorRetry": {
+    "description": "Phase 1: re-dispatches LoadRide; only offered for errors this page can actually recover."
+  },
+  "trackingErrorDismiss": "Dismiss",
+  "@trackingErrorDismiss": {
+    "description": "Phase 1: acknowledges a durable outcome (e.g. cancel fee) without staying visible."
+  },
+  "trackingErrorLiveRideA11y": "Error during your active ride. Your trip is continuing.",
+  "@trackingErrorLiveRideA11y": {
+    "description": "Phase 1: screen-reader live-region label for the live-ride banner variant."
+  },
+  "trackingErrorDetailA11y": "Error details",
+  "@trackingErrorDetailA11y": {
+    "description": "Phase 1: screen-reader live-region label for the generic banner variant."
+  },
+  "sosSlideLabel": "Slide to confirm SOS",
+  "@sosSlideLabel": {
+    "description": "Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized)."
+  },
+  "sosSliderA11y": "SOS confirmation slider. Drag fully right, or press Enter, to send an emergency alert.",
+  "@sosSliderA11y": {
+    "description": "Phase 1: TalkBack/VoiceOver label announcing both the drag gesture and the keyboard alternative."
+  },
+  "sosActivateA11y": "Send emergency SOS now",
+  "@sosActivateA11y": {
+    "description": "Phase 1: custom assistive action on the draggable thumb — direct activation path."
+  },
+  "sosTooltip": "Hold and slide all the way to the right to confirm an emergency alert",
+  "@sosTooltip": {
+    "description": "Phase 1: tooltip explaining the deliberate two-step SOS confirmation."
+  },
+  "sosTitle": "Emergency SOS",
+  "@sosTitle": {
+    "description": "Phase 1: Safety Toolkit tile title for the SOS action."
+  },
+  "sosTileSubtitle": "Alert the emergency line at {number} with your live location",
+  "@sosTileSubtitle": {
+    "description": "Phase 1: Safety Toolkit SOS tile subtitle.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayA11y": "Emergency SOS countdown",
+  "@sosOverlayA11y": {
+    "description": "Phase 1: barrier label so screen readers announce the modal countdown overlay."
+  },
+  "sosOverlayTitle": "Emergency SOS",
+  "@sosOverlayTitle": {
+    "description": "Phase 1: headline of the full-screen pre-alarm countdown overlay."
+  },
+  "sosOverlayCountdownBody": "Opening your phone dialer for emergency number {number} in {seconds} s…",
+  "@sosOverlayCountdownBody": {
+    "description": "Phase 1: countdown body text.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "sosOverlayFallbackBody": "If the dialer does not open, use the button below or call {number} directly.",
+  "@sosOverlayFallbackBody": {
+    "description": "Phase 1: shown once the countdown has elapsed / dialer hand-off state.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCancel": "Cancel — I'm safe",
+  "@sosOverlayCancel": {
+    "description": "Phase 1: abort-SOS action on the countdown overlay."
+  },
+  "sosOverlayCallNow": "Call emergency services now",
+  "@sosOverlayCallNow": {
+    "description": "Phase 1: immediate escalation button on the countdown overlay."
+  },
+  "sosOverlayRetryCall": "Retry call {number}",
+  "@sosOverlayRetryCall": {
+    "description": "Phase 1: escalation button label after a failed dialer launch.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCallDirectly": "Call {number} directly from your phone.",
+  "@sosOverlayCallDirectly": {
+    "description": "Phase 1: snackbar when the app could not open the dialer.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFilterAll": "All",
+  "@historyFilterAll": {
+    "description": "Phase 1: history filter chip — show every ride."
+  },
+  "historyFilterCompleted": "Completed",
+  "@historyFilterCompleted": {
+    "description": "Phase 1: history filter chip — completed rides."
+  },
+  "historyFilterCancelled": "Cancelled",
+  "@historyFilterCancelled": {
+    "description": "Phase 1: history filter chip — cancelled rides."
+  },
+  "historyFilterInProgress": "In Progress",
+  "@historyFilterInProgress": {
+    "description": "Phase 1: history filter chip — rides currently running."
+  },
+  "historyEmptyFiltered": "No {filter} rides yet",
+  "@historyEmptyFiltered": {
+    "description": "Phase 1: empty state when a filter hides everything; {filter} is the localized chip label.",
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEmptyBody": "Your ride history will appear here.",
+  "@historyEmptyBody": {
+    "description": "Phase 1: secondary line under the unfiltered empty state."
+  },
+  "historyEmptyFilteredBody": "Try another filter to see more of your ride history.",
+  "@historyEmptyFilteredBody": {
+    "description": "Phase 1: secondary line under the filtered empty state."
+  },
+  "historyClearFilter": "Clear filter",
+  "@historyClearFilter": {
+    "description": "Phase 1: resets the history list to all rides."
+  },
+  "historyRequestRide": "Request a Ride",
+  "@historyRequestRide": {
+    "description": "Phase 1: CTA on the empty history state."
+  },
+  "historyErrorPrimary": "Couldn't load your rides",
+  "@historyErrorPrimary": {
+    "description": "Phase 1: localized headline replacing raw 'Error loading rides'; the server message is demoted to a detail line."
+  },
+  "historyRetry": "Retry",
+  "@historyRetry": {
+    "description": "Phase 1: re-runs the history request."
   }
 }

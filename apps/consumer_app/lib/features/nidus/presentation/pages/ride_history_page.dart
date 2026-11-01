@@ -49,13 +49,18 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildFilterChip('all', 'All'),
+                  // Phase 1 §3: chip labels route through the ARB catalog
+                  // (were hardcoded English literals).
+                  _buildFilterChip('all', context.l10n.historyFilterAll),
                   const SizedBox(width: 8),
-                  _buildFilterChip('completed', 'Completed'),
+                  _buildFilterChip(
+                      'completed', context.l10n.historyFilterCompleted),
                   const SizedBox(width: 8),
-                  _buildFilterChip('cancelled', 'Cancelled'),
+                  _buildFilterChip(
+                      'cancelled', context.l10n.historyFilterCancelled),
                   const SizedBox(width: 8),
-                  _buildFilterChip('in_progress', 'In Progress'),
+                  _buildFilterChip(
+                      'in_progress', context.l10n.historyFilterInProgress),
                 ],
               ),
             ),
@@ -87,11 +92,73 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                   return _buildErrorState(state.message);
                 }
 
-                return const Center(child: Text('No rides found'));
+                // Phase 1 §3 (history loading/empty conflation): every
+                // pre-load state — RideInitial, or any foreign bloc state
+                // arriving before our first LoadRideHistory result lands —
+                // renders the skeleton, NEVER a 'No rides found' message.
+                // The old fallback here showed a false empty state during
+                // the initial frame and whenever the shared RideBloc was in
+                // an unrelated state, which read as "your history is gone".
+                return _buildLoadingSkeleton();
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Skeleton placeholder for pre-load states. Mirrors the ride-card layout
+  /// so the list area never flashes content it does not have yet.
+  Widget _buildLoadingSkeleton() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (context, index) => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 140,
+                          height: 14,
+                          color: Colors.grey[200],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 80,
+                          height: 10,
+                          color: Colors.grey[200],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(height: 12, color: Colors.grey[200]),
+              const SizedBox(height: 8),
+              Container(width: 200, height: 12, color: Colors.grey[200]),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -400,9 +467,13 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
         children: [
           Icon(Icons.history, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          // §4.3: routed through the ARB catalog (was a hardcoded English literal).
+          // Phase 1 §3: localized primary; the filtered variant takes the
+          // filter label as an argument (was string-interpolated English).
           Text(
-            _selectedFilter == 'all' ? context.l10n.historyEmpty : 'No ${_filterLabel(_selectedFilter).toLowerCase()} rides yet',
+            _selectedFilter == 'all'
+                ? context.l10n.historyEmpty
+                : context.l10n.historyEmptyFiltered(
+                    _filterLabel(_selectedFilter)),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
@@ -410,9 +481,10 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
+              // Phase 1 §3: ARB catalog (were hardcoded English literals).
               _selectedFilter == 'all'
-                  ? 'Your ride history will appear here.'
-                  : 'Try another filter to see more of your ride history.',
+                  ? context.l10n.historyEmptyBody
+                  : context.l10n.historyEmptyFilteredBody,
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[600]),
             ),
@@ -425,13 +497,15 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                 context.read<RideBloc>().add(const LoadRideHistory());
               },
               icon: const Icon(Icons.filter_alt_off),
-              label: const Text('Clear filter'),
+              // Phase 1 §3: ARB catalog (was a hardcoded English literal).
+              label: Text(context.l10n.historyClearFilter),
             )
           else
             ElevatedButton.icon(
               onPressed: () => context.push('/nidus/request'),
               icon: const Icon(Icons.add),
-              label: const Text('Request a Ride'),
+              // Phase 1 §3: ARB catalog (was a hardcoded English literal).
+              label: Text(context.l10n.historyRequestRide),
             ),
         ],
       ),
@@ -445,12 +519,28 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
         children: [
           const Icon(Icons.error_outline, size: 64, color: AppColors.error),
           const SizedBox(height: 16),
-          const Text(
-            'Error loading rides',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          // Phase 1 §3: localized primary headline (was hardcoded English
+          // 'Error loading rides'). The raw server message is demoted to a
+          // detail line below — useful for support, never the headline.
+          Text(
+            context.l10n.historyErrorPrimary,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
-          Text(message, style: TextStyle(color: Colors.grey[600])),
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
@@ -460,7 +550,8 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                     ),
                   );
             },
-            child: const Text('Retry'),
+            // Phase 1 §3: ARB catalog (was a hardcoded English literal).
+            child: Text(context.l10n.historyRetry),
           ),
         ],
       ),

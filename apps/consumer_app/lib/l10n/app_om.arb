@@ -284,5 +284,178 @@
   "paymentNoneSaved": "Hanga ammaa karaa olkaa'amaa hin jiru. Gadi jalaa dabalaa.",
   "@paymentNoneSaved": {
     "description": "§4.3 extracted from payment_method_selector.dart empty state."
+  },
+  "trackingErrorLiveRideTitle": "Walqunnamtiin cincaa — imalli keeti itti fufee jira",
+  "@trackingErrorLiveRideTitle": {
+    "description": "Phase 1: headline of the persistent error banner shown while a ride is live on the tracking page (replaces silent pop())."
+  },
+  "trackingErrorLiveRideBody": "Odeeffannoo imala muraanga dhabne, garuu imalli keeti haqamaa hin jiru. Fuula kana irratti hachuu ykn ba'uu dandeessa.",
+  "@trackingErrorLiveRideBody": {
+    "description": "Phase 1: body of the live-ride error banner; reassures the rider the trip continues."
+  },
+  "trackingErrorGenericTitle": "Waanni tokko dogoggoraa ta'e",
+  "@trackingErrorGenericTitle": {
+    "description": "Phase 1: headline when an error arrives but no live ride exists (e.g. failed cancellation)."
+  },
+  "trackingErrorGenericBody": "Taksiin dhumaatti xumuramaa hin turre. Irra deebi'uun dura bal'ina gadii ilaali.",
+  "@trackingErrorGenericBody": {
+    "description": "Phase 1: body for the non-live-ride banner variant (CANCEL_FAILED durable outcome)."
+  },
+  "trackingErrorStay": "Turi",
+  "@trackingErrorStay": {
+    "description": "Phase 1: primary action keeping the rider on the tracking screen."
+  },
+  "trackingErrorLeave": "Ba'i",
+  "@trackingErrorLeave": {
+    "description": "Phase 1: explicit user-chosen exit from tracking (never automatic)."
+  },
+  "trackingErrorRetry": "Irra deebi'i",
+  "@trackingErrorRetry": {
+    "description": "Phase 1: re-dispatches LoadRide; only offered for errors this page can actually recover."
+  },
+  "trackingErrorDismiss": "Cufi",
+  "@trackingErrorDismiss": {
+    "description": "Phase 1: acknowledges a durable outcome (e.g. cancel fee) without staying visible."
+  },
+  "trackingErrorLiveRideA11y": "Imala hojiirra ooluu keessatti dogoggorri mul'ate. Imalli keeti itti fufee jira.",
+  "@trackingErrorLiveRideA11y": {
+    "description": "Phase 1: screen-reader live-region label for the live-ride banner variant."
+  },
+  "trackingErrorDetailA11y": "Bal'ina dogoggoraa",
+  "@trackingErrorDetailA11y": {
+    "description": "Phase 1: screen-reader live-region label for the generic banner variant."
+  },
+  "sosSlideLabel": "SOS mirgaan fageenyaan simsimsi",
+  "@sosSlideLabel": {
+    "description": "Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized)."
+  },
+  "sosSliderA11y": "Harkisa mirga SOS. Mirga guutuutti simsimsi ykn Enter cuqaasi oguu gargaarsa hatattamaa ergachuuf.",
+  "@sosSliderA11y": {
+    "description": "Phase 1: TalkBack/VoiceOver label announcing both the drag gesture and the keyboard alternative."
+  },
+  "sosActivateA11y": "Amma SOS hatattamaa ergi",
+  "@sosActivateA11y": {
+    "description": "Phase 1: custom assistive action on the draggable thumb — direct activation path."
+  },
+  "sosTooltip": "Oguu gargaarsa hatattamaa mirkaneessuuf qabi, mirga guutuutti simsimsi",
+  "@sosTooltip": {
+    "description": "Phase 1: tooltip explaining the deliberate two-step SOS confirmation."
+  },
+  "sosTitle": "SOS Hatattamaa",
+  "@sosTitle": {
+    "description": "Phase 1: Safety Toolkit tile title for the SOS action."
+  },
+  "sosTileSubtitle": "Lakkoofsa hatattamaa {number} bakka qabuun olkaa'amtee waliin beeksisi",
+  "@sosTileSubtitle": {
+    "description": "Phase 1: Safety Toolkit SOS tile subtitle.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayA11y": "Lakkoofsa duubaa SOS hatattamaa",
+  "@sosOverlayA11y": {
+    "description": "Phase 1: barrier label so screen readers announce the modal countdown overlay."
+  },
+  "sosOverlayTitle": "SOS Hatattamaa",
+  "@sosOverlayTitle": {
+    "description": "Phase 1: headline of the full-screen pre-alarm countdown overlay."
+  },
+  "sosOverlayCountdownBody": "Bilbilli si'a {seconds}'tti lakkoofsa hatattamaa {number} bana…",
+  "@sosOverlayCountdownBody": {
+    "description": "Phase 1: countdown body text.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "sosOverlayFallbackBody": "Bilbilli yoo hin banne, tuqaa gadii fayyadami ykn kallattiin {number} bilbili.",
+  "@sosOverlayFallbackBody": {
+    "description": "Phase 1: shown once the countdown has elapsed / dialer hand-off state.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCancel": "Haqi — nagaan ani jira",
+  "@sosOverlayCancel": {
+    "description": "Phase 1: abort-SOS action on the countdown overlay."
+  },
+  "sosOverlayCallNow": "Tajaajila hatattamaa amma bilbili",
+  "@sosOverlayCallNow": {
+    "description": "Phase 1: immediate escalation button on the countdown overlay."
+  },
+  "sosOverlayRetryCall": "{number} bilbilaan irra deebi'i",
+  "@sosOverlayRetryCall": {
+    "description": "Phase 1: escalation button label after a failed dialer launch.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCallDirectly": "{number} bilbila keetiin kallattiin bilbili.",
+  "@sosOverlayCallDirectly": {
+    "description": "Phase 1: snackbar when the app could not open the dialer.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFilterAll": "Hunda",
+  "@historyFilterAll": {
+    "description": "Phase 1: history filter chip — show every ride."
+  },
+  "historyFilterCompleted": "Xumurame",
+  "@historyFilterCompleted": {
+    "description": "Phase 1: history filter chip — completed rides."
+  },
+  "historyFilterCancelled": "Haqame",
+  "@historyFilterCancelled": {
+    "description": "Phase 1: history filter chip — cancelled rides."
+  },
+  "historyFilterInProgress": "Hojiirra ooluu",
+  "@historyFilterInProgress": {
+    "description": "Phase 1: history filter chip — rides currently running."
+  },
+  "historyEmptyFiltered": "Imala {filter}'aa hanga ammaa hin qabu",
+  "@historyEmptyFiltered": {
+    "description": "Phase 1: empty state when a filter hides everything; {filter} is the localized chip label.",
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEmptyBody": "Seenaan imala keetii as mul'ata.",
+  "@historyEmptyBody": {
+    "description": "Phase 1: secondary line under the unfiltered empty state."
+  },
+  "historyEmptyFilteredBody": "Imala dabalataa argachuuf filannoo biraa yaali.",
+  "@historyEmptyFilteredBody": {
+    "description": "Phase 1: secondary line under the filtered empty state."
+  },
+  "historyClearFilter": "Filannoo balleessi",
+  "@historyClearFilter": {
+    "description": "Phase 1: resets the history list to all rides."
+  },
+  "historyRequestRide": "Imala gaadhi",
+  "@historyRequestRide": {
+    "description": "Phase 1: CTA on the empty history state."
+  },
+  "historyErrorPrimary": "Imaloonni keetii fe'amuu hin dandeenye",
+  "@historyErrorPrimary": {
+    "description": "Phase 1: localized headline replacing raw 'Error loading rides'; the server message is demoted to a detail line."
+  },
+  "historyRetry": "Irra deebi'i",
+  "@historyRetry": {
+    "description": "Phase 1: re-runs the history request."
   }
 }
