@@ -400,6 +400,18 @@
       }
     }
   },
+  "sosStartedCountdown": "የSOS ቆጣሪ ተጀምሯል ለማረጋገጥ ይያዙ ወይም Safety Toolkit ለመክፈት መጋረጃውን ይንኩ። (native review pending)",
+  "@sosStartedCountdown": {
+    "description": "Phase 1: shown after an SOS countdown is armed from RideCheck 'Call for help'. Amharic machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
+  "sosLocationUnavailable": "አካባቢ ማግኘት አልተቻለም — ከአካባቢዎ ጋር SOS መጀመር አይቻልም። (native review pending)",
+  "@sosLocationUnavailable": {
+    "description": "Phase 1: honest degradation when no GPS fix. Amharic machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
+  "openSafetyToolkit": "Safety Toolkit ይክፈቱ (native review pending)",
+  "@openSafetyToolkit": {
+    "description": "Phase 1: snackbar action label. Amharic machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
   "sosOverlayCallDirectly": "{number}ን ከስልክዎ በቀጥታ ይደውሉ።",
   "@sosOverlayCallDirectly": {
     "description": "Phase 1: snackbar when the app could not open the dialer.",

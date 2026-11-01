@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/location/device_location_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../data/repositories/safety_repository.dart';
@@ -116,12 +117,72 @@ class SafetyToolkitPage extends StatelessWidget {
               // orphaned and giving two safety surfaces divergent behavior.
               // The overlay keeps the rider in control: cancel ("I'm safe")
               // or escalate immediately; the phone still confirms the call.
-              bloc.add(StartSosCountdown(
-                rideId: rideId,
-                lat: 0,
-                lng: 0,
-                message: 'Emergency SOS from Safety Toolkit.',
-              ));
+              //
+              // Phase 1 addendum: the confirm step now mounts
+              // SosSlideToConfirm (the accessible slide/keyboard/AT-action
+              // trigger) instead of arming the countdown on tap — pocket-
+              // dials must not fire a real SOS. And we read the rider's REAL
+              // position first (was lat/lng = 0,0 placeholder, which would
+              // dispatch a Gulf-of-Guinea "emergency location"). Honest
+              // degradation: no fix → no fake SOS, same rule as RideCheck.
+              if (!context.mounted) return;
+              final confirmed = await showGeneralDialog<bool>(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: l10n.sosOverlayA11y,
+                pageBuilder: (_, __, ___) => Material(
+                  color: Colors.black.withOpacity(0.85),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            l10n.sosTitle,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.textOnDark,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.sosTileSubtitle(_emergencyNumber),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 14),
+                          ),
+                          const SizedBox(height: 24),
+                          SosSlideToConfirm(
+                            onConfirmed: () =>
+                                Navigator.of(context).pop(true),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              if (confirmed != true) return;
+
+              const locationService = DeviceLocationService();
+              final result = await locationService.getCurrentPosition();
+              if (!context.mounted) return;
+              if (result is LocationGranted) {
+                bloc.add(StartSosCountdown(
+                  rideId: rideId,
+                  lat: result.latitude,
+                  lng: result.longitude,
+                  message: 'Emergency SOS from Safety Toolkit.',
+                ));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.sosLocationUnavailable)),
+                );
+                return;
+              }
               if (!context.mounted) return;
               await showGeneralDialog<void>(
                 context: context,

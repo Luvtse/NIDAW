@@ -409,6 +409,18 @@
       }
     }
   },
+  "sosStartedCountdown": "SOS countdown started. Hold to confirm or tap the shield to open the Safety Toolkit.",
+  "@sosStartedCountdown": {
+    "description": "Phase 1: shown after an SOS countdown is armed from RideCheck 'Call for help'. Localized (was hardcoded English)."
+  },
+  "sosLocationUnavailable": "Location unavailable — cannot start SOS with your position.",
+  "@sosLocationUnavailable": {
+    "description": "Phase 1: honest degradation when no GPS fix; we never send a locationless SOS. Localized (was hardcoded English)."
+  },
+  "openSafetyToolkit": "Open Safety Toolkit",
+  "@openSafetyToolkit": {
+    "description": "Phase 1: snackbar action label routing the rider to manual emergency flows."
+  },
   "sosOverlayCallDirectly": "Call {number} directly from your phone.",
   "@sosOverlayCallDirectly": {
     "description": "Phase 1: snackbar when the app could not open the dialer.",
