@@ -104,6 +104,14 @@ class AppLocalizationsAm extends AppLocalizations {
   String get requestSelectRideType => 'ጉዞ ይምረጡ';
 
   @override
+  String get requestOptionsPricesUnavailable =>
+      'ዋጋ መግለጫ አልተገኘም — ለማደስ ይጎትቱ ወይም እንደገና ይሞክሩ።';
+
+  @override
+  String get requestOptionsSetRouteFirst =>
+      'ዋጋ መግለጫ አልተገኘም — ቀጥያና መድረሻ ቦታዎችን ከመረጡ በኋላ ዋጋዎች ይጫናሉ።';
+
+  @override
   String get trackingSearchingTitle => 'ሾፍሎችን እየፈለግን ነው…';
 
   @override

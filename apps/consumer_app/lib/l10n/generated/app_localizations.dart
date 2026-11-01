@@ -283,6 +283,21 @@ abstract class AppLocalizations {
   /// **'Choose a ride'**
   String get requestSelectRideType;
 
+  /// Phase 2 dead-code reconnect: carousel retry strip shown when GET
+  /// /rides/estimates fails after locations are set. Server detail is appended
+  /// by the page, never used alone.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices unavailable — pull to refresh or tap Retry.'**
+  String get requestOptionsPricesUnavailable;
+
+  /// Phase 2 dead-code reconnect: carousel placeholder before both endpoints
+  /// exist; honest 'unavailable', never a fabricated price.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices unavailable — set pickup and dropoff to load live fares.'**
+  String get requestOptionsSetRouteFirst;
+
   /// No description provided for @trackingSearchingTitle.
   ///
   /// In en, this message translates to:

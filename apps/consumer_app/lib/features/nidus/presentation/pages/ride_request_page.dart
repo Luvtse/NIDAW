@@ -66,6 +66,12 @@ class _RideRequestPageState extends State<RideRequestPage>
   bool _pickupLocating = false;
   bool _gpsUnavailableBanner = false;
   String _selectedRideType = 'standard';
+
+  /// §2.6 / Phase 2 dead-code resolution: true while a [LoadRideOptions]
+  /// fetch is in flight. The bloc's terminal option states replace the whole
+  /// snapshot, so the page tracks loading locally to keep the carousel
+  /// skeleton honest between dispatch and emission.
+  bool _optionsLoading = false;
   String? _selectedPaymentMethodId;
 
   /// §3.1: rail type of the selected registry method ('wallet' | 'card' |
