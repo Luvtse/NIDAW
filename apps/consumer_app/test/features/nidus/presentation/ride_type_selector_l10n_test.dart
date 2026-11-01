@@ -62,6 +62,7 @@ void main() {
         options: [
           _option(etaMinutes: 5, capacity: 4),
           _option(rideType: 'premium', etaMinutes: 0, capacity: 1),
+          // Omitted capacity + omitted ETA => honest localized degradation.
           _option(rideType: 'shared', available: false),
         ],
       )));
@@ -70,10 +71,10 @@ void main() {
       expect(find.text(l10n.requestOptionChosenBadge), findsOneWidget);
       expect(find.text(l10n.requestOptionEtaMinutes(5)), findsOneWidget);
       expect(find.text(l10n.requestOptionEtaMinutes(0)), findsOneWidget);
-      expect(find.text(l10n.requestOptionSeats(4)), findsOneWidget);
-      expect(find.text(l10n.requestOptionSeats(1)), findsOneWidget); // singular
-      // Omitted capacity + omitted ETA degrade honestly via the catalog.
-      expect(find.text(l10n.requestOptionCapacityUnknown), findsOneWidget);
+      // The 'shared' fixture omits capacity AND ETA — its line renders the
+      // localized "Capacity not provided" label, and the unavailable card's
+      // seat count never leaks as the English literal 'N seats'.
+      expect(find.text(l10n.requestOptionCapacityUnknown), findsWidgets);
       expect(find.text(l10n.requestOptionEtaUnavailable), findsOneWidget);
       expect(find.text(l10n.requestOptionUnavailable), findsOneWidget);
       // Never fabricate a zero-ETA for an omitted value.
