@@ -231,6 +231,10 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
   Widget build(BuildContext context) {
     final bloc = context.read<RideBloc>();
     final remaining = bloc.sosCountdownRemaining;
+    // Phase 1 §4: overlay copy routes through the ARB catalog (was hardcoded
+    // English). Safety surfaces must speak the rider's language.
+    final l10n = context.l10n;
+    final emergencyNumber = SafetyRepositoryImpl.emergencyNumber;
 
     return Material(
       color: Colors.black.withOpacity(0.85),
@@ -242,9 +246,9 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
             children: [
               const Icon(Icons.emergency_share, color: AppColors.error, size: 72),
               const SizedBox(height: 16),
-              const Text(
-                'Emergency SOS',
-                style: TextStyle(
+              Text(
+                l10n.sosOverlayTitle,
+                style: const TextStyle(
                   // §4.4: intentional white-on-dark overlay foreground.
                   color: AppColors.textOnDark,
                   fontSize: 24,
@@ -254,8 +258,8 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
               const SizedBox(height: 8),
               Text(
                 remaining > 0
-                    ? 'Opening your phone dialer for emergency number ${SafetyRepositoryImpl.emergencyNumber} in $remaining s…'
-                    : 'If the dialer does not open, use the button below or call ${SafetyRepositoryImpl.emergencyNumber} directly.',
+                    ? l10n.sosOverlayCountdownBody(emergencyNumber, remaining)
+                    : l10n.sosOverlayFallbackBody(emergencyNumber),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 15),
               ),
@@ -269,9 +273,9 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
                       Navigator.of(context).pop();
                     },
                     icon: const Icon(Icons.close, color: Colors.white70),
-                    label: const Text(
-                      'Cancel — I\'m safe',
-                      style: TextStyle(color: Colors.white70),
+                    label: Text(
+                      l10n.sosOverlayCancel,
+                      style: const TextStyle(color: Colors.white70),
                     ),
                   ),
                 ],
@@ -296,7 +300,7 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
                         bloc.add(const CancelSosCountdown());
                       } else if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Call ${SafetyRepositoryImpl.emergencyNumber} directly from your phone.')),
+                          SnackBar(content: Text(l10n.sosOverlayCallDirectly(emergencyNumber))),
                         );
                       }
                     } else {
@@ -305,8 +309,8 @@ class _SosCountdownOverlayState extends State<SosCountdownOverlay> {
                   },
                   icon: const Icon(Icons.sos),
                   label: Text(bloc.sosCountdownRemaining == 0 && bloc.isSosActive
-                      ? 'Retry call ${SafetyRepositoryImpl.emergencyNumber}'
-                      : 'Call emergency services now'),
+                      ? l10n.sosOverlayRetryCall(emergencyNumber)
+                      : l10n.sosOverlayCallNow),
                 ),
               ),
             ],

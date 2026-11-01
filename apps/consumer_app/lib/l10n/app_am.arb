@@ -284,5 +284,178 @@
   "paymentNoneSaved": "እስካሁን የተቀመጡ ዘዴዎች የሉም። ከታች ይጨምሩ።",
   "@paymentNoneSaved": {
     "description": "§4.3 extracted from payment_method_selector.dart empty state."
+  },
+  "trackingErrorLiveRideTitle": "ግንኙነት ተቋረጠ — ጉዞዎ ገና በሂደት ላይ ነው",
+  "@trackingErrorLiveRideTitle": {
+    "description": "Phase 1: headline of the persistent error banner shown while a ride is live on the tracking page (replaces silent pop())."
+  },
+  "trackingErrorLiveRideBody": "አንዳንድ የጉዞ መረጃ አጥተናል፣ ነገር ግን ጉዞዎ አልተሰረዘም። በዚህ ማያ ገጽ ላይ ሊቆዩ ወይም ሊወጡ ይችላሉ።",
+  "@trackingErrorLiveRideBody": {
+    "description": "Phase 1: body of the live-ride error banner; reassures the rider the trip continues."
+  },
+  "trackingErrorGenericTitle": "አንድ ነገር ተስላሏል",
+  "@trackingErrorGenericTitle": {
+    "description": "Phase 1: headline when an error arrives but no live ride exists (e.g. failed cancellation)."
+  },
+  "trackingErrorGenericBody": "የመጨረሻው እርምጃ አልተጠናቀቀም። እንደገና ከመሞከርዎ በፊት ዝርዝሮቹን ይመልከቱ።",
+  "@trackingErrorGenericBody": {
+    "description": "Phase 1: body for the non-live-ride banner variant (CANCEL_FAILED durable outcome)."
+  },
+  "trackingErrorStay": "ቆይ",
+  "@trackingErrorStay": {
+    "description": "Phase 1: primary action keeping the rider on the tracking screen."
+  },
+  "trackingErrorLeave": "ውጣ",
+  "@trackingErrorLeave": {
+    "description": "Phase 1: explicit user-chosen exit from tracking (never automatic)."
+  },
+  "trackingErrorRetry": "እንደገና ሞክር",
+  "@trackingErrorRetry": {
+    "description": "Phase 1: re-dispatches LoadRide; only offered for errors this page can actually recover."
+  },
+  "trackingErrorDismiss": "ዝጋ",
+  "@trackingErrorDismiss": {
+    "description": "Phase 1: acknowledges a durable outcome (e.g. cancel fee) without staying visible."
+  },
+  "trackingErrorLiveRideA11y": "በንቁ ጉዞዎ ወቅት ስህተት። ጉዞዎ እየተቀጠለ ነው።",
+  "@trackingErrorLiveRideA11y": {
+    "description": "Phase 1: screen-reader live-region label for the live-ride banner variant."
+  },
+  "trackingErrorDetailA11y": "የስህተት ዝርዝር",
+  "@trackingErrorDetailA11y": {
+    "description": "Phase 1: screen-reader live-region label for the generic banner variant."
+  },
+  "sosSlideLabel": "SOS ለማረጋገጥ ወደ ቀኝ ጎትት",
+  "@sosSlideLabel": {
+    "description": "Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized)."
+  },
+  "sosSliderA11y": "የSOS ማረጋገጫ መንሸራተች። ወደ ቀኝ ሙሉ ለሙሉ ጎትተው ወይም Enter ጠቅተው የአደጋ ማሳወቂያ ይላኩ።",
+  "@sosSliderA11y": {
+    "description": "Phase 1: TalkBack/VoiceOver label announcing both the drag gesture and the keyboard alternative."
+  },
+  "sosActivateA11y": "አሁን የአደጋ SOS ይላኩ",
+  "@sosActivateA11y": {
+    "description": "Phase 1: custom assistive action on the draggable thumb — direct activation path."
+  },
+  "sosTooltip": "የአደጋ ማሳወቂያ ለማረጋገጥ ይያዙ እና ሙሉ ለሙሉ ወደ ቀኝ ይንሸራትቱ",
+  "@sosTooltip": {
+    "description": "Phase 1: tooltip explaining the deliberate two-step SOS confirmation."
+  },
+  "sosTitle": "የአደጋ SOS",
+  "@sosTitle": {
+    "description": "Phase 1: Safety Toolkit tile title for the SOS action."
+  },
+  "sosTileSubtitle": "የቀጥታ አድራሻዎን ከ911 ጋር በማገናኘት የአደጋ መስመር ያስገንዝቡ",
+  "@sosTileSubtitle": {
+    "description": "Phase 1: Safety Toolkit SOS tile subtitle.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayA11y": "የአደጋ SOS ቆጣሪ",
+  "@sosOverlayA11y": {
+    "description": "Phase 1: barrier label so screen readers announce the modal countdown overlay."
+  },
+  "sosOverlayTitle": "የአደጋ SOS",
+  "@sosOverlayTitle": {
+    "description": "Phase 1: headline of the full-screen pre-alarm countdown overlay."
+  },
+  "sosOverlayCountdownBody": "ስልክዎ በ{seconds} ሰከንድ ውስገ {number} የአደጋ ቁጥር ላይ ይደውላል…",
+  "@sosOverlayCountdownBody": {
+    "description": "Phase 1: countdown body text.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "sosOverlayFallbackBody": "ስልክዎ ካልተከፈተ፣ ከታች ያለውን ቁልፍ ይጠቀሙ ወይም በቀጥታ {number}ን ይደውሉ።",
+  "@sosOverlayFallbackBody": {
+    "description": "Phase 1: shown once the countdown has elapsed / dialer hand-off state.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCancel": "ሰርዝ — ደህንነቴ ጥሩ ነው",
+  "@sosOverlayCancel": {
+    "description": "Phase 1: abort-SOS action on the countdown overlay."
+  },
+  "sosOverlayCallNow": "የአደጋ አገልግሎቶችን አሁን ደውሉ",
+  "@sosOverlayCallNow": {
+    "description": "Phase 1: immediate escalation button on the countdown overlay."
+  },
+  "sosOverlayRetryCall": "{number}ን መደወል እንደገና ሞክር",
+  "@sosOverlayRetryCall": {
+    "description": "Phase 1: escalation button label after a failed dialer launch.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "sosOverlayCallDirectly": "{number}ን ከስልክዎ በቀጥታ ይደውሉ።",
+  "@sosOverlayCallDirectly": {
+    "description": "Phase 1: snackbar when the app could not open the dialer.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFilterAll": "ሁሉም",
+  "@historyFilterAll": {
+    "description": "Phase 1: history filter chip — show every ride."
+  },
+  "historyFilterCompleted": "የተጠናቀቀ",
+  "@historyFilterCompleted": {
+    "description": "Phase 1: history filter chip — completed rides."
+  },
+  "historyFilterCancelled": "ተሰርዟል",
+  "@historyFilterCancelled": {
+    "description": "Phase 1: history filter chip — cancelled rides."
+  },
+  "historyFilterInProgress": "በሂደት ላይ",
+  "@historyFilterInProgress": {
+    "description": "Phase 1: history filter chip — rides currently running."
+  },
+  "historyEmptyFiltered": "እስካሁን {filter} ጉዞ የለም",
+  "@historyEmptyFiltered": {
+    "description": "Phase 1: empty state when a filter hides everything; {filter} is the localized chip label.",
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEmptyBody": "የጉዞ ታሪክዎ እዚህ ይታያል።",
+  "@historyEmptyBody": {
+    "description": "Phase 1: secondary line under the unfiltered empty state."
+  },
+  "historyEmptyFilteredBody": "ተጨማሪ ጉዞዎችን ለማየት ሌላ ማጣሪያ ይሞክሩ።",
+  "@historyEmptyFilteredBody": {
+    "description": "Phase 1: secondary line under the filtered empty state."
+  },
+  "historyClearFilter": "ማጣሪያ አጽዳ",
+  "@historyClearFilter": {
+    "description": "Phase 1: resets the history list to all rides."
+  },
+  "historyRequestRide": "ጉዞ ይጠይቁ",
+  "@historyRequestRide": {
+    "description": "Phase 1: CTA on the empty history state."
+  },
+  "historyErrorPrimary": "ጉዞዎችን መጫን አልተሳካም",
+  "@historyErrorPrimary": {
+    "description": "Phase 1: localized headline replacing raw 'Error loading rides'; the server message is demoted to a detail line."
+  },
+  "historyRetry": "እንደገና ሞክር",
+  "@historyRetry": {
+    "description": "Phase 1: re-runs the history request."
   }
 }
