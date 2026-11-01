@@ -595,6 +595,7 @@ class AppLocalizationsAm extends AppLocalizations {
   @override
   String get historyRetry => 'እንደገና ሞክር';
 
+  // Manual catalog member (kept out of gen-l10n output).
   @override
   String get requestOptionChosenBadge => 'ተመርጧል';
 
@@ -794,4 +795,71 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get splitRemoveShare => 'ድርሻን አስወግድ';
+
+  @override
+  String get promoCodeTitle => 'የፕሮሞ ኮድ';
+
+  @override
+  String get promoCodeRemove => 'አስወግድ';
+
+  @override
+  String get promoCodeHint => 'ለምሳሌ NIDUS20';
+
+  @override
+  String get promoCodeValidateApply => 'አረጋግጥና ተጠቀም';
+
+  @override
+  String get promoCodeChecking => 'በመፈተሽ ላይ…';
+
+  @override
+  String get promoCodeNeedsFare => 'ኮዱን ከመጠቀምዎ በፊት የመነሻና መድረሻ ቦታዎችን ይምረጡ፤ የክፍያ ግምት እዚህ ይታያል።';
+
+  @override
+  String get promoCodeYourCodes => 'የእርስዎ ኮዶች';
+
+  @override
+  String get promoCodeLoadFailed => 'የተቀመጡ ኮዶችዎን መጫን አልተቻለም።';
+
+  @override
+  String get promoCodeRetry => 'እንደገና ሞክር';
+
+  @override
+  String get promoCodeEmpty => 'እስካሁን ጠቃሚ የሆነ ኮድ የለም — አዲሶች እንደ ማሳወቂያ ይደርሳሉ።';
+
+  @override
+  String get promoCodeUse => 'ተጠቀም';
+
+  @override
+  String get promoCodeEnterFirst => 'በመጀመሪያ የፕሮሞ ኮድ ያስገቡ።';
+
+  @override
+  String get promoCodeNeedRoute => 'ኮድ ከመጠቀምዎ በፊት የመነሻና መድረሻ ቦታ መርጠው የክፍያ ግምትን ይመልከቱ።';
+
+  @override
+  String get promoCodeInvalid => 'ይህ ኮድ ሊረጋገጥ አልተቻለም።';
+
+  @override
+  String promoOffPercent(String percent) {
+    return '{percent}% ቅናሽ';
+  }
+
+  @override
+  String promoMaxCap(String currency, String amount) {
+    return 'ከፍተኛው {currency} {amount}';
+  }
+
+  @override
+  String promoOffFixed(String currency, String amount) {
+    return '{currency} {amount} ቅናሽ';
+  }
+
+  @override
+  String promoMinFare(String currency, String amount) {
+    return 'ዝቅተኛ ክፍያ {currency} {amount}';
+  }
+
+  @override
+  String promoUntil(String date) {
+    return 'እስከ {date}';
+  }
 }

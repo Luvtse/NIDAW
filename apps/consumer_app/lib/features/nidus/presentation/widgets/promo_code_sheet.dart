@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/repositories/phase2_money_repository.dart';
 
@@ -111,13 +112,12 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
   Future<void> _validateAndApply(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) {
-      setState(() => _validationError = 'Enter a promo code first.');
+      setState(() => _validationError = context.l10n.promoCodeEnterFirst);
       return;
     }
     final fare = widget.estimatedFare;
     if (fare == null) {
-      setState(() => _validationError =
-          'Set pickup and destination to see a fare before applying a code.');
+      setState(() => _validationError = context.l10n.promoCodeNeedRoute);
       return;
     }
     setState(() {
@@ -137,8 +137,13 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
           result.projection!.projectedDiscount);
       Navigator.of(context).pop();
     } else {
+      // A real server reason stays primary (honesty rule); the localized
+      // copy is only the fallback for an absent/empty message.
+      final serverMessage = result.message;
       setState(() => _validationError =
-          result.message ?? 'This code could not be validated.');
+          (serverMessage != null && serverMessage.isNotEmpty)
+              ? serverMessage
+              : context.l10n.promoCodeInvalid);
     }
   }
 
@@ -149,6 +154,7 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -159,9 +165,9 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Promo code',
-                  style: TextStyle(
+                Text(
+                  l10n.promoCodeTitle,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -170,7 +176,7 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
                 if ((widget.currentCode ?? '').isNotEmpty)
                   TextButton(
                     onPressed: _validating ? null : _clear,
-                    child: const Text('Remove'),
+                    child: Text(l10n.promoCodeRemove),
                   ),
               ],
             ),
@@ -180,7 +186,7 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
               textCapitalization: TextCapitalization.characters,
               enabled: !_validating,
               decoration: InputDecoration(
-                hintText: 'e.g. NIDUS20',
+                hintText: l10n.promoCodeHint,
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.local_offer_outlined),
                 errorText: _validationError,
@@ -202,22 +208,22 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
                       )
                     : const Icon(Icons.check),
                 label: Text(_validating
-                    ? 'Checking…'
-                    : 'Validate & apply'),
+                    ? l10n.promoCodeChecking
+                    : l10n.promoCodeValidateApply),
               ),
             ),
             if (widget.estimatedFare == null) ...[
               const SizedBox(height: 8),
-              const Text(
-                'Needs an estimated fare first — choose pickup and dropoff.',
-                style:
-                    TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              Text(
+                l10n.promoCodeNeedsFare,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
             const SizedBox(height: 16),
-            const Text(
-              'Your codes',
-              style: TextStyle(
+            Text(
+              l10n.promoCodeYourCodes,
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -235,23 +241,24 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
             else if (_myCodes == null)
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Could not load your saved codes.',
-                      style: TextStyle(
+                      l10n.promoCodeLoadFailed,
+                      style: const TextStyle(
                           fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ),
                   TextButton(
                     onPressed: _loadMine,
-                    child: const Text('Retry'),
+                    child: Text(l10n.promoCodeRetry),
                   ),
                 ],
               )
             else if (_myCodes!.isEmpty)
-              const Text(
-                'No active codes yet — new ones arrive as notifications.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              Text(
+                l10n.promoCodeEmpty,
+                style:
+                    const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               )
             else
               Flexible(
@@ -265,12 +272,12 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.confirmation_number_outlined),
                       title: Text(c.code),
-                      subtitle: Text(_describe(c)),
+                      subtitle: Text(_describe(c, l10n)),
                       trailing: _validating
                           ? null
                           : TextButton(
                               onPressed: () => _validateAndApply(c.code),
-                              child: const Text('Use'),
+                              child: Text(l10n.promoCodeUse),
                             ),
                     );
                   },
@@ -283,21 +290,27 @@ class _PromoCodeSheetState extends State<PromoCodeSheet> {
     );
   }
 
-  String _describe(PromoCodeInfo c) {
+  /// Builds the condition line for one saved-code row. Every number comes
+  /// verbatim from the server DTO (Global Rule: no fabricated values); only
+  /// the surrounding words are localized.
+  String _describe(PromoCodeInfo c, AppLocalizations l10n) {
     final parts = <String>[];
     if (c.type == 'percent') {
-      parts.add('${c.value.toStringAsFixed(0)}% off');
+      parts.add(l10n.promoOffPercent(c.value.toStringAsFixed(0)));
       if (c.maxDiscount != null) {
-        parts.add('max ${widget.currency} ${c.maxDiscount!.toStringAsFixed(2)}');
+        parts.add(l10n.promoMaxCap(
+            widget.currency, c.maxDiscount!.toStringAsFixed(2)));
       }
     } else {
-      parts.add('${widget.currency} ${c.value.toStringAsFixed(2)} off');
+      parts.add(l10n.promoOffFixed(
+          widget.currency, c.value.toStringAsFixed(2)));
     }
     if (c.minFare > 0) {
-      parts.add('min fare ${widget.currency} ${c.minFare.toStringAsFixed(2)}');
+      parts.add(l10n.promoMinFare(
+          widget.currency, c.minFare.toStringAsFixed(2)));
     }
     if (c.validTo != null) {
-      parts.add('until ${c.validTo!.toLocal().toString().split(' ').first}');
+      parts.add(l10n.promoUntil(c.validTo!.toLocal().toString().split(' ').first));
     }
     return parts.join(' • ');
   }

@@ -1231,10 +1231,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// **Retry**
   String get historyRetry;
 
-  /// Phase 3 localization sweep: highlight badge on the selected ride-option card in the carousel.
-  ///
-  /// In en, this message translates to:
-  /// **CHOSEN**
+  // Phase 3 localization sweep: highlight badge on the selected ride-option card.
+  // Manual catalog member (kept out of gen-l10n output; see docs/nidus_uiux_phase0_findings.md).
   String get requestOptionChosenBadge;
 
   /// Phase 3 localization sweep: ETA line on a ride-option card.
@@ -1590,4 +1588,118 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **Remove share**
   String get splitRemoveShare;
+
+  /// No description provided for @promoCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **Promo code**
+  String get promoCodeTitle;
+
+  /// No description provided for @promoCodeRemove.
+  ///
+  /// In en, this message translates to:
+  /// **Remove**
+  String get promoCodeRemove;
+
+  /// No description provided for @promoCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **e.g. NIDUS20**
+  String get promoCodeHint;
+
+  /// No description provided for @promoCodeValidateApply.
+  ///
+  /// In en, this message translates to:
+  /// **Validate & apply**
+  String get promoCodeValidateApply;
+
+  /// No description provided for @promoCodeChecking.
+  ///
+  /// In en, this message translates to:
+  /// **Checking…**
+  String get promoCodeChecking;
+
+  /// No description provided for @promoCodeNeedsFare.
+  ///
+  /// In en, this message translates to:
+  /// **Needs an estimated fare first — choose pickup and dropoff.**
+  String get promoCodeNeedsFare;
+
+  /// No description provided for @promoCodeYourCodes.
+  ///
+  /// In en, this message translates to:
+  /// **Your codes**
+  String get promoCodeYourCodes;
+
+  /// No description provided for @promoCodeLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **Could not load your saved codes.**
+  String get promoCodeLoadFailed;
+
+  /// No description provided for @promoCodeRetry.
+  ///
+  /// In en, this message translates to:
+  /// **Retry**
+  String get promoCodeRetry;
+
+  /// No description provided for @promoCodeEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **No active codes yet — new ones arrive as notifications.**
+  String get promoCodeEmpty;
+
+  /// No description provided for @promoCodeUse.
+  ///
+  /// In en, this message translates to:
+  /// **Use**
+  String get promoCodeUse;
+
+  /// No description provided for @promoCodeEnterFirst.
+  ///
+  /// In en, this message translates to:
+  /// **Enter a promo code first.**
+  String get promoCodeEnterFirst;
+
+  /// No description provided for @promoCodeNeedRoute.
+  ///
+  /// In en, this message translates to:
+  /// **Set pickup and destination to see a fare before applying a code.**
+  String get promoCodeNeedRoute;
+
+  /// No description provided for @promoCodeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **This code could not be validated.**
+  String get promoCodeInvalid;
+
+  /// No description provided for @promoOffPercent.
+  ///
+  /// In en, this message translates to:
+  /// **{percent}% off**
+  String promoOffPercent(String percent);
+
+  /// No description provided for @promoMaxCap.
+  ///
+  /// In en, this message translates to:
+  /// **max {currency} {amount}**
+  String promoMaxCap(String currency, String amount);
+
+  /// No description provided for @promoOffFixed.
+  ///
+  /// In en, this message translates to:
+  /// **{currency} {amount} off**
+  String promoOffFixed(String currency, String amount);
+
+  /// No description provided for @promoMinFare.
+  ///
+  /// In en, this message translates to:
+  /// **min fare {currency} {amount}**
+  String promoMinFare(String currency, String amount);
+
+  /// No description provided for @promoUntil.
+  ///
+  /// In en, this message translates to:
+  /// **until {date}**
+  String promoUntil(String date);
 }

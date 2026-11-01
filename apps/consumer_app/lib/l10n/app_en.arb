@@ -675,5 +675,82 @@
   "splitStatusDeclined": "declined",
   "splitStatusExpired": "expired",
   "splitClose": "Close",
-  "splitRemoveShare": "Remove share"
+  "splitRemoveShare": "Remove share",
+  "promoCodeTitle": "Promo code",
+  "promoCodeRemove": "Remove",
+  "promoCodeHint": "e.g. NIDUS20",
+  "promoCodeValidateApply": "Validate & apply",
+  "promoCodeChecking": "Checking…",
+  "promoCodeNeedsFare": "Needs an estimated fare first — choose pickup and dropoff.",
+  "promoCodeYourCodes": "Your codes",
+  "promoCodeLoadFailed": "Could not load your saved codes.",
+  "promoCodeRetry": "Retry",
+  "promoCodeEmpty": "No active codes yet — new ones arrive as notifications.",
+  "promoCodeUse": "Use",
+  "promoCodeEnterFirst": "Enter a promo code first.",
+  "promoCodeNeedRoute": "Set pickup and destination to see a fare before applying a code.",
+  "promoCodeInvalid": "This code could not be validated.",
+  "promoOffPercent": "{percent}% off",
+  "@promoOffPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "promoMaxCap": "max {currency} {amount}",
+  "@promoMaxCap": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "promoOffFixed": "{currency} {amount} off",
+  "@promoOffFixed": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "promoMinFare": "min fare {currency} {amount}",
+  "@promoMinFare": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "promoUntil": "until {date}",
+  "@promoUntil": {
+    "placeholders": {
+      "date": {
+        "type": "Object"
+      }
+    }
+  },
+  "@promoCodeTitle": {},
+  "@promoCodeRemove": {},
+  "@promoCodeHint": {},
+  "@promoCodeValidateApply": {},
+  "@promoCodeChecking": {},
+  "@promoCodeNeedsFare": {},
+  "@promoCodeYourCodes": {},
+  "@promoCodeLoadFailed": {},
+  "@promoCodeRetry": {},
+  "@promoCodeEmpty": {},
+  "@promoCodeUse": {},
+  "@promoCodeEnterFirst": {},
+  "@promoCodeNeedRoute": {},
+  "@promoCodeInvalid": {}
 }

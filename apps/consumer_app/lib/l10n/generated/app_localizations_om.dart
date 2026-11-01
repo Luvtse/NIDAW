@@ -595,6 +595,7 @@ class AppLocalizationsOm extends AppLocalizations {
   @override
   String get historyRetry => 'Irra deebi\'i';
 
+  // Manual catalog member (kept out of gen-l10n output).
   @override
   String get requestOptionChosenBadge => 'FILATAME';
 
@@ -794,4 +795,71 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get splitRemoveShare => 'Kutaa haqi';
+
+  @override
+  String get promoCodeTitle => 'Koodhaa promo';
+
+  @override
+  String get promoCodeRemove => 'Haqi';
+
+  @override
+  String get promoCodeHint => 'fkn NIDUS20';
+
+  @override
+  String get promoCodeValidateApply => 'Mirkansee fayyadami';
+
+  @override
+  String get promoCodeChecking => 'Ilaluuta jira…';
+
+  @override
+  String get promoCodeNeedsFare => 'Koodhaa fayyadachuuf dura bakka fuudhishaa fi gadi dhiisu filadhuu, kana booda kaffaltii tilmaamaa argam.'
+
+  @override
+  String get promoCodeYourCodes => 'Kodota kee';
+
+  @override
+  String get promoCodeLoadFailed => 'Kodota kee olkaaʹaman hin feʹamu.';
+
+  @override
+  String get promoCodeRetry => 'Irra deebiʹi';
+
+  @override
+  String get promoCodeEmpty => 'Ammaaf koodhaa hojiirra oolu hin jiru — haaraan akka beeksiisatti dhufa.';
+
+  @override
+  String get promoCodeUse => 'Fayyadami';
+
+  @override
+  String get promoCodeEnterFirst => 'Dura koodhaa promo galchi.';
+
+  @override
+  String get promoCodeNeedRoute => 'Koodhaa fayyadachuu duratti bakka fuudhishaa fi geejjibaa qoodi, akkasumas kaffaltii tilmaamaa ilaali.'
+
+  @override
+  String get promoCodeInvalid => 'Kodhaan kun mirkanaaʹuu hin dandeenye.';
+
+  @override
+  String promoOffPercent(String percent) {
+    return '%\$percent hir’inaa';
+  }
+
+  @override
+  String promoMaxCap(String currency, String amount) {
+    return 'guddaatti \$currency \$amount';
+  }
+
+  @override
+  String promoOffFixed(String currency, String amount) {
+    return '\$currency \$amount hir’inaa';
+  }
+
+  @override
+  String promoMinFare(String currency, String amount) {
+    return 'kaffaltii xiqqaa \$currency \$amount';
+  }
+
+  @override
+  String promoUntil(String date) {
+    return 'hanga \$date';
+  }
 }
