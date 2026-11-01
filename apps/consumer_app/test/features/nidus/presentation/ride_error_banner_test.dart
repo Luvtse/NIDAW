@@ -71,6 +71,10 @@ class FakeRideRepository implements RideRepository {
   Future<Ride?> getActiveRide() async => nextRide;
 
   @override
+  Future<bool> cancelRide(String rideId, {String? reason}) async =>
+      throw StateError('cancelRide must not be reached in Phase 1 tests');
+
+  @override
   Future<RideListResult> listRides({
     String? status,
     int limit = 20,
