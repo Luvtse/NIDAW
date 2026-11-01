@@ -86,6 +86,31 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   /// apply POST is in flight (§4.6).
   bool _priceExtensionBusy = false;
 
+  /// Phase 1 (UI/UX remediation): a `RideError` that reaches the tracking
+  /// surface while a ride is still active no longer ejects the rider with no
+  /// explanation. It is parked here and rendered as a persistent banner with
+  /// explicit Stay / Leave actions (and Retry for transient load failures).
+  /// Cleared when the user acts, when fresh non-error state arrives, or when
+  /// the error belongs to a flow this page never triggered (see below).
+  RideError? _activeErrorBanner;
+
+  /// Error codes this page itself provokes — retrying them from the banner is
+  /// safe and meaningful. Anything else (history/rate/estimate failures from
+  /// sibling screens sharing the same RideBloc) is shown as information only:
+  /// the banner explains it but offers no Retry, because re-dispatching a
+  /// foreign request from tracking would be dishonest about what happens next.
+  static const Set<String> _retryableTrackingErrorCodes = {
+    'LOAD_FAILED', // LoadRide (recheck / WS-gap refresh)
+    'CANCEL_FAILED', // CancelRide (last dispatch always originates here)
+  };
+
+  /// True while the bloc holds a live ride worth staying on-screen for.
+  static bool _hasActiveRide(RideState state) =>
+      state is RideRequested ||
+      state is DriverMatched ||
+      state is DriverEnRoute ||
+      state is RideInProgress;
+
   @override
   void initState() {
     super.initState();
@@ -332,22 +357,45 @@ class _RideTrackingPageState extends State<RideTrackingPage>
             Navigator.of(context).pop();
           }
         } else if (state is RideCancelled) {
+          // Intentional exit: the ride really ended, so leaving tracking is
+          // the truthful behavior. Clear any parked banner first so a stale
+          // error never outlives the ride it referred to.
+          _activeErrorBanner = null;
           Navigator.of(context).pop();
         } else if (state is RideError) {
-          if (state.errorCode == 'CANCEL_FAILED') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                action: SnackBarAction(
-                  label: 'Dismiss',
-                  onPressed: () => ScaffoldMessenger.of(context)
-                      .hideCurrentSnackBar(),
-                ),
-              ),
-            );
+          if (_hasActiveRide(_lastLiveRideState ?? state)) {
+            // Phase 1 fix: NEVER eject the rider from an active trip without
+            // an explanation. The old code popped on every non-CANCEL_FAILED
+            // error, stranding users mid-ride when the shared bloc surfaced
+            // an unrelated failure. Park the error and let the persistent
+            // banner decide with the user (Stay / Leave / Retry).
+            _activeErrorBanner = state;
+          } else if (state.errorCode == 'CANCEL_FAILED') {
+            // No live ride left to stay on, but the outcome is durable money
+            // information (a cancellation that may have charged a fee), so it
+            // gets the same persistent banner rather than a transient toast.
+            _activeErrorBanner = state;
           } else {
+            // No active ride AND the failure belongs to a flow this page
+            // never triggered (e.g. a sibling screen's history/rate/estimate
+            // request landing while tracking was mounted): say nothing and
+            // leave quietly — that surface owns its own error UI. This
+            // preserves the pre-Phase-1 pop for exactly the cases where the
+            // rider was never mid-ride.
             Navigator.of(context).pop();
           }
+        } else if (_activeErrorBanner != null && state is! RideInitial) {
+          // Fresh non-error state arrived (reconnect succeeded, new WS fix):
+          // retire the banner so it can't misrepresent the current situation.
+          _activeErrorBanner = null;
+        }
+        if (state is RideRequested ||
+            state is DriverMatched ||
+            state is DriverEnRoute ||
+            state is RideInProgress) {
+          _lastLiveRideState = state;
+        } else if (state is RideCompleted || state is RideCancelled) {
+          _lastLiveRideState = null;
         }
         // §4.5 RideCheck: an anomaly detected by the bloc pauses the trip UI
         // with an "Is everything OK?" prompt. Shown once per anomaly id —
