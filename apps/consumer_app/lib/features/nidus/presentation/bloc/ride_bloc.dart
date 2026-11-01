@@ -318,16 +318,17 @@ class DismissRideCheckPrompt extends RideEvent {
 // ============================================================================
 
 abstract class RideState extends Equatable {
-  /// The event that drove the transition into this state. Set automatically
-  /// by [RideBloc] in its `on<...>` registration wrapper (see the bloc's
-  /// `_tagged` helper) — no handler constructs it manually.
+  /// The event that drove the transition into this state. Explicitly set by
+  /// the ride-option-carousel handlers ([LoadRideOptions], [SelectRideOption],
+  /// [RideOptionSelectionChanged]) and by the estimate-refresh fold into
+  /// [RideOptionsLoaded]; every other state in the bloc leaves it null
+  /// (BlocBase does not otherwise expose the current event to listeners, and
+  /// a global tagging wrapper was deliberately not added — see Phase 2 notes).
   ///
   /// §2.6 re-anchor contract: `ride_request_page._handleRideState` reads
   /// `state.event` to mirror a bloc-driven [RideOptionSelectionChanged] into
-  /// its carousel highlight without racing the stream (BlocBase does not
-  /// otherwise expose the current event to listeners). States emitted from
-  /// paths unrelated to the option carousel carry their own triggering event
-  /// — consumers must check the runtime type, never assume.
+  /// its carousel highlight without racing the stream. Consumers must check
+  /// the runtime type and tolerate null — never assume the field is populated.
   final RideEvent? event;
 
   const RideState({this.event});
