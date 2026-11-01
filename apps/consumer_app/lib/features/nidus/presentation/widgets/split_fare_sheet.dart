@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/split_fare_repository.dart';
 
 /// §3.3 Split Fare sheet, opened from the receipt page.
@@ -93,15 +94,16 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
     // Server-side invariant: sum(shares) must be < fare. We pre-check only to
     // give instant feedback; the backend remains authoritative and its error
     // is surfaced verbatim on rejection.
+    final l10n = context.l10n;
     final total = _drafts.fold<double>(0, (s, d) => s + d.amount);
     if (_drafts.isEmpty || total <= 0) {
-      setState(() => _error = 'Add at least one share before sending.');
+      setState(() => _error = l10n.splitNeedOneShare);
       return;
     }
     if (!_formKey.currentState!.validate()) return;
     if (total >= widget.fare) {
-      setState(() => _error =
-          'Shares must add up to less than the fare (${_fmt(widget.fare)}).');
+      setState(
+          () => _error = l10n.splitSharesExceedFare(_fmt(widget.fare)));
       return;
     }
 
@@ -122,7 +124,13 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
         _status = result.status;
         _drafts.clear();
       } else {
-        _error = result.failureMessage ?? 'Could not send invites — try again.';
+        // Honest degradation: a real server message stays primary when
+        // present (Phase 1 rule); the localized string is the fallback for
+        // empty/absent messages, not a mask over genuine server detail.
+        final serverMessage = result.failureMessage;
+        _error = (serverMessage == null || serverMessage.isEmpty)
+            ? l10n.splitSendFailed
+            : serverMessage;
       }
     });
   }
@@ -132,6 +140,7 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -145,17 +154,17 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
         children: [
           Row(
             children: [
-              Text('Split fare', style: theme.textTheme.titleLarge),
+              Text(l10n.splitSheetTitle, style: theme.textTheme.titleLarge),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close),
+                tooltip: l10n.splitClose,
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
           Text(
-            'Invites are sent by email/SMS. Your charge drops only as people '
-            'accept — the totals below come straight from the server.',
+            l10n.splitSheetIntro,
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -182,7 +191,7 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
                                     _ShareDraft(contact: '', amount: 0),
                                   )),
                           icon: const Icon(Icons.person_add_alt),
-                          label: const Text('Add person'),
+                          label: Text(l10n.splitAddPerson),
                         ),
                         const SizedBox(height: 16),
                         if (_drafts.isNotEmpty)
@@ -195,8 +204,8 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2),
                                   )
-                                : Text('Send invites · ${_fmt(_drafts.fold<double>(
-                                    0, (s, d) => s + d.amount))}'),
+                                : Text(l10n.splitSendInvites(_fmt(_drafts.fold<double>(
+                                    0, (s, d) => s + d.amount)))),
                           ),
                       ],
                     ),
@@ -215,6 +224,7 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
   }
 
   Widget _serverSummary(ThemeData theme) {
+    final l10n = context.l10n;
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
@@ -226,9 +236,8 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
       return Card(
         child: ListTile(
           leading: const Icon(Icons.group_add_outlined),
-          title: const Text('Not split yet'),
-          subtitle: Text('Fare ${_fmt(widget.fare)} — you are paying the full '
-              'amount until someone accepts an invite.'),
+          title: Text(l10n.splitNotYetTitle),
+          subtitle: Text(l10n.splitNotYetSubtitle(_fmt(widget.fare))),
         ),
       );
     }
@@ -238,12 +247,12 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Split status', style: theme.textTheme.titleMedium),
+            Text(l10n.splitStatusLabel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            _kv('Fare', _fmt(status.fare)),
-            _kv('Your share after accepted invites', _fmt(status.inviterShare)),
-            _kv('Total invited', _fmt(status.totalSplit)),
-            _kv('Still waiting', _fmt(status.remainingToPay)),
+            _kv(l10n.splitKvFare, _fmt(status.fare)),
+            _kv(l10n.splitKvYourShare, _fmt(status.inviterShare)),
+            _kv(l10n.splitKvTotalInvited, _fmt(status.totalSplit)),
+            _kv(l10n.splitKvStillWaiting, _fmt(status.remainingToPay)),
             const Divider(height: 24),
             for (final invitee in status.invitees)
               ListTile(
@@ -252,13 +261,25 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
                 leading: Icon(_statusIcon(invitee.status)),
                 title: Text(invitee.inviteeContact),
                 subtitle: Text('${_fmt(invitee.shareAmount)} · '
-                    '${invitee.status.replaceAll('_', ' ')}'),
+                    '${_localizedStatus(l10n, invitee.status)}'),
               ),
           ],
         ),
       ),
     );
   }
+
+  /// Localizes the five documented wire states (pending | accepted | paid |
+  /// declined | expired). An unknown value is surfaced verbatim rather than
+  /// mislabeled — honest degradation, never a fake translation.
+  String _localizedStatus(AppLocalizations l10n, String status) => switch (status) {
+        'pending' => l10n.splitStatusPending,
+        'accepted' => l10n.splitStatusAccepted,
+        'paid' => l10n.splitStatusPaid,
+        'declined' => l10n.splitStatusDeclined,
+        'expired' => l10n.splitStatusExpired,
+        _ => status.replaceAll('_', ' '),
+      };
 
   IconData _statusIcon(String status) => switch (status) {
         'paid' => Icons.check_circle,
@@ -280,6 +301,7 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
       );
 
   Widget _draftRow(int index) {
+    final l10n = context.l10n;
     final draft = _drafts[index];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,17 +310,17 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
           flex: 3,
           child: TextFormField(
             initialValue: draft.contact,
-            decoration: const InputDecoration(
-              labelText: 'Email or phone',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.splitFieldContact,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Required'
+                ? l10n.splitFieldRequired
                 : (v.contains('@') ||
                         RegExp(r'^\+?[0-9 \-()]{7,18}$').hasMatch(v.trim()))
                     ? null
-                    : 'Enter a valid email or phone number',
+                    : l10n.splitFieldInvalidContact,
             onChanged: (v) => setState(() => draft.contact = v.trim()),
           ),
         ),
@@ -309,14 +331,14 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
             initialValue: draft.amount > 0 ? draft.amount.toString() : '',
             keyboardType: TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Share (${widget.currency})',
+              labelText: l10n.splitFieldShare(widget.currency),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
             validator: (v) {
               final parsed = double.tryParse(v ?? '');
-              if (parsed == null || parsed <= 0) return 'Invalid';
-              if (parsed >= widget.fare) return '≥ fare';
+              if (parsed == null || parsed <= 0) return l10n.splitFieldInvalidAmount;
+              if (parsed >= widget.fare) return l10n.splitFieldAtLeastFare;
               return null;
             },
             onChanged: (v) =>
@@ -325,6 +347,7 @@ class _SplitFareSheetState extends State<SplitFareSheet> {
         ),
         IconButton(
           icon: const Icon(Icons.remove_circle_outline),
+          tooltip: l10n.splitRemoveShare,
           onPressed: _submitting
               ? null
               : () => setState(() => _drafts.removeAt(index)),
@@ -359,7 +382,8 @@ class _ErrorBanner extends StatelessWidget {
           const Icon(Icons.error_outline),
           const SizedBox(width: 8),
           Expanded(child: Text(message)),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(
+              onPressed: onRetry, child: Text(context.l10n.commonRetry)),
         ],
       ),
     );

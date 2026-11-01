@@ -705,4 +705,93 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get verifyButtonLooksRight => 'Sirreedha ta\'a';
+
+  @override
+  String get splitSheetTitle => 'Geeffata qoodi';
+
+  @override
+  String get splitSheetIntro => 'Afeerramni imeelii/SMS\'n ergama. Baalli keessan namoonni fudhataniin qofa hir\'ata — kuusaan gadii kallattiin tajaajila irraa dhufe.';
+
+  @override
+  String get splitAddPerson => 'Namni dabalaa';
+
+  @override
+  String splitSendInvites(String amount) {
+    return 'Afeerramni ergi · \$amount';
+  }
+
+  @override
+  String get splitNeedOneShare => 'Erguun dura xiqqoo kutaa tokko dabalaa.';
+
+  @override
+  String splitSharesExceedFare(String fare) {
+    return 'Kutaan baala (\$fare) caaluu hin qabu.';
+  }
+
+  @override
+  String get splitSendFailed => 'Afeerramni ergamuu hin dandeenye — irra deebi\'aa yaalaa.';
+
+  @override
+  String get splitNotYetTitle => 'Amma hin qoodamne';
+
+  @override
+  String splitNotYetSubtitle(String fare) {
+    return 'Baala \$fare — namni afeerra fudhachuu hanga hin jalatin kuusaa guutuu baallatta.';
+  }
+
+  @override
+  String get splitStatusLabel => 'Haala qoodamsa';
+
+  @override
+  String get splitKvFare => 'Baala';
+
+  @override
+  String get splitKvYourShare => 'Kutaa keessanii erga fudhatame booda';
+
+  @override
+  String get splitKvTotalInvited => 'Walii gala afeerraman';
+
+  @override
+  String get splitKvStillWaiting => 'Hang\'a amaa eeggataa';
+
+  @override
+  String get splitFieldContact => 'Imeelii ykn bilbila';
+
+  @override
+  String splitFieldShare(String currency) {
+    return 'Kutaa (\$currency)';
+  }
+
+  @override
+  String get splitFieldRequired => 'Barbaachisa';
+
+  @override
+  String get splitFieldInvalidContact => 'Imeelii y lak bilbila sirrii galchi';
+
+  @override
+  String get splitFieldInvalidAmount => 'Dogoggora';
+
+  @override
+  String get splitFieldAtLeastFare => 'Baala ≥';
+
+  @override
+  String get splitStatusPending => 'eeggatamaa';
+
+  @override
+  String get splitStatusAccepted => 'fudhatame';
+
+  @override
+  String get splitStatusPaid => 'kafalame';
+
+  @override
+  String get splitStatusDeclined => 'didame';
+
+  @override
+  String get splitStatusExpired => 'yeroon isaa darbe';
+
+  @override
+  String get splitClose => 'Cufi';
+
+  @override
+  String get splitRemoveShare => 'Kutaa haqi';
 }

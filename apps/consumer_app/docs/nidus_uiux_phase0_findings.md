@@ -180,6 +180,28 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   No GetIt registration needed (comparison view rendered directly; tap-to-fetch covered at repo
   level). Expiry-note assertion uses UTC to match CI's default device timezone.
 
+**Session-9 sweep progress (split_fare_sheet.dart — migration finished):**
+- Added 27 `split*` keys ×3 locales (title, intro, add-person, parameterized send-invites label,
+  client pre-check + fare-cap messages, localized fallback for silent server failures, not-yet
+  card title/subtitle with `{fare}`, four summary kv labels, five invitee wire-state labels
+  (pending/accepted/paid/declined/expired), both field labels, all four validators, close/remove
+  tooltips) in en/am/om ARBs; `tool/sync_l10n.py` compiled them into the generated catalogs and
+  re-run confirms sync. Amharic values verified free of CJK/mojibake codepoints before writing.
+- All user-facing strings in the sheet now resolve via `context.l10n`; grep shows zero remaining
+  English literals (only data-driven `'ETB 60.00'`-style formatted amounts and the verbatim
+  unknown-status passthrough). The two icon-only buttons (close, remove-share) gained localized
+  tooltips, advancing Phase 4's semantic-label rule on this surface.
+- Honesty contract preserved: numbers still come only from the server DTO; no-split-yet 404 still
+  renders the calm "not split yet" card, never an error; unknown invitee wire states are surfaced
+  verbatim instead of mislabeled; a real server failure message stays PRIMARY and the localized
+  `splitSendFailed` copy appears only when the message is empty/absent (refined `??` into an
+  explicit null-or-empty check so empty-string payloads can't render a blank banner).
+- New widget-level test: `test/features/nidus/presentation/split_fare_sheet_l10n_test.dart` —
+  fake `SplitFareRepository` registered in the app's GetIt instance; pumps the sheet for en/am/om
+  asserting catalog renders, former-literal leak guards, server-sourced totals under localized
+  labels, verbatim unknown status, empty-vs-real failure-message precedence, localized validators,
+  and the client-side pre-check firing without a network call.
+
 **Open items after Phase 3:**
 - No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
   before merge (catalogs, selector edits, driver_card + verify_driver_card edits, and all three
@@ -188,6 +210,7 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   criterion "font ships in bundle"; carried into Phase 4.
 - Full Amharic/Oromo translation quality pass remains for human review (coverage ≠ correctness).
 - Remaining sweep files (chat_page, receipt_detail_page, notification_inbox_page,
-  ar_navigation_page, split_fare_sheet, promo_code_sheet, pre_selfie_capture_sheet,
+  ar_navigation_page, promo_code_sheet, pre_selfie_capture_sheet,
   stop_charge_card, place_autocomplete_sheet, location_input pending; ride_type_selector,
-  driver_card, verify_driver_card done) plus known literal at `ride_tracking_page.dart:1427`.
+  driver_card, verify_driver_card, split_fare_sheet done) plus known literal at
+  `ride_tracking_page.dart:1427`.

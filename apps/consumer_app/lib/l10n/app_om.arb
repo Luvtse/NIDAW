@@ -639,5 +639,32 @@
   "driverEtaMinutesUnit": "daq",
   "@driverEtaMinutesUnit": {
     "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
-  }
+  },
+  "splitSheetTitle": "Geeffata qoodi",
+  "splitSheetIntro": "Afeerramni imeelii/SMS'n ergama. Baalli keessan namoonni fudhataniin qofa hir'ata — kuusaan gadii kallattiin tajaajila irraa dhufe.",
+  "splitAddPerson": "Namni dabalaa",
+  "splitSendInvites": "Afeerramni ergi · {amount}",
+  "splitNeedOneShare": "Erguun dura xiqqoo kutaa tokko dabalaa.",
+  "splitSharesExceedFare": "Kutaan baala ({fare}) caaluu hin qabu.",
+  "splitSendFailed": "Afeerramni ergamuu hin dandeenye — irra deebi'aa yaalaa.",
+  "splitNotYetTitle": "Amma hin qoodamne",
+  "splitNotYetSubtitle": "Baala {fare} — namni afeerra fudhachuu hanga hin jalatin kuusaa guutuu baallatta.",
+  "splitStatusLabel": "Haala qoodamsa",
+  "splitKvFare": "Baala",
+  "splitKvYourShare": "Kutaa keessanii erga fudhatame booda",
+  "splitKvTotalInvited": "Walii gala afeerraman",
+  "splitKvStillWaiting": "Hang'a amaa eeggataa",
+  "splitFieldContact": "Imeelii ykn bilbila",
+  "splitFieldShare": "Kutaa ({currency})",
+  "splitFieldRequired": "Barbaachisa",
+  "splitFieldInvalidContact": "Imeelii y lak bilbila sirrii galchi",
+  "splitFieldInvalidAmount": "Dogoggora",
+  "splitFieldAtLeastFare": "Baala ≥",
+  "splitStatusPending": "eeggatamaa",
+  "splitStatusAccepted": "fudhatame",
+  "splitStatusPaid": "kafalame",
+  "splitStatusDeclined": "didame",
+  "splitStatusExpired": "yeroon isaa darbe",
+  "splitClose": "Cufi",
+  "splitRemoveShare": "Kutaa haqi"
 }
