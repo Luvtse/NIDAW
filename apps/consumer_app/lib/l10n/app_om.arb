@@ -477,5 +477,39 @@
   "requestOptionsSetRouteFirst": "Gatii hin argamne — bakka ka'umsaa fi dhaamsaa olkaa'uun gatiiwwan soorata argadhu.",
   "@requestOptionsSetRouteFirst": {
     "description": "Phase 2 dead-code reconnect: carousel placeholder before both endpoints exist; honest 'unavailable', never a fabricated price."
+  },
+  "requestOptionChosenBadge": "FILATAME",
+  "@requestOptionChosenBadge": {
+    "description": "Phase 3 localization sweep: highlight badge on the selected ride-option card in the carousel."
+  },
+  "requestOptionEtaMinutes": "{minutes, plural, =0{Amma dhufaa jira} other{{minutes} daqiqaa fageenya}}",
+  "@requestOptionEtaMinutes": {
+    "description": "Phase 3 localization sweep: ETA line on a ride-option card.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "requestOptionEtaUnavailable": "ETA hin argamne",
+  "@requestOptionEtaUnavailable": {
+    "description": "Phase 3 localization sweep: honest degradation when the server omits an ETA; never a fabricated time."
+  },
+  "requestOptionSeats": "{count, plural, =1{1 teessoo} other{{count} teessoo}}",
+  "@requestOptionSeats": {
+    "description": "Phase 3 localization sweep: capacity line on a ride-option card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestOptionCapacityUnknown": "Odeeffannoo teessoo hin kennine",
+  "@requestOptionCapacityUnknown": {
+    "description": "Phase 3 localization sweep: honest degradation when the server omits capacity."
+  },
+  "requestOptionUnavailable": "Hin argamu",
+  "@requestOptionUnavailable": {
+    "description": "Phase 3 localization sweep: availability flag on a ride-option card."
   }
 }
