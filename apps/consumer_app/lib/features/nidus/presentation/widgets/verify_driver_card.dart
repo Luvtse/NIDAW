@@ -106,13 +106,12 @@ class _VerifyDriverCardState extends State<VerifyDriverCard> {
     final info = _info;
     switch (info.state) {
       case PreSelfieState.available:
+        final l10n = context.l10n;
         return _card(
           icon: Icons.verified_user_outlined,
           iconColor: AppColors.success,
-          title: 'Verify your driver',
-          subtitle:
-              '${widget.driverName} sent a selfie before picking you up. '
-              'Tap to compare it with their profile photo.',
+          title: l10n.verifySelfieTitle,
+          subtitle: l10n.verifySelfieSubtitle(widget.driverName),
           trailing: _busy
               ? const SizedBox(
                   width: 20, height: 20,
@@ -121,28 +120,28 @@ class _VerifyDriverCardState extends State<VerifyDriverCard> {
           onTap: _openComparison,
         );
       case PreSelfieState.notSent:
+        final l10n = context.l10n;
         return _card(
           icon: Icons.person_off_outlined,
           iconColor: AppColors.warning,
-          title: 'Driver did not send a selfie',
-          subtitle: 'Spot your driver by plate and vehicle. You can still '
-              'message or call them before entering.',
+          title: l10n.verifySelfieNotSentTitle,
+          subtitle: l10n.verifySelfieNotSentSubtitle,
           trailing: TextButton(
             onPressed: widget.onContactDriver,
-            child: const Text('Contact driver'),
+            child: Text(l10n.verifyContactDriver),
           ),
           onTap: null,
         );
       case PreSelfieState.expired:
+        final l10n = context.l10n;
         return _card(
           icon: Icons.schedule,
           iconColor: AppColors.warning,
-          title: 'Selfie link expired',
-          subtitle: 'Signed links last 15 minutes. Ask your driver to resend, '
-              'or refresh the ride.',
+          title: l10n.verifySelfieExpiredTitle,
+          subtitle: l10n.verifySelfieExpiredSubtitle,
           trailing: TextButton(
             onPressed: widget.onRecheck,
-            child: const Text('Refresh'),
+            child: Text(l10n.verifyRefresh),
           ),
           onTap: null,
         );
@@ -150,18 +149,17 @@ class _VerifyDriverCardState extends State<VerifyDriverCard> {
       case PreSelfieState.unknown:
         // unknown is deliberately folded into the honest-unavailable render:
         // an unrecognized wire value must never be presented as verified.
+        final l10n = context.l10n;
         return _card(
           icon: Icons.help_outline,
           iconColor: AppColors.textSecondary,
-          title: 'Verification unavailable',
+          title: l10n.verifyUnavailableTitle,
           subtitle: info.state == PreSelfieState.unknown
-              ? 'The verification service returned an unexpected state. This '
-                  'is our side, not the driver — retry below.'
-              : 'Driver photo verification is not available for this ride '
-                  'right now. Spot your driver by plate and vehicle.',
+              ? l10n.verifyUnavailableUnknownSubtitle
+              : l10n.verifyUnavailableSubtitle,
           trailing: TextButton(
             onPressed: widget.onRecheck,
-            child: const Text('Retry'),
+            child: Text(l10n.verifyRetry),
           ),
           onTap: null,
         );
@@ -212,8 +210,11 @@ class SelfieComparisonView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text('Verify ${driverName.split(' ').first}')),
+      appBar: AppBar(
+          title: Text(l10n.verifyComparisonAppBarTitle(
+              driverName.split(' ').first))),
       body: SafeArea(
         child: Column(
           children: [
@@ -224,17 +225,15 @@ class SelfieComparisonView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ImagePanel(
-                        label: 'Profile photo (on file)',
+                        label: l10n.verifyPanelProfileLabel,
                         bytes: profilePhotoBytes,
-                        missingNote:
-                            'No profile photo is on file for this driver, so '
-                            'there is nothing to compare against yet.',
+                        missingNote: l10n.verifyPanelProfileMissing,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _ImagePanel(
-                        label: 'Just-sent selfie',
+                        label: l10n.verifyPanelSelfieLabel,
                         bytes: selfieBytes,
                         missingNote: '',
                       ),
@@ -247,8 +246,8 @@ class SelfieComparisonView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Selfie captured for this pickup only · valid until '
-                  '${expiresAtUtc!.toLocal().toString().substring(0, 16)}',
+                  l10n.verifyExpiryNote(
+                      expiresAtUtc!.toLocal().toString().substring(0, 16)),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -260,7 +259,7 @@ class SelfieComparisonView extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).pop(false),
                       icon: const Icon(Icons.close),
-                      label: const Text("That's not them"),
+                      label: Text(l10n.verifyButtonNotThem),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -272,7 +271,7 @@ class SelfieComparisonView extends StatelessWidget {
                       ),
                       onPressed: () => Navigator.of(context).pop(true),
                       icon: const Icon(Icons.check),
-                      label: const Text('Looks right'),
+                      label: Text(l10n.verifyButtonLooksRight),
                     ),
                   ),
                 ],
@@ -328,9 +327,8 @@ class _ImagePanel extends StatelessWidget {
                     errorBuilder: (_, __, ___) => Container(
                       color: AppColors.inputBackground,
                       alignment: Alignment.center,
-                      child: const Text(
-                        'Image failed to decode — the bytes were corrupt, '
-                        'not absent. Retry from the ride screen.',
+                      child: Text(
+                        context.l10n.verifyPanelDecodeError,
                         textAlign: TextAlign.center,
                       ),
                     ),

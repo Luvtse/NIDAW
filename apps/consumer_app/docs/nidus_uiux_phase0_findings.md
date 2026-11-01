@@ -163,14 +163,31 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   but the honest-avatar-degradation item (Icons.person silhouette → initials + label per
   verify_driver_card rule) is still open for Phase 4.
 
+**Session-7 sweep progress (verify_driver_card.dart — migration finished):**
+- Session-6 left the ARB groundwork (24 `verify*` keys in en/am/om, compiled and in sync) but the
+  card-state strings were still English literals. This session completed the migration: all five
+  `PreSelfieState` renders in `build()` (available/notSent/expired/unavailable/unknown), the whole
+  `SelfieComparisonView` (app bar, both panel labels, missing-photo note, expiry footnote, both
+  verdict buttons), and the `_ImagePanel` decode-error fallback now resolve via `context.l10n`.
+  Grep confirms zero remaining user-facing English literals in the file.
+- Honesty contract preserved verbatim during migration: unknown wire value still folds into the
+  blame-ours "Verification unavailable" render; missing profile photo still shows the explicit
+  note instead of an avatar placeholder (new test pins both).
+- New widget-level test: `test/features/nidus/presentation/verify_driver_card_l10n_test.dart` —
+  pumps VerifyDriverCard (all states) and SelfieComparisonView under the delegates for en/am/om,
+  asserts catalog strings render, parameterized subtitle/app-bar/expiry-note interpolate, former
+  English literals do not leak in am/om, and `preSelfieStateFrom` maps garbage → unknown.
+  No GetIt registration needed (comparison view rendered directly; tap-to-fetch covered at repo
+  level). Expiry-note assertion uses UTC to match CI's default device timezone.
+
 **Open items after Phase 3:**
 - No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
-  before merge (catalogs, selector edits, driver_card edits, and both new tests are
-  compiler-unverified locally).
+  before merge (catalogs, selector edits, driver_card + verify_driver_card edits, and all three
+  new widget tests are compiler-unverified locally).
 - F.1 Ethiopic font risk still open (assets/fonts absent) — blocks the *localization sweep* exit
   criterion "font ships in bundle"; carried into Phase 4.
 - Full Amharic/Oromo translation quality pass remains for human review (coverage ≠ correctness).
 - Remaining sweep files (chat_page, receipt_detail_page, notification_inbox_page,
-  ar_navigation_page, verify_driver_card, split_fare_sheet, promo_code_sheet,
-  pre_selfie_capture_sheet, stop_charge_card, place_autocomplete_sheet, ride_type_selector done;
-  location_input pending) plus known literal at `ride_tracking_page.dart:1427`.
+  ar_navigation_page, split_fare_sheet, promo_code_sheet, pre_selfie_capture_sheet,
+  stop_charge_card, place_autocomplete_sheet, location_input pending; ride_type_selector,
+  driver_card, verify_driver_card done) plus known literal at `ride_tracking_page.dart:1427`.
