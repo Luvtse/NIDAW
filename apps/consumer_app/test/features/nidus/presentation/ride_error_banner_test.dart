@@ -118,9 +118,9 @@ void main() {
     test('live ride states keep the rider ON tracking (Stay/Leave variant)',
         () {
       expect(
-          hasActiveRide(const DriverEnRoute(
+          hasActiveRide(DriverEnRoute(
             rideId: 'ride-1',
-            driver: null ?? testDriver(),
+            driver: testDriver(),
             fare: 100,
             etaMinutes: 5,
             pinCode: '1234',
@@ -179,20 +179,18 @@ void main() {
       // Drive the bloc to a live DriverEnRoute via REST load.
       repo.nextRide = Ride.fromJson(minimalEnRouteJson());
       bloc.add(LoadRide('ride-1'));
-      await expectLater(
-          bloc.stream, emitsThrough(isA<DriverEnRoute>()));
-
-      final enRoute = bloc.state as DriverEnRoute;
+      // Await the transition deterministically (the stream is single-subscription
+      // over Bloc's state changed; skip initial RideInitial).
+      final enRoute = await bloc.stream
+          .firstWhere((s) => s is DriverEnRoute) as DriverEnRoute;
 
       // Now the sibling screen's history reload fails on the SAME bloc —
       // exactly the event that used to eject the rider from tracking.
       repo.failListRides = true;
       bloc.add(const LoadRideHistory());
-      await expectLater(
-          bloc.stream,
-          emitsThrough(isA<RideError>()
-              .having((e) => e.errorCode, 'errorCode',
-                  'LOAD_HISTORY_FAILED')));
+      final err = await bloc.stream
+          .firstWhere((s) => s is RideError) as RideError;
+      expect(err.errorCode, 'LOAD_HISTORY_FAILED');
 
       // Bloc contract: the failed history handler emitted an error STATE,
       // but nothing cancelled/completed the ride. A rider pressing "Stay"
@@ -219,7 +217,7 @@ Map<String, dynamic> minimalEnRouteJson() => <String, dynamic>{
       'dropoff_lat': 9.03,
       'dropoff_lng': 38.79,
       'ride_type': 'standard',
-      'status': 'en_route',
+      'status': 'driver_en_route',
       'currency': 'ETB',
       'fare_amount': 100.0,
       'pin_code': '1234',
