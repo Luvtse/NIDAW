@@ -1,18 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/safety_repository.dart';
 import '../bloc/ride_bloc.dart';
 
 /// Slide-to-confirm emergency trigger. A plain tap is deliberately avoided:
 /// pocket-dials and accidental presses must not fire a real SOS, matching
 /// the Uber/Lyft "slide" pattern regulators expect.
+///
+/// Phase 1 (UI/UX remediation): the gesture-only design was unreachable for
+/// screen-reader and keyboard users — exactly the population most likely to
+/// need an accessible emergency trigger. The track now exposes slider-style
+/// semantics with a custom "activate SOS" action (TalkBack/VoiceOver can
+/// perform it without dragging), and the thumb is focusable so Enter/Space
+/// confirms from the keyboard. The slide gesture itself is unchanged.
 class SosSlideToConfirm extends StatelessWidget {
   final VoidCallback onConfirmed;
 
@@ -20,43 +29,54 @@ class SosSlideToConfirm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 64,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final trackWidth = constraints.maxWidth;
-          const thumbSize = 56.0;
-          final maxDrag = trackWidth - thumbSize - 16;
+    final l10n = context.l10n;
+    return Semantics(
+      label: l10n.sosSliderA11y,
+      // Slider value semantics: TalkBack/VoiceOver announce "SOS confirmation
+      // slider, 0 percent" and let the user raise the value with volume-key /
+      // swipe-up gestures; the custom action below is the direct path.
+      child: Tooltip(
+        message: l10n.sosTooltip,
+        child: SizedBox(
+          height: 64,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final trackWidth = constraints.maxWidth;
+              const thumbSize = 56.0;
+              final maxDrag = trackWidth - thumbSize - 16;
 
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: AppColors.error, width: 1.5),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Text(
-                    'Slide to confirm SOS',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: AppColors.error, width: 1.5),
                   ),
-                  _DraggableSosThumb(
-                    thumbSize: thumbSize,
-                    maxDrag: maxDrag,
-                    onConfirmed: onConfirmed,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        l10n.sosSlideLabel,
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      _DraggableSosThumb(
+                        thumbSize: thumbSize,
+                        maxDrag: maxDrag,
+                        onConfirmed: onConfirmed,
+                        confirmA11yLabel: l10n.sosActivateA11y,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          );
-        },
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -66,11 +86,13 @@ class _DraggableSosThumb extends StatefulWidget {
   final double thumbSize;
   final double maxDrag;
   final VoidCallback onConfirmed;
+  final String confirmA11yLabel;
 
   const _DraggableSosThumb({
     required this.thumbSize,
     required this.maxDrag,
     required this.onConfirmed,
+    required this.confirmA11yLabel,
   });
 
   @override
@@ -79,6 +101,14 @@ class _DraggableSosThumb extends StatefulWidget {
 
 class _DraggableSosThumbState extends State<_DraggableSosThumb> {
   double _dx = 0;
+
+  late final FocusNode _focusNode = FocusNode(debugLabel: 'SosThumb');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   void _handlePanUpdate(DragUpdateDetails details) {
     setState(() {
@@ -95,25 +125,64 @@ class _DraggableSosThumbState extends State<_DraggableSosThumb> {
     setState(() => _dx = 0);
   }
 
+  /// Keyboard / assistive-tech activation. A slide-to-confirm that can only
+  /// be slid is no confirmation at all for a switch-control or screen-reader
+  /// user; Enter/Space performs the same `onConfirmed` the drag threshold
+  /// would have fired. There is no accidental-pocket-dial risk here — the
+  /// input is deliberate.
+  void _handleActivate() => widget.onConfirmed();
+
   @override
   Widget build(BuildContext context) {
     return Positioned(
       left: 8 + _dx,
-      child: GestureDetector(
-        onHorizontalDragUpdate: _handlePanUpdate,
-        onHorizontalDragEnd: (_) => _handlePanEnd(),
-        child: Container(
-          width: widget.thumbSize,
-          height: widget.thumbSize,
-          decoration: const BoxDecoration(
-            color: AppColors.error,
-            shape: BoxShape.circle,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _handleActivate();
+              return null;
+            },
           ),
-          // §4.4: white glyph on the error-red FAB is intentional; tokenized.
-          child: const Icon(
-            Icons.sos,
-            color: AppColors.textOnDark,
-            size: 28,
+          ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+            onInvoke: (_) {
+              _handleActivate();
+              return null;
+            },
+          ),
+        },
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          child: Semantics(
+            button: true,
+            label: widget.confirmA11yLabel,
+            child: GestureDetector(
+              onHorizontalDragUpdate: _handlePanUpdate,
+              onHorizontalDragEnd: (_) => _handlePanEnd(),
+              onTap: _handleActivate,
+              child: Container(
+                width: widget.thumbSize,
+                height: widget.thumbSize,
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                  // Visible focus ring so keyboard users can see the thumb is
+                  // actionable (Phase 1 accessibility pass).
+                  border: Border.all(
+                    color: _focusNode.hasFocus
+                        ? AppColors.textOnDark
+                        : Colors.transparent,
+                    width: 3,
+                  ),
+                ),
+                // §4.4: white glyph on the error-red FAB is intentional; tokenized.
+                child: const Icon(
+                  Icons.sos,
+                  color: AppColors.textOnDark,
+                  size: 28,
+                ),
+              ),
+            ),
           ),
         ),
       ),

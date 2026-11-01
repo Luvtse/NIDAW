@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/safety_repository.dart';
 import '../bloc/ride_bloc.dart';
 import '../widgets/safety_widgets.dart';
@@ -98,8 +99,8 @@ class SafetyToolkitPage extends StatelessWidget {
           _SafetyActionTile(
             icon: Icons.sos,
             iconColor: AppColors.error,
-            title: 'Emergency SOS',
-            subtitle: 'Call emergency services on $_emergencyNumber. Your phone will ask you to confirm the call.',
+            title: l10n.sosTitle,
+            subtitle: l10n.sosTileSubtitle(_emergencyNumber),
             enabled: true,
             onTap: () async {
               final rideId = _activeRideId(context);
@@ -107,25 +108,26 @@ class SafetyToolkitPage extends StatelessWidget {
                 _requireActiveRide(context);
                 return;
               }
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Call emergency services?'),
-                  content: Text('This opens your phone dialer for $_emergencyNumber. Confirm the call in your phone app. Nidus does not dispatch emergency responders automatically.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text('Call $_emergencyNumber')),
-                  ],
-                ),
-              );
-              if (confirm != true || !context.mounted) return;
-              final launched = await launchUrl(
-                Uri(scheme: 'tel', path: _emergencyNumber),
-                mode: LaunchMode.externalApplication,
-              );
+              final bloc = context.read<RideBloc>();
+              // Phase 1 fix: route the toolkit SOS through the SAME tested
+              // countdown flow RideCheck already uses (StartSosCountdown →
+              // SosCountdownOverlay). Previously this tile only opened the
+              // dialer directly, leaving SosSlideToConfirm/SosCountdownOverlay
+              // orphaned and giving two safety surfaces divergent behavior.
+              // The overlay keeps the rider in control: cancel ("I'm safe")
+              // or escalate immediately; the phone still confirms the call.
+              bloc.add(StartSosCountdown(
+                rideId: rideId,
+                lat: 0,
+                lng: 0,
+                message: 'Emergency SOS from Safety Toolkit.',
+              ));
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(launched ? 'Phone dialer opened. Confirm the call to $_emergencyNumber.' : 'Could not open the dialer. Call $_emergencyNumber directly.')),
+              await showGeneralDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                barrierLabel: l10n.sosOverlayA11y,
+                pageBuilder: (_, __, ___) => const SosCountdownOverlay(),
               );
             },
           ),
