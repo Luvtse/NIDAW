@@ -616,4 +616,93 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get requestOptionUnavailable => 'Hin argamu';
+
+  @override
+  String get driverCallTooltip => 'Diree daandiqa\'aan bilbilaan waamaa';
+
+  @override
+  String get driverChatTooltip => 'Diree daandiqa\'aan waliin haalaawaa';
+
+  @override
+  String get driverEtaMinutesUnit => 'daq';
+
+  @override
+  String get verifySelfieTitle => 'Diree daandii keessan mirkaneessaa';
+
+  @override
+  String verifySelfieSubtitle(String driverName) {
+    return '\$driverName fuula dura keessan walu gahuu dursee selfie ergesera. Fuula agarsiisa isa waliin wal bira qabuuf tuqi.';
+  }
+
+  @override
+  String get verifySelfieNotSentTitle => 'Direen daandii selfie hin ergine';
+
+  @override
+  String get verifySelfieNotSentSubtitle => 'Diree daandii keessan lakkoofsa paalaatii fi raabaan beekadhaa. Seenuun dura ergaa ergachuu ykn bilbilaan waamu ni dandeessu.';
+
+  @override
+  String get verifyContactDriver => 'Diree daandii qukkubaa';
+
+  @override
+  String get verifySelfieExpiredTitle => 'Geessi selfie yeroon isaa darbeera';
+
+  @override
+  String get verifySelfieExpiredSubtitle => 'Geessonni mallattoo qaban daqiiqaa 15 qofa turu. Diree daandii keessan akka irra deebi\'an gaafadhaa ykn sochii haaraa gochuuf gubbaa haaromsaa.';
+
+  @override
+  String get verifyRefresh => 'Haaromsi';
+
+  @override
+  String get verifyUnavailableTitle => 'Mirkanneessin hin jiru';
+
+  @override
+  String get verifyUnavailableUnknownSubtitle => 'Tajaajilli mirkaneessinaa haala adda ta\'e ergeseera. Kun gara keenya malee diree daandii miti — gubbaa irra deebi\'aa yaalaa.';
+
+  @override
+  String get verifyUnavailableSubtitle => 'Mirkanneessi suura diree daandii sochii kanaaf amma hin jiru. Diree daandii keessan lakkoofsa paalaatii fi raabaan beekadhaa.';
+
+  @override
+  String get verifyRetry => 'Irra deebi\'aa yaali';
+
+  @override
+  String get verifySheetLinkExpired => 'Geessi selfie guutuu dura yeroon isaa darbeera. Geessa haaraa argachuuf haala sochii haaraa fe\'i.';
+
+  @override
+  String get verifySheetStorageUnavailable => 'Mirkanneessi yeroofacha gara keenyatti rakkoo qaba. Direen daandii selfie ergeera — yeroo gabaabaa keessatti irra deebi\'aa yaali.';
+
+  @override
+  String verifySheetNetworkError(String status) {
+    return 'Selfie banuu hin dandeenye (dogoggora network\$status). Irra deebi\'uuf tuqi.';
+  }
+
+  @override
+  String get verifySheetGenericError => 'Selfie banuu hin dandeenye. Irra deebi\'uuf tuqi.';
+
+  @override
+  String verifyComparisonAppBarTitle(String firstName) {
+    return '\$firstName mirkaneessi';
+  }
+
+  @override
+  String get verifyPanelProfileLabel => 'Suura agarsiisaa (galmaa irra jiru)';
+
+  @override
+  String get verifyPanelProfileMissing => 'Diree daandii kanaaf suura agarsiisaa galmaa irra jiru hin qabu; kanaaf ammoo wanta wal bira qabamu hin jiru.';
+
+  @override
+  String get verifyPanelSelfieLabel => 'Selfie amma ergame';
+
+  @override
+  String get verifyPanelDecodeError => 'Suurni hiikamuu hin dandeenye — bayitoonni sun cabe malee hin dhabaman. Gabatee sochii irraa irra deebi\'aa yaali.';
+
+  @override
+  String verifyExpiryNote(String expiry) {
+    return 'Selfiin wal qabxii kanaaf qofa kaafame · \$expiry haa barbaachisu';
+  }
+
+  @override
+  String get verifyButtonNotThem => 'Isa/Ishee miti';
+
+  @override
+  String get verifyButtonLooksRight => 'Sirreedha ta\'a';
 }

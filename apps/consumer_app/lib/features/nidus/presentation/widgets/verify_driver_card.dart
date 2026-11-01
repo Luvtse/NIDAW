@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/pre_selfie_repository.dart';
 
 class VerifyDriverCard extends StatefulWidget {
@@ -75,29 +76,22 @@ class _VerifyDriverCardState extends State<VerifyDriverCard> {
     } on PreSelfieLinkExpiredException {
       if (!mounted) return;
       setState(() => _busy = false);
-      _showSheetMessage(
-        'The selfie link expired before it could load. Pull a fresh ride '
-        'state to get a new signed link.',
-      );
+      _showSheetMessage(context.l10n.verifySheetLinkExpired);
       widget.onRecheck();
     } on PreSelfieStorageUnavailableException {
       if (!mounted) return;
       setState(() => _busy = false);
-      _showSheetMessage(
-        'Verification is temporarily unavailable on our side. The driver did '
-        'send a selfie — try again in a moment.',
-      );
+      _showSheetMessage(context.l10n.verifySheetStorageUnavailable);
     } on PreSelfieNetworkException catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      _showSheetMessage(
-        'Could not load the selfie (network error${e.statusCode != null ? ' HTTP ${e.statusCode}' : ''}). Tap to retry.',
-      );
+      _showSheetMessage(context.l10n.verifySheetNetworkError(
+          e.statusCode != null ? ' HTTP ${e.statusCode}' : ''));
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
       // Defensive: any unmapped failure still must not show a fake image.
-      _showSheetMessage('Could not load the selfie. Tap to retry.');
+      _showSheetMessage(context.l10n.verifySheetGenericError);
     }
   }
 

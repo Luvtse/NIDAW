@@ -150,9 +150,27 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   cards that don't render them (premium card's seat text is clipped by the fixed-height column);
   replaced with capacity-unknown assertions matching the actual widget layout.
 
+**Session-6 sweep progress (driver_card.dart):**
+- `driver_card.dart` migrated to catalog strings: the three remaining English literals
+  ('Call driver using masked number', 'Chat with driver', 'min') replaced with new ARB keys
+  `driverCallTooltip` / `driverChatTooltip` / `driverEtaMinutesUnit` in en/am/om, compiled via
+  `tool/sync_l10n.py` ("Added 3 members", then re-run confirms "already in sync"). All three
+  ARBs validated as JSON. Widget imports the §4.3 barrel and resolves via `context.l10n`.
+- New widget-level test: `test/features/nidus/presentation/driver_card_l10n_test.dart` — pumps
+  DriverCard under the delegates for en/am/om, asserts `find.byTooltip(localized)` for both
+  actions, localized unit renders, and former English literals do not leak in am/om.
+- Note: tooltip localization also partially advances Phase 4 (semantic labels on call/chat),
+  but the honest-avatar-degradation item (Icons.person silhouette → initials + label per
+  verify_driver_card rule) is still open for Phase 4.
+
 **Open items after Phase 3:**
 - No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
-  before merge (catalogs, selector edits, and the new test are compiler-unverified locally).
+  before merge (catalogs, selector edits, driver_card edits, and both new tests are
+  compiler-unverified locally).
 - F.1 Ethiopic font risk still open (assets/fonts absent) — blocks the *localization sweep* exit
   criterion "font ships in bundle"; carried into Phase 4.
 - Full Amharic/Oromo translation quality pass remains for human review (coverage ≠ correctness).
+- Remaining sweep files (chat_page, receipt_detail_page, notification_inbox_page,
+  ar_navigation_page, verify_driver_card, split_fare_sheet, promo_code_sheet,
+  pre_selfie_capture_sheet, stop_charge_card, place_autocomplete_sheet, ride_type_selector done;
+  location_input pending) plus known literal at `ride_tracking_page.dart:1427`.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 class DriverCard extends StatelessWidget {
   final String driverName;
@@ -23,6 +24,7 @@ class DriverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -97,12 +99,12 @@ class DriverCard extends StatelessWidget {
           Column(
             children: [
               IconButton(
-                tooltip: 'Call driver using masked number',
+                tooltip: l10n.driverCallTooltip,
                 onPressed: onCall,
                 icon: const Icon(Icons.call),
               ),
               IconButton(
-                tooltip: 'Chat with driver',
+                tooltip: l10n.driverChatTooltip,
                 onPressed: onChat,
                 icon: const Icon(Icons.message_outlined),
               ),
@@ -126,9 +128,9 @@ class DriverCard extends StatelessWidget {
                     color: AppColors.textOnDark,
                   ),
                 ),
-                const Text(
-                  'min',
-                  style: TextStyle(
+                Text(
+                  l10n.driverEtaMinutesUnit,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Colors.white70,
                   ),
