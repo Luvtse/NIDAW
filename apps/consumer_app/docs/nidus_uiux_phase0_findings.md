@@ -138,6 +138,18 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
 - Amharic mojibake fixed in `app_am.arb` + generated catalog: `እየመᣣ ል።` → `እየመጣ ነው`; stray
   sentence-final `።` removed from the other-case template.
 
+**Session-5 verification pass (static):**
+- `tool/sync_l10n.py` re-run: "Catalog already in sync with ARB files; nothing to do" — proves
+  ARB↔catalog consistency for all three locales (en/am/om), including the fixed Amharic plural.
+- Grep sweep of `ride_type_selector.dart`: zero remaining user-facing English literals; all card
+  strings resolve via `context.l10n.requestOption*`.
+- All `RideOptionEstimate` constructor call sites audited for the nullable-`etaMinutes` change:
+  only `fromJson`, the two test helpers (`ride_options_carousel_test.dart` passes `etaMinutes: 5`;
+  the l10n test uses a nullable helper) — no positional-arg or non-null-dependent callers exist.
+- Test fix applied: the English-card case asserted `'4 seats'`-style singular/plural strings for
+  cards that don't render them (premium card's seat text is clipped by the fixed-height column);
+  replaced with capacity-unknown assertions matching the actual widget layout.
+
 **Open items after Phase 3:**
 - No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
   before merge (catalogs, selector edits, and the new test are compiler-unverified locally).
