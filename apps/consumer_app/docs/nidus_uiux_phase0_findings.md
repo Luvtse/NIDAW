@@ -110,3 +110,37 @@ in_app_notification_banner from the zero list).
   contracts (implemented); driver_card tooltips (already present).
 
 Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 1.
+
+---
+
+## Addendum — Phase 3 (Dead Code Resolution) status update
+
+**Decision: RECONNECT (retain), not delete.** Verified against the working tree:
+
+- `LoadRideOptions` is dispatched from `ride_request_page.dart` (`_loadRideOptions`, wired to
+  route changes, option selection, and the retry strip's `onRetry`).
+- `RideOptionsLoaded` / `RideOptionsFailed` are handled by the bloc and consumed by the page;
+  the carousel renders server-driven cards and the localized degraded strip.
+- Contract locked by `test/features/nidus/presentation/ride_options_carousel_test.dart` (bloc-level).
+- Exit criterion "failing estimate path has a user-reachable retry" MET: `_UnavailableState` strip
+  shows localized headline (`requestOptionsPricesUnavailable`) + `commonRetry` action; raw server
+  message demoted to secondary detail.
+
+**Section A/B verdict superseded:** the §2.6 doc contract now HAS implementation (was "never wired").
+
+**Phase 3 localization follow-through (selector):**
+- All six English literals removed from `ride_type_selector.dart` ('CHOSEN', 'ETA unavailable',
+  'Capacity not provided', 'Unavailable', 'N seats', 'N min away'); replaced with new ARB keys
+  `requestOption*` in en/am/om, compiled into the committed catalogs via `tool/sync_l10n.py`.
+- `RideOptionEstimate.etaMinutes` made nullable — omitted server ETA renders localized
+  "ETA unavailable", never fabricated "0 min away"; real 0 renders the =0 plural case.
+- Widget-level l10n test added: `test/features/nidus/presentation/ride_type_selector_l10n_test.dart`.
+- Amharic mojibake fixed in `app_am.arb` + generated catalog: `እየመᣣ ል።` → `እየመጣ ነው`; stray
+  sentence-final `።` removed from the other-case template.
+
+**Open items after Phase 3:**
+- No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
+  before merge (catalogs, selector edits, and the new test are compiler-unverified locally).
+- F.1 Ethiopic font risk still open (assets/fonts absent) — blocks the *localization sweep* exit
+  criterion "font ships in bundle"; carried into Phase 4.
+- Full Amharic/Oromo translation quality pass remains for human review (coverage ≠ correctness).
