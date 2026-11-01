@@ -482,7 +482,7 @@
   "@requestOptionChosenBadge": {
     "description": "Phase 3 localization sweep: highlight badge on the selected ride-option card in the carousel."
   },
-  "requestOptionEtaMinutes": "{minutes, plural, =0{አሁን እየመᣣ ል።} other{{minutes} ደቂቃ ርቀት ል።}}",
+  "requestOptionEtaMinutes": "{minutes, plural, =0{አሁን እየመጣ ነው} other{{minutes} ደቂቃ ርቀት}}",
   "@requestOptionEtaMinutes": {
     "description": "Phase 3 localization sweep: ETA line on a ride-option card.",
     "placeholders": {

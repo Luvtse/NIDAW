@@ -600,7 +600,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String requestOptionEtaMinutes(int minutes) {
-    return (minutes == 0 ? 'አሁን እየመᣣ ል።' : '\$minutes ደቂቃ ርቀት ል።');
+    return (minutes == 0 ? 'አሁን እየመጣ ነው' : '\$minutes ደቂቃ ርቀት');
   }
 
   @override
