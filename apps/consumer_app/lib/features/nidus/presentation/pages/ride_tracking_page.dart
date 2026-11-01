@@ -94,6 +94,14 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   /// the error belongs to a flow this page never triggered (see below).
   RideError? _activeErrorBanner;
 
+  /// Last state observed that carried a live ride (Requested / Matched /
+  /// EnRoute / InProgress). A `RideError` emitted by the shared bloc does not
+  /// itself say whether a trip is running, so the banner logic consults this
+  /// to decide "stay and explain" vs. "leave quietly". Cleared when the ride
+  /// genuinely ends (completed/cancelled) so a stale value can't keep a rider
+  /// parked on a dead trip.
+  RideState? _lastLiveRideState;
+
   /// Error codes this page itself provokes — retrying them from the banner is
   /// safe and meaningful. Anything else (history/rate/estimate failures from
   /// sibling screens sharing the same RideBloc) is shown as information only:
@@ -738,10 +746,151 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                   ),
                 ),
               ),
+
+              // Phase 1 (UI/UX remediation): persistent, explanatory error
+              // banner. Replaces the old silent `Navigator.pop()` on any
+              // non-CANCEL_FAILED RideError — a rider mid-trip is never
+              // ejected without being told what happened and what to do.
+              if (_activeErrorBanner != null)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(context).size.height * 0.32,
+                  child: _buildActiveErrorBanner(context),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+
+  // ─── Phase 1: persistent ride-error banner ──────────────────────────────
+
+  /// Builds the durable error surface parked by the listener. Two honest
+  /// variants:
+  ///  * Live-ride error → "Your trip is still active" + Stay / Leave
+  ///    (+ Retry when this page can actually re-run the failed request).
+  ///  * No live ride but durable money outcome (CANCEL_FAILED) → explains
+  ///    the cancellation may carry a fee; primary action is Dismiss.
+  /// Raw server text is demoted to a detail line under a localized primary
+  /// message so the headline always speaks the rider's language.
+  Widget _buildActiveErrorBanner(BuildContext context) {
+    final error = _activeErrorBanner!;
+    final l10n = context.l10n;
+    final hasLiveRide = _hasActiveRide(_lastLiveRideState ?? error);
+    final retryable =
+        error.errorCode != null && _retryableTrackingErrorCodes.contains(error.errorCode);
+
+    return Material(
+      color: AppColors.surface,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(16),
+      child: Semantics(
+        liveRegion: true,
+        label: hasLiveRide ? l10n.trackingErrorLiveRideA11y : l10n.trackingErrorDetailA11y,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: AppColors.error, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasLiveRide
+                          ? l10n.trackingErrorLiveRideTitle
+                          : l10n.trackingErrorGenericTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                hasLiveRide
+                    ? l10n.trackingErrorLiveRideBody
+                    : l10n.trackingErrorGenericBody,
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
+              // Server message demoted to detail — useful for support, never
+              // the headline (it is English-only and often not user-facing).
+              if (error.message.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  error.message,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (retryable) ...[
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.textOnDark,
+                        ),
+                        onPressed: () {
+                          setState(() => _activeErrorBanner = null);
+                          _rideBloc.add(LoadRide(widget.rideId));
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: Text(l10n.trackingErrorRetry),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (hasLiveRide) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                        ),
+                        onPressed: () =>
+                            setState(() => _activeErrorBanner = null),
+                        child: Text(l10n.trackingErrorStay),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(l10n.trackingErrorLeave),
+                      ),
+                    ),
+                  ] else ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                        ),
+                        onPressed: () =>
+                            setState(() => _activeErrorBanner = null),
+                        child: Text(l10n.trackingErrorDismiss),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
