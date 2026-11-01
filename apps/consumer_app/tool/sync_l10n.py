@@ -103,19 +103,27 @@ def _matching_brace(text: str, open_idx: int) -> int:
 
 
 def _split_top_level(text: str) -> list[str]:
-    """Split ICU plural cases on commas that sit outside braces."""
+    """Split ICU plural cases on whitespace that sits outside braces.
+
+    ICU plural blocks separate cases with plain spaces, not commas:
+    `=0{Arriving now} other{{minutes} min away}` is two cases. Splitting
+    on top-level whitespace keeps selector tokens (which never contain
+    spaces) intact while separating each `selector{body}` unit.
+    """
     parts, depth, current = [], 0, []
     for ch in text:
         if ch == "{":
             depth += 1
         elif ch == "}":
             depth -= 1
-        if ch == "," and depth == 0:
-            parts.append("".join(current))
-            current = []
+        if ch.isspace() and depth == 0:
+            if current:
+                parts.append("".join(current))
+                current = []
         else:
             current.append(ch)
-    parts.append("".join(current))
+    if current:
+        parts.append("".join(current))
     return parts
 
 
@@ -147,10 +155,14 @@ def _plural_expression(param: str, cases_text: str) -> str:
         piece = piece.strip()
         if not piece:
             continue
-        m = re.match(r"^(=\d+|\w+)\s*\{(.*)\}$", piece, re.DOTALL)
+        m = re.match(r"^(=\d+|\w+)\s*\{", piece)
         if not m:
             sys.exit(f"ERROR: cannot parse plural case: {piece!r}")
-        cases.append((m.group(1), _icu_to_dart(m.group(2))))
+        open_idx = piece.index("{", m.end() - 1)
+        close_idx = _matching_brace(piece, open_idx)
+        if close_idx != len(piece) - 1:
+            sys.exit(f"ERROR: trailing text after plural case: {piece!r}")
+        cases.append((m.group(1), _icu_to_dart(piece[open_idx + 1 : close_idx])))
     other = next((b for s, b in cases if s == "other"), None)
     if other is None:
         sys.exit(f"ERROR: plural for {param} has no 'other' case")

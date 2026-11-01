@@ -468,4 +468,152 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentNoneSaved => 'No saved methods yet. Add one below.';
+
+  @override
+  String get trackingErrorLiveRideTitle => 'Problem connecting — your trip is still active';
+
+  @override
+  String get trackingErrorLiveRideBody => 'We lost some ride information, but your ride has not been cancelled. You can stay on this screen or leave it.';
+
+  @override
+  String get trackingErrorGenericTitle => 'Something went wrong';
+
+  @override
+  String get trackingErrorGenericBody => 'The last action did not complete. Check the details below before trying again.';
+
+  @override
+  String get trackingErrorStay => 'Stay';
+
+  @override
+  String get trackingErrorLeave => 'Leave';
+
+  @override
+  String get trackingErrorRetry => 'Retry';
+
+  @override
+  String get trackingErrorDismiss => 'Dismiss';
+
+  @override
+  String get trackingErrorLiveRideA11y => 'Error during your active ride. Your trip is continuing.';
+
+  @override
+  String get trackingErrorDetailA11y => 'Error details';
+
+  @override
+  String get sosSlideLabel => 'Slide to confirm SOS';
+
+  @override
+  String get sosSliderA11y => 'SOS confirmation slider. Drag fully right, or press Enter, to send an emergency alert.';
+
+  @override
+  String get sosActivateA11y => 'Send emergency SOS now';
+
+  @override
+  String get sosTooltip => 'Hold and slide all the way to the right to confirm an emergency alert';
+
+  @override
+  String get sosTitle => 'Emergency SOS';
+
+  @override
+  String sosTileSubtitle(String number) {
+    return 'Alert the emergency line at \$number with your live location';
+  }
+
+  @override
+  String get sosOverlayA11y => 'Emergency SOS countdown';
+
+  @override
+  String get sosOverlayTitle => 'Emergency SOS';
+
+  @override
+  String sosOverlayCountdownBody(String number, int seconds) {
+    return 'Opening your phone dialer for emergency number \$number in \$seconds s…';
+  }
+
+  @override
+  String sosOverlayFallbackBody(String number) {
+    return 'If the dialer does not open, use the button below or call \$number directly.';
+  }
+
+  @override
+  String get sosOverlayCancel => 'Cancel — I\'m safe';
+
+  @override
+  String get sosOverlayCallNow => 'Call emergency services now';
+
+  @override
+  String sosOverlayRetryCall(String number) {
+    return 'Retry call \$number';
+  }
+
+  @override
+  String get sosStartedCountdown => 'SOS countdown started. Hold to confirm or tap the shield to open the Safety Toolkit.';
+
+  @override
+  String get sosLocationUnavailable => 'Location unavailable — cannot start SOS with your position.';
+
+  @override
+  String get openSafetyToolkit => 'Open Safety Toolkit';
+
+  @override
+  String sosOverlayCallDirectly(String number) {
+    return 'Call \$number directly from your phone.';
+  }
+
+  @override
+  String get historyFilterAll => 'All';
+
+  @override
+  String get historyFilterCompleted => 'Completed';
+
+  @override
+  String get historyFilterCancelled => 'Cancelled';
+
+  @override
+  String get historyFilterInProgress => 'In Progress';
+
+  @override
+  String historyEmptyFiltered(String filter) {
+    return 'No \$filter rides yet';
+  }
+
+  @override
+  String get historyEmptyBody => 'Your ride history will appear here.';
+
+  @override
+  String get historyEmptyFilteredBody => 'Try another filter to see more of your ride history.';
+
+  @override
+  String get historyClearFilter => 'Clear filter';
+
+  @override
+  String get historyRequestRide => 'Request a Ride';
+
+  @override
+  String get historyErrorPrimary => 'Couldn\'t load your rides';
+
+  @override
+  String get historyRetry => 'Retry';
+
+  @override
+  String get requestOptionChosenBadge => 'CHOSEN';
+
+  @override
+  String requestOptionEtaMinutes(int minutes) {
+    return (minutes == 0 ? 'Arriving now' : '\$minutes min away');
+  }
+
+  @override
+  String get requestOptionEtaUnavailable => 'ETA unavailable';
+
+  @override
+  String requestOptionSeats(int count) {
+    return (count == 1 ? '1 seat' : '\$count seats');
+  }
+
+  @override
+  String get requestOptionCapacityUnknown => 'Capacity not provided';
+
+  @override
+  String get requestOptionUnavailable => 'Unavailable';
 }

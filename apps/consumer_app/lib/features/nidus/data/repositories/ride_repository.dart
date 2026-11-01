@@ -784,7 +784,12 @@ class RideOptionEstimate {
   final double surgeMultiplier;
   final String? surgeReason;
   final String currency;
-  final int etaMinutes;
+
+  /// Minutes until pickup. `null` means the pricing service omitted the
+  /// estimate — honest degradation: the card shows a localized "ETA
+  /// unavailable" line instead of fabricating "0 min away". A real `0`
+  /// renders as "Arriving now".
+  final int? etaMinutes;
   final bool available;
 
   const RideOptionEstimate({
@@ -828,7 +833,7 @@ class RideOptionEstimate {
       surgeMultiplier: (json['surge_multiplier'] as num?)?.toDouble() ?? 1.0,
       surgeReason: json['surge_reason'] as String?,
       currency: json['currency'] as String? ?? 'ETB',
-      etaMinutes: asInt('estimated_pickup_minutes') ?? 0,
+      etaMinutes: asInt('estimated_pickup_minutes'),
       available: json['available'] as bool? ?? true,
     );
   }

@@ -1002,4 +1002,268 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
     'that was used.'
   );
+
+  /// Phase 1: headline of the persistent error banner shown while a ride is live on the tracking page (replaces silent pop()).
+  ///
+  /// In en, this message translates to:
+  /// **Problem connecting — your trip is still active**
+  String get trackingErrorLiveRideTitle;
+
+  /// Phase 1: body of the live-ride error banner; reassures the rider the trip continues.
+  ///
+  /// In en, this message translates to:
+  /// **We lost some ride information, but your ride has not been cancelled. You can stay on this screen or leave it.**
+  String get trackingErrorLiveRideBody;
+
+  /// Phase 1: headline when an error arrives but no live ride exists (e.g. failed cancellation).
+  ///
+  /// In en, this message translates to:
+  /// **Something went wrong**
+  String get trackingErrorGenericTitle;
+
+  /// Phase 1: body for the non-live-ride banner variant (CANCEL_FAILED durable outcome).
+  ///
+  /// In en, this message translates to:
+  /// **The last action did not complete. Check the details below before trying again.**
+  String get trackingErrorGenericBody;
+
+  /// Phase 1: primary action keeping the rider on the tracking screen.
+  ///
+  /// In en, this message translates to:
+  /// **Stay**
+  String get trackingErrorStay;
+
+  /// Phase 1: explicit user-chosen exit from tracking (never automatic).
+  ///
+  /// In en, this message translates to:
+  /// **Leave**
+  String get trackingErrorLeave;
+
+  /// Phase 1: re-dispatches LoadRide; only offered for errors this page can actually recover.
+  ///
+  /// In en, this message translates to:
+  /// **Retry**
+  String get trackingErrorRetry;
+
+  /// Phase 1: acknowledges a durable outcome (e.g. cancel fee) without staying visible.
+  ///
+  /// In en, this message translates to:
+  /// **Dismiss**
+  String get trackingErrorDismiss;
+
+  /// Phase 1: screen-reader live-region label for the live-ride banner variant.
+  ///
+  /// In en, this message translates to:
+  /// **Error during your active ride. Your trip is continuing.**
+  String get trackingErrorLiveRideA11y;
+
+  /// Phase 1: screen-reader live-region label for the generic banner variant.
+  ///
+  /// In en, this message translates to:
+  /// **Error details**
+  String get trackingErrorDetailA11y;
+
+  /// Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized).
+  ///
+  /// In en, this message translates to:
+  /// **Slide to confirm SOS**
+  String get sosSlideLabel;
+
+  /// Phase 1: TalkBack/VoiceOver label announcing both the drag gesture and the keyboard alternative.
+  ///
+  /// In en, this message translates to:
+  /// **SOS confirmation slider. Drag fully right, or press Enter, to send an emergency alert.**
+  String get sosSliderA11y;
+
+  /// Phase 1: custom assistive action on the draggable thumb — direct activation path.
+  ///
+  /// In en, this message translates to:
+  /// **Send emergency SOS now**
+  String get sosActivateA11y;
+
+  /// Phase 1: tooltip explaining the deliberate two-step SOS confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **Hold and slide all the way to the right to confirm an emergency alert**
+  String get sosTooltip;
+
+  /// Phase 1: Safety Toolkit tile title for the SOS action.
+  ///
+  /// In en, this message translates to:
+  /// **Emergency SOS**
+  String get sosTitle;
+
+  /// Phase 1: Safety Toolkit SOS tile subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **Alert the emergency line at {number} with your live location**
+  String sosTileSubtitle(String number);
+
+  /// Phase 1: barrier label so screen readers announce the modal countdown overlay.
+  ///
+  /// In en, this message translates to:
+  /// **Emergency SOS countdown**
+  String get sosOverlayA11y;
+
+  /// Phase 1: headline of the full-screen pre-alarm countdown overlay.
+  ///
+  /// In en, this message translates to:
+  /// **Emergency SOS**
+  String get sosOverlayTitle;
+
+  /// Phase 1: countdown body text.
+  ///
+  /// In en, this message translates to:
+  /// **Opening your phone dialer for emergency number {number} in {seconds} s…**
+  String sosOverlayCountdownBody(String number, int seconds);
+
+  /// Phase 1: shown once the countdown has elapsed / dialer hand-off state.
+  ///
+  /// In en, this message translates to:
+  /// **If the dialer does not open, use the button below or call {number} directly.**
+  String sosOverlayFallbackBody(String number);
+
+  /// Phase 1: abort-SOS action on the countdown overlay.
+  ///
+  /// In en, this message translates to:
+  /// **Cancel — I'm safe**
+  String get sosOverlayCancel;
+
+  /// Phase 1: immediate escalation button on the countdown overlay.
+  ///
+  /// In en, this message translates to:
+  /// **Call emergency services now**
+  String get sosOverlayCallNow;
+
+  /// Phase 1: escalation button label after a failed dialer launch.
+  ///
+  /// In en, this message translates to:
+  /// **Retry call {number}**
+  String sosOverlayRetryCall(String number);
+
+  /// Phase 1: shown after an SOS countdown is armed from RideCheck 'Call for help'. Localized (was hardcoded English).
+  ///
+  /// In en, this message translates to:
+  /// **SOS countdown started. Hold to confirm or tap the shield to open the Safety Toolkit.**
+  String get sosStartedCountdown;
+
+  /// Phase 1: honest degradation when no GPS fix; we never send a locationless SOS. Localized (was hardcoded English).
+  ///
+  /// In en, this message translates to:
+  /// **Location unavailable — cannot start SOS with your position.**
+  String get sosLocationUnavailable;
+
+  /// Phase 1: snackbar action label routing the rider to manual emergency flows.
+  ///
+  /// In en, this message translates to:
+  /// **Open Safety Toolkit**
+  String get openSafetyToolkit;
+
+  /// Phase 1: snackbar when the app could not open the dialer.
+  ///
+  /// In en, this message translates to:
+  /// **Call {number} directly from your phone.**
+  String sosOverlayCallDirectly(String number);
+
+  /// Phase 1: history filter chip — show every ride.
+  ///
+  /// In en, this message translates to:
+  /// **All**
+  String get historyFilterAll;
+
+  /// Phase 1: history filter chip — completed rides.
+  ///
+  /// In en, this message translates to:
+  /// **Completed**
+  String get historyFilterCompleted;
+
+  /// Phase 1: history filter chip — cancelled rides.
+  ///
+  /// In en, this message translates to:
+  /// **Cancelled**
+  String get historyFilterCancelled;
+
+  /// Phase 1: history filter chip — rides currently running.
+  ///
+  /// In en, this message translates to:
+  /// **In Progress**
+  String get historyFilterInProgress;
+
+  /// Phase 1: empty state when a filter hides everything; {filter} is the localized chip label.
+  ///
+  /// In en, this message translates to:
+  /// **No {filter} rides yet**
+  String historyEmptyFiltered(String filter);
+
+  /// Phase 1: secondary line under the unfiltered empty state.
+  ///
+  /// In en, this message translates to:
+  /// **Your ride history will appear here.**
+  String get historyEmptyBody;
+
+  /// Phase 1: secondary line under the filtered empty state.
+  ///
+  /// In en, this message translates to:
+  /// **Try another filter to see more of your ride history.**
+  String get historyEmptyFilteredBody;
+
+  /// Phase 1: resets the history list to all rides.
+  ///
+  /// In en, this message translates to:
+  /// **Clear filter**
+  String get historyClearFilter;
+
+  /// Phase 1: CTA on the empty history state.
+  ///
+  /// In en, this message translates to:
+  /// **Request a Ride**
+  String get historyRequestRide;
+
+  /// Phase 1: localized headline replacing raw 'Error loading rides'; the server message is demoted to a detail line.
+  ///
+  /// In en, this message translates to:
+  /// **Couldn't load your rides**
+  String get historyErrorPrimary;
+
+  /// Phase 1: re-runs the history request.
+  ///
+  /// In en, this message translates to:
+  /// **Retry**
+  String get historyRetry;
+
+  /// Phase 3 localization sweep: highlight badge on the selected ride-option card in the carousel.
+  ///
+  /// In en, this message translates to:
+  /// **CHOSEN**
+  String get requestOptionChosenBadge;
+
+  /// Phase 3 localization sweep: ETA line on a ride-option card.
+  ///
+  /// In en, this message translates to:
+  /// **{minutes, plural, =0{Arriving now} other{{minutes} min away}}**
+  String requestOptionEtaMinutes(int minutes);
+
+  /// Phase 3 localization sweep: honest degradation when the server omits an ETA; never a fabricated time.
+  ///
+  /// In en, this message translates to:
+  /// **ETA unavailable**
+  String get requestOptionEtaUnavailable;
+
+  /// Phase 3 localization sweep: capacity line on a ride-option card.
+  ///
+  /// In en, this message translates to:
+  /// **{count, plural, =1{1 seat} other{{count} seats}}**
+  String requestOptionSeats(int count);
+
+  /// Phase 3 localization sweep: honest degradation when the server omits capacity.
+  ///
+  /// In en, this message translates to:
+  /// **Capacity not provided**
+  String get requestOptionCapacityUnknown;
+
+  /// Phase 3 localization sweep: availability flag on a ride-option card.
+  ///
+  /// In en, this message translates to:
+  /// **Unavailable**
+  String get requestOptionUnavailable;
 }
