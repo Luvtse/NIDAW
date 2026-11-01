@@ -477,5 +477,39 @@
   "requestOptionsSetRouteFirst": "ዋጋ መግለጫ አልተገኘም — ቀጥያና መድረሻ ቦታዎችን ከመረጡ በኋላ ዋጋዎች ይጫናሉ።",
   "@requestOptionsSetRouteFirst": {
     "description": "Phase 2 dead-code reconnect: carousel placeholder before both endpoints exist; honest 'unavailable', never a fabricated price."
+  },
+  "requestOptionChosenBadge": "ተመርጧል",
+  "@requestOptionChosenBadge": {
+    "description": "Phase 3 localization sweep: highlight badge on the selected ride-option card in the carousel."
+  },
+  "requestOptionEtaMinutes": "{minutes, plural, =0{አሁን እየመᣣ ል።} other{{minutes} ደቂቃ ርቀት ል።}}",
+  "@requestOptionEtaMinutes": {
+    "description": "Phase 3 localization sweep: ETA line on a ride-option card.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "requestOptionEtaUnavailable": "ETA አልተገኘም",
+  "@requestOptionEtaUnavailable": {
+    "description": "Phase 3 localization sweep: honest degradation when the server omits an ETA; never a fabricated time."
+  },
+  "requestOptionSeats": "{count, plural, =1{1 ቦታ} other{{count} ቦታዎች}}",
+  "@requestOptionSeats": {
+    "description": "Phase 3 localization sweep: capacity line on a ride-option card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestOptionCapacityUnknown": "የሰው ብዛት አልቀረበም",
+  "@requestOptionCapacityUnknown": {
+    "description": "Phase 3 localization sweep: honest degradation when the server omits capacity."
+  },
+  "requestOptionUnavailable": "አይገኝም",
+  "@requestOptionUnavailable": {
+    "description": "Phase 3 localization sweep: availability flag on a ride-option card."
   }
 }
