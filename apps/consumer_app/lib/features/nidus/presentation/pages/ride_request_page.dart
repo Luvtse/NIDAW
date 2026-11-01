@@ -16,7 +16,8 @@ import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../core/voice/voice_command_service.dart';
-import '../../data/repositories/ride_repository.dart' show RideStop, maxRideStops;
+import '../../data/repositories/ride_repository.dart'
+    show RideOptionEstimate, RideStop, maxRideStops;
 import '../bloc/ride_bloc.dart';
 import '../widgets/location_input.dart';
 import '../widgets/location_permission_gate.dart';
@@ -255,6 +256,29 @@ class _RideRequestPageState extends State<RideRequestPage>
   }
 
   bool get _canRequest => _pickup.hasCoordinates && _dropoff.hasCoordinates;
+
+  /// Server-confirmed single-type estimate currently on screen, regardless of
+  /// which bloc state carries it. `RideOptionsLoaded`/`RideOptionsFailed`
+  /// fold the last successful estimate into their snapshot (see
+  /// [RideOptionsLoaded.estimate]) so the footer price survives carousel
+  /// refreshes — the page reads through this getter instead of pattern
+  /// matching `FareEstimateLoaded` alone.
+  dynamic get _visibleEstimate {
+    final s = context.read<RideBloc>().state;
+    if (s is FareEstimateLoaded) return s.estimate;
+    if (!_canRequest) return null;
+    if (s is RideOptionsLoaded) return s.estimate;
+    if (s is RideOptionsFailed) return s.estimate;
+    return null;
+  }
+
+  /// Carousel options from the last successful [LoadRideOptions] fetch. Empty
+  /// before the first load / after a failure — [RideTypeSelector] then renders
+  /// its skeleton or degraded strip based on [_optionsLoading]/error.
+  List<RideOptionEstimate> get _rideOptions {
+    final s = context.read<RideBloc>().state;
+    return s is RideOptionsLoaded ? s.options : const [];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -646,18 +670,28 @@ class _RideRequestPageState extends State<RideRequestPage>
                               const SizedBox(height: 12),
                               RideTypeSelector(
                                 selectedType: _selectedRideType,
+                                options: _rideOptions,
+                                loading: _optionsLoading || state is RideLoading,
+                                error: state is RideOptionsFailed
+                                    ? state.message
+                                    : null,
+                                pricesUnavailableLabel: context
+                                    .l10n.requestOptionsPricesUnavailable,
+                                setRouteFirstLabel:
+                                    context.l10n.requestOptionsSetRouteFirst,
+                                retryLabel: context.l10n.commonRetry,
+                                onRetry: _loadRideOptions,
                                 onTypeSelected: (type) {
                                   setState(() => _selectedRideType = type);
+                                  // Keep the bloc's selection in lockstep so
+                                  // RequestRide ships the highlighted type
+                                  // (§2.6 "estimate ignores selected ride
+                                  // type" fix).
+                                  context.read<RideBloc>().add(
+                                        SelectRideOption(type),
+                                      );
                                   if (_canRequest) {
-                                    context.read<RideBloc>().add(
-                                          GetFareEstimate(
-                                            pickupLat: _pickup.lat!,
-                                            pickupLng: _pickup.lng!,
-                                            dropoffLat: _dropoff.lat!,
-                                            dropoffLng: _dropoff.lng!,
-                                            rideType: _selectedRideType,
-                                          ),
-                                        );
+                                    _refreshFareEstimate();
                                   }
                                 },
                               ),
@@ -686,9 +720,10 @@ class _RideRequestPageState extends State<RideRequestPage>
                               _buildPromoRow(),
                               const SizedBox(height: 12),
                               _buildScheduleRow(state),
-                              if (state is FareEstimateLoaded && _canRequest) ...[
+                              if (_visibleEstimate != null &&
+                                  state is! RideOptionsFailed) ...[
                                 const SizedBox(height: 18),
-                                _buildFareEstimate(state.estimate),
+                                _buildFareEstimate(_visibleEstimate),
                               ],
                               if (state is RideError) ...[
                                 const SizedBox(height: 14),
@@ -719,14 +754,14 @@ class _RideRequestPageState extends State<RideRequestPage>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      state is FareEstimateLoaded && _canRequest
-                                          ? '${state.estimate.currency} ${state.estimate.totalFare.toStringAsFixed(2)}'
+                                      _footerEstimate != null
+                                          ? '${_footerEstimate!.currency} ${_footerEstimate!.totalFare.toStringAsFixed(2)}'
                                           : 'FARE ESTIMATE',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: state is FareEstimateLoaded && _canRequest ? 17 : 9,
-                                        letterSpacing: state is FareEstimateLoaded && _canRequest ? -.3 : 1,
+                                        fontSize: _footerEstimate != null ? 17 : 9,
+                                        letterSpacing: _footerEstimate != null ? -.3 : 1,
                                         fontWeight: FontWeight.w900,
                                         color: AppColors.nidusInk,
                                       ),
@@ -896,6 +931,30 @@ class _RideRequestPageState extends State<RideRequestPage>
     _refreshFareEstimate();
   }
 
+  /// Server-confirmed estimate rendered by the footer price line and folded
+  /// into carousel snapshots — null while nothing real is on screen.
+  FareEstimate? get _footerEstimate => _visibleEstimate as FareEstimate?;
+
+  /// §2.6 / Phase 2 dead-code resolution: kick off the per-type option fetch
+  /// that backs the [RideTypeSelector] carousel. The bloc's terminal states
+  /// ([RideOptionsLoaded]/[RideOptionsFailed]) clear [_optionsLoading] via
+  /// [_handleRideState]; this flag only exists to keep the skeleton honest in
+  /// between (the bloc snapshot is replaced wholesale, so it can't carry a
+  /// "fetch in flight" marker itself).
+  void _loadRideOptions() {
+    if (!_canRequest || _requestInFlight) return;
+    setState(() => _optionsLoading = true);
+    context.read<RideBloc>().add(
+          LoadRideOptions(
+            pickupLat: _pickup.lat!,
+            pickupLng: _pickup.lng!,
+            dropoffLat: _dropoff.lat!,
+            dropoffLng: _dropoff.lng!,
+            selectedType: _selectedRideType,
+          ),
+        );
+  }
+
   /// Re-runs the fare estimate after any waypoint change. The estimate
   /// endpoint stays pickup→dropoff (a display projection only); the
   /// authoritative multi-leg fare is computed by the pricing service over
@@ -912,6 +971,9 @@ class _RideRequestPageState extends State<RideRequestPage>
             rideType: _selectedRideType,
           ),
         );
+    // Carousel prices depend on the same route pair — refresh them together
+    // so cards never show stale numbers next to a fresh footer fare.
+    _loadRideOptions();
   }
 
   Future<void> _openPickupSheet() async {
@@ -1005,10 +1067,13 @@ class _RideRequestPageState extends State<RideRequestPage>
               rideType: _selectedRideType,
             ),
           );
+      // §2.6 reconnect: the first complete route also triggers the carousel
+      // fetch — this is where LoadRideOptions enters the system.
+      _loadRideOptions();
     }
   }
 
-  Widget _buildFareEstimate(dynamic estimate) {
+  Widget _buildFareEstimate(FareEstimate estimate) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1196,18 +1261,14 @@ class _RideRequestPageState extends State<RideRequestPage>
   // ==========================================================================
 
   /// Estimated fare currently on screen, used as the redeem projection input.
-  /// Null until a real estimate has loaded — never guessed.
-  double? get _currentEstimatedFare {
-    final state = context.read<RideBloc>().state;
-    if (state is FareEstimateLoaded && _canRequest) {
-      return state.estimate.totalFare;
-    }
-    return null;
-  }
+  /// Null until a real estimate has loaded — never guessed. Reads through
+  /// [_visibleEstimate] so a carousel refresh doesn't blind the promo sheet
+  /// while a server-confirmed price is still displayed.
+  double? get _currentEstimatedFare => _footerEstimate?.totalFare;
 
   String get _estimateCurrency {
-    final state = context.read<RideBloc>().state;
-    if (state is FareEstimateLoaded) return state.estimate.currency;
+    final e = _footerEstimate;
+    if (e != null) return e.currency;
     return 'ETB';
   }
 
@@ -1562,8 +1623,26 @@ class _RideRequestPageState extends State<RideRequestPage>
       context.go('/nidus/tracking/${state.rideId}');
       return;
     }
+    // §2.6 reconnect: the carousel fetch settles on either terminal option
+    // state — clear the local loading flag so the skeleton never outlives the
+    // request it was standing in for.
+    if (_optionsLoading &&
+        (state is RideOptionsLoaded || state is RideOptionsFailed)) {
+      setState(() => _optionsLoading = false);
+    }
+    // Re-anchor: a refresh that dropped the rider's selected type emits this
+    // event (handled by the bloc before the follow-up RideOptionsLoaded). The
+    // page mirrors it so the highlighted card always equals the type that
+    // RequestRide will ship.
+    if (state.event is RideOptionSelectionChanged) {
+      final e = state.event as RideOptionSelectionChanged;
+      setState(() => _selectedRideType = e.rideType);
+    }
     if (_requestInFlight &&
-        (state is RideError || state is NoDriversFound || state is PaymentFailed)) {
+        (state is FareEstimateLoaded ||
+            state is RideError ||
+            state is NoDriversFound ||
+            state is PaymentFailed)) {
       setState(() => _requestInFlight = false);
     }
   }
