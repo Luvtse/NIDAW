@@ -998,22 +998,20 @@ class _RideTrackingPageState extends State<RideTrackingPage>
         message: 'RideCheck: rider requested help during the trip.',
       ));
       if (ctx.mounted) {
+        // Phase 1 §4: localized (was hardcoded English).
         ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text('SOS countdown started. Hold to confirm or tap '
-                'the shield to open the Safety Toolkit.'),
-          ),
+          SnackBar(content: Text(context.l10n.sosStartedCountdown)),
         );
       }
     } else if (ctx.mounted) {
       // Honest degradation: no fix → no fake SOS. Route the rider to the
       // Safety Toolkit where manual emergency flows live.
+      final l10n = context.l10n;
       ScaffoldMessenger.of(ctx).showSnackBar(
         SnackBar(
-          content: const Text(
-              'Location unavailable — cannot start SOS with your position.'),
+          content: Text(l10n.sosLocationUnavailable),
           action: SnackBarAction(
-            label: 'Open Safety Toolkit',
+            label: l10n.openSafetyToolkit,
             onPressed: () => SafetyToolkitPage.open(ctx),
           ),
         ),

@@ -400,6 +400,18 @@
       }
     }
   },
+  "sosStartedCountdown": "SOS herregaa eegalame. Mireeduu qabi yookiin Safety Toolkit banaaf shield tuqi. (native review pending)",
+  "@sosStartedCountdown": {
+    "description": "Phase 1: shown after an SOS countdown is armed from RideCheck 'Call for help'. Oromo machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
+  "sosLocationUnavailable": "Bakni argamuu dide — bakka keetiin SOS eegaluun hin danda'amu. (native review pending)",
+  "@sosLocationUnavailable": {
+    "description": "Phase 1: honest degradation when no GPS fix. Oromo machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
+  "openSafetyToolkit": "Safety Toolkit banii (native review pending)",
+  "@openSafetyToolkit": {
+    "description": "Phase 1: snackbar action label. Oromo machine-assisted — FLAGGED FOR NATIVE-SPEAKER REVIEW."
+  },
   "sosOverlayCallDirectly": "{number} bilbila keetiin kallattiin bilbili.",
   "@sosOverlayCallDirectly": {
     "description": "Phase 1: snackbar when the app could not open the dialer.",
