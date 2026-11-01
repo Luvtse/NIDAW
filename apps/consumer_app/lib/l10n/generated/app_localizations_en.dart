@@ -616,4 +616,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get requestOptionUnavailable => 'Unavailable';
+
+  @override
+  String get driverCallTooltip => 'Call driver using masked number';
+
+  @override
+  String get driverChatTooltip => 'Chat with driver';
+
+  @override
+  String get driverEtaMinutesUnit => 'min';
+
+  @override
+  String get verifySelfieTitle => 'Verify your driver';
+
+  @override
+  String verifySelfieSubtitle(String driverName) {
+    return '\$driverName sent a selfie before picking you up. Tap to compare it with their profile photo.';
+  }
+
+  @override
+  String get verifySelfieNotSentTitle => 'Driver did not send a selfie';
+
+  @override
+  String get verifySelfieNotSentSubtitle => 'Spot your driver by plate and vehicle. You can still message or call them before entering.';
+
+  @override
+  String get verifyContactDriver => 'Contact driver';
+
+  @override
+  String get verifySelfieExpiredTitle => 'Selfie link expired';
+
+  @override
+  String get verifySelfieExpiredSubtitle => 'Signed links last 15 minutes. Ask your driver to resend, or refresh the ride.';
+
+  @override
+  String get verifyRefresh => 'Refresh';
+
+  @override
+  String get verifyUnavailableTitle => 'Verification unavailable';
+
+  @override
+  String get verifyUnavailableUnknownSubtitle => 'The verification service returned an unexpected state. This is our side, not the driver — retry below.';
+
+  @override
+  String get verifyUnavailableSubtitle => 'Driver photo verification is not available for this ride right now. Spot your driver by plate and vehicle.';
+
+  @override
+  String get verifyRetry => 'Retry';
+
+  @override
+  String get verifySheetLinkExpired => 'The selfie link expired before it could load. Pull a fresh ride state to get a new signed link.';
+
+  @override
+  String get verifySheetStorageUnavailable => 'Verification is temporarily unavailable on our side. The driver did send a selfie — try again in a moment.';
+
+  @override
+  String verifySheetNetworkError(String status) {
+    return 'Could not load the selfie (network error\$status). Tap to retry.';
+  }
+
+  @override
+  String get verifySheetGenericError => 'Could not load the selfie. Tap to retry.';
+
+  @override
+  String verifyComparisonAppBarTitle(String firstName) {
+    return 'Verify \$firstName';
+  }
+
+  @override
+  String get verifyPanelProfileLabel => 'Profile photo (on file)';
+
+  @override
+  String get verifyPanelProfileMissing => 'No profile photo is on file for this driver, so there is nothing to compare against yet.';
+
+  @override
+  String get verifyPanelSelfieLabel => 'Just-sent selfie';
+
+  @override
+  String get verifyPanelDecodeError => 'Image failed to decode — the bytes were corrupt, not absent. Retry from the ride screen.';
+
+  @override
+  String verifyExpiryNote(String expiry) {
+    return 'Selfie captured for this pickup only · valid until \$expiry';
+  }
+
+  @override
+  String get verifyButtonNotThem => 'That\'s not them';
+
+  @override
+  String get verifyButtonLooksRight => 'Looks right';
 }

@@ -511,5 +511,133 @@
   "requestOptionUnavailable": "አይገኝም",
   "@requestOptionUnavailable": {
     "description": "Phase 3 localization sweep: availability flag on a ride-option card."
+  },
+  "verifySelfieTitle": "አሽከርካሪዎን ያረጋግጡ",
+  "@verifySelfieTitle": {
+    "description": "Phase 1 safety localization: headline of the rider-side pre-selfie verification card (available state)."
+  },
+  "verifySelfieSubtitle": "{driverName} እርስዎን ከመውሰዱ በፊት ራስ-ሰር ላክቷል። ከመገለጫ ፎቶው ጋር ለማዛመድ ይንኩ።",
+  "@verifySelfieSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the available-state verification card.",
+    "placeholders": {
+      "driverName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySelfieNotSentTitle": "አሽከርካሪው ራስ-ሰር አልላከም",
+  "@verifySelfieNotSentTitle": {
+    "description": "Phase 1 safety localization: honest title when the driver skipped the pre-selfie; never blames our stack."
+  },
+  "verifySelfieNotSentSubtitle": "አሽከርካሪዎን በሰሌዳ ቁጥርና በተሽከርካሪ ይለዩ። ከመግባትዎ በፊት መልእክት መላክ ወይም መደወል ይችላሉ።",
+  "@verifySelfieNotSentSubtitle": {
+    "description": "Phase 1 safety localization: guidance shown alongside the not-sent state."
+  },
+  "verifyContactDriver": "አሽከርካሪውን ያግኙ",
+  "@verifyContactDriver": {
+    "description": "Phase 1 safety localization: action opening chat/call from the not-sent verification state."
+  },
+  "verifySelfieExpiredTitle": "የራስ-ሰር አገናኙ ጊዜው አልፏል",
+  "@verifySelfieExpiredTitle": {
+    "description": "Phase 1 safety localization: title when the signed redeem link aged out."
+  },
+  "verifySelfieExpiredSubtitle": "የተፈረሙ አገናኞች ለ15 ደቂቃ ብቻ ይቆያሉ። አሽከርካሪዎ እንደገና እንዲልክልኝ ይጠይቁ ወይም ጉዞውን ያድሱ።",
+  "@verifySelfieExpiredSubtitle": {
+    "description": "Phase 1 safety localization: explanation for the expired-link state."
+  },
+  "verifyRefresh": "ያድሱ",
+  "@verifyRefresh": {
+    "description": "Phase 1 safety localization: re-poll action on the expired verification state."
+  },
+  "verifyUnavailableTitle": "ማረጋገጫ አይገኝም",
+  "@verifyUnavailableTitle": {
+    "description": "Phase 1 safety localization: title when OUR stack or the feature flag failed — explicitly not blamed on the driver."
+  },
+  "verifyUnavailableUnknownSubtitle": "የማረጋገጫ አገልግሎቱ ያልተጠበቀ ሁኔታ መልሷል። ይህ የእኛ ችግር ነው እንጂ የአሽከርካሪው አይደለም — ከታች ይሞክሩ።",
+  "@verifyUnavailableUnknownSubtitle": {
+    "description": "Phase 1 safety localization: unknown wire value folded into honest-unavailable; never rendered as success."
+  },
+  "verifyUnavailableSubtitle": "የአሽከርካሪ ፎቶ ማረጋገጫ ለዚህ ጉዞ አሁን አይገኝም። አሽከርካሪዎን በሰሌዳ ቁጥርና በተሽከርካሪ ይለዩ።",
+  "@verifyUnavailableSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the unavailable verification state."
+  },
+  "verifyRetry": "እንደገና ሞክር",
+  "@verifyRetry": {
+    "description": "Phase 1 safety localization: re-check action on the unavailable verification state."
+  },
+  "verifySheetLinkExpired": "የራስ-ሰር አገናኙ መጫን ከመጀመሩ በፊት ጊዜው አልፏል። አዲስ የተፈረመ አገናኝ ለማግኘት አዲሱን የጉዞ ሁኔታ ይጫኑ።",
+  "@verifySheetLinkExpired": {
+    "description": "Phase 1 safety localization: snackbar when the redeem link ages out mid-fetch."
+  },
+  "verifySheetStorageUnavailable": "ማረጋገጫው በጊዜው በእኛ በኩል ችግር ላይ ነው። አሽከርካሪው ራስ-ሰር ላክቷል — በትንሹ ጊዜ ይሞክሩ።",
+  "@verifySheetStorageUnavailable": {
+    "description": "Phase 1 safety localization: snackbar for storage failure on our side; keeps truth that the driver complied."
+  },
+  "verifySheetNetworkError": "ራስ-ሰሩን መጫን አልተቻለም (የአውታረ መረብ ስህተት{status})። እንደገና ለመሞከር ይንኩ።",
+  "@verifySheetNetworkError": {
+    "description": "Phase 1 safety localization: snackbar for fetch failures. 'status' is the caller-built suffix like ' HTTP 503' or empty; keep the parenthesis pattern.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySheetGenericError": "ራስ-ሰሩን መጫን አልተቻለም። እንደገና ለመሞከር ይንኩ።",
+  "@verifySheetGenericError": {
+    "description": "Phase 1 safety localization: defensive snackbar for unmapped failures; must not show a fake image."
+  },
+  "verifyComparisonAppBarTitle": "{firstName}ን ያረጋግጡ",
+  "@verifyComparisonAppBarTitle": {
+    "description": "Phase 1 safety localization: app bar of the full-screen selfie comparison view.",
+    "placeholders": {
+      "firstName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyPanelProfileLabel": "የመገለጫ ፎቶ (በፋይል ላይ)",
+  "@verifyPanelProfileLabel": {
+    "description": "Phase 1 safety localization: left panel label in the comparison view."
+  },
+  "verifyPanelProfileMissing": "ለዚህ አሽከርካሪ በመዝገብ ላይ የመገለጫ ፎቶ የለም፤ ስለዚህ እስካሁን የሚነጻḸር ነገር የለም።",
+  "@verifyPanelProfileMissing": {
+    "description": "Phase 1 safety localization: honest note instead of a placeholder avatar pretending to be the registered photo."
+  },
+  "verifyPanelSelfieLabel": "አዲስ የተላከ ራስ-ሰር",
+  "@verifyPanelSelfieLabel": {
+    "description": "Phase 1 safety localization: right panel label in the comparison view."
+  },
+  "verifyPanelDecodeError": "ምስሉን መተርጎም አልተቻለም — ባይቶዎቹ የተበላሹ ናቸው እንጂ አልጠፉም። ከጉዞ ማሳያው እንደገና ይሞክሩ።",
+  "@verifyPanelDecodeError": {
+    "description": "Phase 1 safety localization: honest degradation when fetched bytes are corrupt; distinguishes corrupt from absent."
+  },
+  "verifyExpiryNote": "ራስ-ሰሩ ለዚህ ማነሻ ብቻ የተቀረጸ · ትክክለኛነቱ እስከ {expiry}",
+  "@verifyExpiryNote": {
+    "description": "Phase 1 safety localization: privacy/expiry footnote under the comparison panels.",
+    "placeholders": {
+      "expiry": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyButtonNotThem": "እሱ/እሷ አይደለም",
+  "@verifyButtonNotThem": {
+    "description": "Phase 1 safety localization: negative verdict button in the comparison view."
+  },
+  "verifyButtonLooksRight": "ትክክል ይመስላል",
+  "@verifyButtonLooksRight": {
+    "description": "Phase 1 safety localization: positive verdict button in the comparison view."
+  },
+  "driverCallTooltip": "በተደበቀ ቁጥር አሽከርካሪውን ይደውሉ",
+  "@driverCallTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the call action on the tracking driver card."
+  },
+  "driverChatTooltip": "ከአሽከርካሪው ጋር ይነጋገሩ",
+  "@driverChatTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the chat action on the tracking driver card."
+  },
+  "driverEtaMinutesUnit": "ደቂቃ",
+  "@driverEtaMinutesUnit": {
+    "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
   }
 }

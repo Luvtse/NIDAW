@@ -1266,4 +1266,166 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **Unavailable**
   String get requestOptionUnavailable;
+
+  /// Phase 3 localization sweep: tooltip/semantics for the call action on the tracking driver card.
+  ///
+  /// In en, this message translates to:
+  /// **Call driver using masked number**
+  String get driverCallTooltip;
+
+  /// Phase 3 localization sweep: tooltip/semantics for the chat action on the tracking driver card.
+  ///
+  /// In en, this message translates to:
+  /// **Chat with driver**
+  String get driverChatTooltip;
+
+  /// Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card.
+  ///
+  /// In en, this message translates to:
+  /// **min**
+  String get driverEtaMinutesUnit;
+
+  /// Phase 1 safety localization: headline of the rider-side pre-selfie verification card (available state).
+  ///
+  /// In en, this message translates to:
+  /// **Verify your driver**
+  String get verifySelfieTitle;
+
+  /// Phase 1 safety localization: body copy for the available-state verification card.
+  ///
+  /// In en, this message translates to:
+  /// **{driverName} sent a selfie before picking you up. Tap to compare it with their profile photo.**
+  String verifySelfieSubtitle(String driverName);
+
+  /// Phase 1 safety localization: honest title when the driver skipped the pre-selfie; never blames our stack.
+  ///
+  /// In en, this message translates to:
+  /// **Driver did not send a selfie**
+  String get verifySelfieNotSentTitle;
+
+  /// Phase 1 safety localization: guidance shown alongside the not-sent state.
+  ///
+  /// In en, this message translates to:
+  /// **Spot your driver by plate and vehicle. You can still message or call them before entering.**
+  String get verifySelfieNotSentSubtitle;
+
+  /// Phase 1 safety localization: action opening chat/call from the not-sent verification state.
+  ///
+  /// In en, this message translates to:
+  /// **Contact driver**
+  String get verifyContactDriver;
+
+  /// Phase 1 safety localization: title when the signed redeem link aged out.
+  ///
+  /// In en, this message translates to:
+  /// **Selfie link expired**
+  String get verifySelfieExpiredTitle;
+
+  /// Phase 1 safety localization: explanation for the expired-link state.
+  ///
+  /// In en, this message translates to:
+  /// **Signed links last 15 minutes. Ask your driver to resend, or refresh the ride.**
+  String get verifySelfieExpiredSubtitle;
+
+  /// Phase 1 safety localization: re-poll action on the expired verification state.
+  ///
+  /// In en, this message translates to:
+  /// **Refresh**
+  String get verifyRefresh;
+
+  /// Phase 1 safety localization: title when OUR stack or the feature flag failed — explicitly not blamed on the driver.
+  ///
+  /// In en, this message translates to:
+  /// **Verification unavailable**
+  String get verifyUnavailableTitle;
+
+  /// Phase 1 safety localization: unknown wire value folded into honest-unavailable; never rendered as success.
+  ///
+  /// In en, this message translates to:
+  /// **The verification service returned an unexpected state. This is our side, not the driver — retry below.**
+  String get verifyUnavailableUnknownSubtitle;
+
+  /// Phase 1 safety localization: body copy for the unavailable verification state.
+  ///
+  /// In en, this message translates to:
+  /// **Driver photo verification is not available for this ride right now. Spot your driver by plate and vehicle.**
+  String get verifyUnavailableSubtitle;
+
+  /// Phase 1 safety localization: re-check action on the unavailable verification state.
+  ///
+  /// In en, this message translates to:
+  /// **Retry**
+  String get verifyRetry;
+
+  /// Phase 1 safety localization: snackbar when the redeem link ages out mid-fetch.
+  ///
+  /// In en, this message translates to:
+  /// **The selfie link expired before it could load. Pull a fresh ride state to get a new signed link.**
+  String get verifySheetLinkExpired;
+
+  /// Phase 1 safety localization: snackbar for storage failure on our side; keeps truth that the driver complied.
+  ///
+  /// In en, this message translates to:
+  /// **Verification is temporarily unavailable on our side. The driver did send a selfie — try again in a moment.**
+  String get verifySheetStorageUnavailable;
+
+  /// Phase 1 safety localization: snackbar for fetch failures. 'status' is the caller-built suffix like ' HTTP 503' or empty; keep the parenthesis pattern.
+  ///
+  /// In en, this message translates to:
+  /// **Could not load the selfie (network error{status}). Tap to retry.**
+  String verifySheetNetworkError(String status);
+
+  /// Phase 1 safety localization: defensive snackbar for unmapped failures; must not show a fake image.
+  ///
+  /// In en, this message translates to:
+  /// **Could not load the selfie. Tap to retry.**
+  String get verifySheetGenericError;
+
+  /// Phase 1 safety localization: app bar of the full-screen selfie comparison view.
+  ///
+  /// In en, this message translates to:
+  /// **Verify {firstName}**
+  String verifyComparisonAppBarTitle(String firstName);
+
+  /// Phase 1 safety localization: left panel label in the comparison view.
+  ///
+  /// In en, this message translates to:
+  /// **Profile photo (on file)**
+  String get verifyPanelProfileLabel;
+
+  /// Phase 1 safety localization: honest note instead of a placeholder avatar pretending to be the registered photo.
+  ///
+  /// In en, this message translates to:
+  /// **No profile photo is on file for this driver, so there is nothing to compare against yet.**
+  String get verifyPanelProfileMissing;
+
+  /// Phase 1 safety localization: right panel label in the comparison view.
+  ///
+  /// In en, this message translates to:
+  /// **Just-sent selfie**
+  String get verifyPanelSelfieLabel;
+
+  /// Phase 1 safety localization: honest degradation when fetched bytes are corrupt; distinguishes corrupt from absent.
+  ///
+  /// In en, this message translates to:
+  /// **Image failed to decode — the bytes were corrupt, not absent. Retry from the ride screen.**
+  String get verifyPanelDecodeError;
+
+  /// Phase 1 safety localization: privacy/expiry footnote under the comparison panels.
+  ///
+  /// In en, this message translates to:
+  /// **Selfie captured for this pickup only · valid until {expiry}**
+  String verifyExpiryNote(String expiry);
+
+  /// Phase 1 safety localization: negative verdict button in the comparison view.
+  ///
+  /// In en, this message translates to:
+  /// **That's not them**
+  String get verifyButtonNotThem;
+
+  /// Phase 1 safety localization: positive verdict button in the comparison view.
+  ///
+  /// In en, this message translates to:
+  /// **Looks right**
+  String get verifyButtonLooksRight;
 }

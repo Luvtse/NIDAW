@@ -520,5 +520,133 @@
   "requestOptionUnavailable": "Unavailable",
   "@requestOptionUnavailable": {
     "description": "Phase 3 localization sweep: availability flag on a ride-option card."
+  },
+  "verifySelfieTitle": "Verify your driver",
+  "@verifySelfieTitle": {
+    "description": "Phase 1 safety localization: headline of the rider-side pre-selfie verification card (available state)."
+  },
+  "verifySelfieSubtitle": "{driverName} sent a selfie before picking you up. Tap to compare it with their profile photo.",
+  "@verifySelfieSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the available-state verification card.",
+    "placeholders": {
+      "driverName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySelfieNotSentTitle": "Driver did not send a selfie",
+  "@verifySelfieNotSentTitle": {
+    "description": "Phase 1 safety localization: honest title when the driver skipped the pre-selfie; never blames our stack."
+  },
+  "verifySelfieNotSentSubtitle": "Spot your driver by plate and vehicle. You can still message or call them before entering.",
+  "@verifySelfieNotSentSubtitle": {
+    "description": "Phase 1 safety localization: guidance shown alongside the not-sent state."
+  },
+  "verifyContactDriver": "Contact driver",
+  "@verifyContactDriver": {
+    "description": "Phase 1 safety localization: action opening chat/call from the not-sent verification state."
+  },
+  "verifySelfieExpiredTitle": "Selfie link expired",
+  "@verifySelfieExpiredTitle": {
+    "description": "Phase 1 safety localization: title when the signed redeem link aged out."
+  },
+  "verifySelfieExpiredSubtitle": "Signed links last 15 minutes. Ask your driver to resend, or refresh the ride.",
+  "@verifySelfieExpiredSubtitle": {
+    "description": "Phase 1 safety localization: explanation for the expired-link state."
+  },
+  "verifyRefresh": "Refresh",
+  "@verifyRefresh": {
+    "description": "Phase 1 safety localization: re-poll action on the expired verification state."
+  },
+  "verifyUnavailableTitle": "Verification unavailable",
+  "@verifyUnavailableTitle": {
+    "description": "Phase 1 safety localization: title when OUR stack or the feature flag failed — explicitly not blamed on the driver."
+  },
+  "verifyUnavailableUnknownSubtitle": "The verification service returned an unexpected state. This is our side, not the driver — retry below.",
+  "@verifyUnavailableUnknownSubtitle": {
+    "description": "Phase 1 safety localization: unknown wire value folded into honest-unavailable; never rendered as success."
+  },
+  "verifyUnavailableSubtitle": "Driver photo verification is not available for this ride right now. Spot your driver by plate and vehicle.",
+  "@verifyUnavailableSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the unavailable verification state."
+  },
+  "verifyRetry": "Retry",
+  "@verifyRetry": {
+    "description": "Phase 1 safety localization: re-check action on the unavailable verification state."
+  },
+  "verifySheetLinkExpired": "The selfie link expired before it could load. Pull a fresh ride state to get a new signed link.",
+  "@verifySheetLinkExpired": {
+    "description": "Phase 1 safety localization: snackbar when the redeem link ages out mid-fetch."
+  },
+  "verifySheetStorageUnavailable": "Verification is temporarily unavailable on our side. The driver did send a selfie — try again in a moment.",
+  "@verifySheetStorageUnavailable": {
+    "description": "Phase 1 safety localization: snackbar for storage failure on our side; keeps truth that the driver complied."
+  },
+  "verifySheetNetworkError": "Could not load the selfie (network error{status}). Tap to retry.",
+  "@verifySheetNetworkError": {
+    "description": "Phase 1 safety localization: snackbar for fetch failures. 'status' is the caller-built suffix like ' HTTP 503' or empty; keep the parenthesis pattern.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySheetGenericError": "Could not load the selfie. Tap to retry.",
+  "@verifySheetGenericError": {
+    "description": "Phase 1 safety localization: defensive snackbar for unmapped failures; must not show a fake image."
+  },
+  "verifyComparisonAppBarTitle": "Verify {firstName}",
+  "@verifyComparisonAppBarTitle": {
+    "description": "Phase 1 safety localization: app bar of the full-screen selfie comparison view.",
+    "placeholders": {
+      "firstName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyPanelProfileLabel": "Profile photo (on file)",
+  "@verifyPanelProfileLabel": {
+    "description": "Phase 1 safety localization: left panel label in the comparison view."
+  },
+  "verifyPanelProfileMissing": "No profile photo is on file for this driver, so there is nothing to compare against yet.",
+  "@verifyPanelProfileMissing": {
+    "description": "Phase 1 safety localization: honest note instead of a placeholder avatar pretending to be the registered photo."
+  },
+  "verifyPanelSelfieLabel": "Just-sent selfie",
+  "@verifyPanelSelfieLabel": {
+    "description": "Phase 1 safety localization: right panel label in the comparison view."
+  },
+  "verifyPanelDecodeError": "Image failed to decode — the bytes were corrupt, not absent. Retry from the ride screen.",
+  "@verifyPanelDecodeError": {
+    "description": "Phase 1 safety localization: honest degradation when fetched bytes are corrupt; distinguishes corrupt from absent."
+  },
+  "verifyExpiryNote": "Selfie captured for this pickup only · valid until {expiry}",
+  "@verifyExpiryNote": {
+    "description": "Phase 1 safety localization: privacy/expiry footnote under the comparison panels.",
+    "placeholders": {
+      "expiry": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyButtonNotThem": "That's not them",
+  "@verifyButtonNotThem": {
+    "description": "Phase 1 safety localization: negative verdict button in the comparison view."
+  },
+  "verifyButtonLooksRight": "Looks right",
+  "@verifyButtonLooksRight": {
+    "description": "Phase 1 safety localization: positive verdict button in the comparison view."
+  },
+  "driverCallTooltip": "Call driver using masked number",
+  "@driverCallTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the call action on the tracking driver card."
+  },
+  "driverChatTooltip": "Chat with driver",
+  "@driverChatTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the chat action on the tracking driver card."
+  },
+  "driverEtaMinutesUnit": "min",
+  "@driverEtaMinutesUnit": {
+    "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
   }
 }

@@ -616,4 +616,93 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get requestOptionUnavailable => 'አይገኝም';
+
+  @override
+  String get driverCallTooltip => 'በተደበቀ ቁጥር አሽከርካሪውን ይደውሉ';
+
+  @override
+  String get driverChatTooltip => 'ከአሽከርካሪው ጋር ይነጋገሩ';
+
+  @override
+  String get driverEtaMinutesUnit => 'ደቂቃ';
+
+  @override
+  String get verifySelfieTitle => 'አሽከርካሪዎን ያረጋግጡ';
+
+  @override
+  String verifySelfieSubtitle(String driverName) {
+    return '\$driverName እርስዎን ከመውሰዱ በፊት ራስ-ሰር ላክቷል። ከመገለጫ ፎቶው ጋር ለማዛመድ ይንኩ።';
+  }
+
+  @override
+  String get verifySelfieNotSentTitle => 'አሽከርካሪው ራስ-ሰር አልላከም';
+
+  @override
+  String get verifySelfieNotSentSubtitle => 'አሽከርካሪዎን በሰሌዳ ቁጥርና በተሽከርካሪ ይለዩ። ከመግባትዎ በፊት መልእክት መላክ ወይም መደወል ይችላሉ።';
+
+  @override
+  String get verifyContactDriver => 'አሽከርካሪውን ያግኙ';
+
+  @override
+  String get verifySelfieExpiredTitle => 'የራስ-ሰር አገናኙ ጊዜው አልፏል';
+
+  @override
+  String get verifySelfieExpiredSubtitle => 'የተፈረሙ አገናኞች ለ15 ደቂቃ ብቻ ይቆያሉ። አሽከርካሪዎ እንደገና እንዲልክልኝ ይጠይቁ ወይም ጉዞውን ያድሱ።';
+
+  @override
+  String get verifyRefresh => 'ያድሱ';
+
+  @override
+  String get verifyUnavailableTitle => 'ማረጋገጫ አይገኝም';
+
+  @override
+  String get verifyUnavailableUnknownSubtitle => 'የማረጋገጫ አገልግሎቱ ያልተጠበቀ ሁኔታ መልሷል። ይህ የእኛ ችግር ነው እንጂ የአሽከርካሪው አይደለም — ከታች ይሞክሩ።';
+
+  @override
+  String get verifyUnavailableSubtitle => 'የአሽከርካሪ ፎቶ ማረጋገጫ ለዚህ ጉዞ አሁን አይገኝም። አሽከርካሪዎን በሰሌዳ ቁጥርና በተሽከርካሪ ይለዩ።';
+
+  @override
+  String get verifyRetry => 'እንደገና ሞክር';
+
+  @override
+  String get verifySheetLinkExpired => 'የራስ-ሰር አገናኙ መጫን ከመጀመሩ በፊት ጊዜው አልፏል። አዲስ የተፈረመ አገናኝ ለማግኘት አዲሱን የጉዞ ሁኔታ ይጫኑ።';
+
+  @override
+  String get verifySheetStorageUnavailable => 'ማረጋገጫው በጊዜው በእኛ በኩል ችግር ላይ ነው። አሽከርካሪው ራስ-ሰር ላክቷል — በትንሹ ጊዜ ይሞክሩ።';
+
+  @override
+  String verifySheetNetworkError(String status) {
+    return 'ራስ-ሰሩን መጫን አልተቻለም (የአውታረ መረብ ስህተት\$status)። እንደገና ለመሞከር ይንኩ።';
+  }
+
+  @override
+  String get verifySheetGenericError => 'ራስ-ሰሩን መጫን አልተቻለም። እንደገና ለመሞከር ይንኩ።';
+
+  @override
+  String verifyComparisonAppBarTitle(String firstName) {
+    return '\$firstNameን ያረጋግጡ';
+  }
+
+  @override
+  String get verifyPanelProfileLabel => 'የመገለጫ ፎቶ (በፋይል ላይ)';
+
+  @override
+  String get verifyPanelProfileMissing => 'ለዚህ አሽከርካሪ በመዝገብ ላይ የመገለጫ ፎቶ የለም፤ ስለዚህ እስካሁን የሚነጻḸር ነገር የለም።';
+
+  @override
+  String get verifyPanelSelfieLabel => 'አዲስ የተላከ ራስ-ሰር';
+
+  @override
+  String get verifyPanelDecodeError => 'ምስሉን መተርጎም አልተቻለም — ባይቶዎቹ የተበላሹ ናቸው እንጂ አልጠፉም። ከጉዞ ማሳያው እንደገና ይሞክሩ።';
+
+  @override
+  String verifyExpiryNote(String expiry) {
+    return 'ራስ-ሰሩ ለዚህ ማነሻ ብቻ የተቀረጸ · ትክክለኛነቱ እስከ \$expiry';
+  }
+
+  @override
+  String get verifyButtonNotThem => 'እሱ/እሷ አይደለም';
+
+  @override
+  String get verifyButtonLooksRight => 'ትክክል ይመስላል';
 }

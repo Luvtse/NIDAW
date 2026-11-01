@@ -511,5 +511,133 @@
   "requestOptionUnavailable": "Hin argamu",
   "@requestOptionUnavailable": {
     "description": "Phase 3 localization sweep: availability flag on a ride-option card."
+  },
+  "verifySelfieTitle": "Diree daandii keessan mirkaneessaa",
+  "@verifySelfieTitle": {
+    "description": "Phase 1 safety localization: headline of the rider-side pre-selfie verification card (available state)."
+  },
+  "verifySelfieSubtitle": "{driverName} fuula dura keessan walu gahuu dursee selfie ergesera. Fuula agarsiisa isa waliin wal bira qabuuf tuqi.",
+  "@verifySelfieSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the available-state verification card.",
+    "placeholders": {
+      "driverName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySelfieNotSentTitle": "Direen daandii selfie hin ergine",
+  "@verifySelfieNotSentTitle": {
+    "description": "Phase 1 safety localization: honest title when the driver skipped the pre-selfie; never blames our stack."
+  },
+  "verifySelfieNotSentSubtitle": "Diree daandii keessan lakkoofsa paalaatii fi raabaan beekadhaa. Seenuun dura ergaa ergachuu ykn bilbilaan waamu ni dandeessu.",
+  "@verifySelfieNotSentSubtitle": {
+    "description": "Phase 1 safety localization: guidance shown alongside the not-sent state."
+  },
+  "verifyContactDriver": "Diree daandii qukkubaa",
+  "@verifyContactDriver": {
+    "description": "Phase 1 safety localization: action opening chat/call from the not-sent verification state."
+  },
+  "verifySelfieExpiredTitle": "Geessi selfie yeroon isaa darbeera",
+  "@verifySelfieExpiredTitle": {
+    "description": "Phase 1 safety localization: title when the signed redeem link aged out."
+  },
+  "verifySelfieExpiredSubtitle": "Geessonni mallattoo qaban daqiiqaa 15 qofa turu. Diree daandii keessan akka irra deebi'an gaafadhaa ykn sochii haaraa gochuuf gubbaa haaromsaa.",
+  "@verifySelfieExpiredSubtitle": {
+    "description": "Phase 1 safety localization: explanation for the expired-link state."
+  },
+  "verifyRefresh": "Haaromsi",
+  "@verifyRefresh": {
+    "description": "Phase 1 safety localization: re-poll action on the expired verification state."
+  },
+  "verifyUnavailableTitle": "Mirkanneessin hin jiru",
+  "@verifyUnavailableTitle": {
+    "description": "Phase 1 safety localization: title when OUR stack or the feature flag failed — explicitly not blamed on the driver."
+  },
+  "verifyUnavailableUnknownSubtitle": "Tajaajilli mirkaneessinaa haala adda ta'e ergeseera. Kun gara keenya malee diree daandii miti — gubbaa irra deebi'aa yaalaa.",
+  "@verifyUnavailableUnknownSubtitle": {
+    "description": "Phase 1 safety localization: unknown wire value folded into honest-unavailable; never rendered as success."
+  },
+  "verifyUnavailableSubtitle": "Mirkanneessi suura diree daandii sochii kanaaf amma hin jiru. Diree daandii keessan lakkoofsa paalaatii fi raabaan beekadhaa.",
+  "@verifyUnavailableSubtitle": {
+    "description": "Phase 1 safety localization: body copy for the unavailable verification state."
+  },
+  "verifyRetry": "Irra deebi'aa yaali",
+  "@verifyRetry": {
+    "description": "Phase 1 safety localization: re-check action on the unavailable verification state."
+  },
+  "verifySheetLinkExpired": "Geessi selfie guutuu dura yeroon isaa darbeera. Geessa haaraa argachuuf haala sochii haaraa fe'i.",
+  "@verifySheetLinkExpired": {
+    "description": "Phase 1 safety localization: snackbar when the redeem link ages out mid-fetch."
+  },
+  "verifySheetStorageUnavailable": "Mirkanneessi yeroofacha gara keenyatti rakkoo qaba. Direen daandii selfie ergeera — yeroo gabaabaa keessatti irra deebi'aa yaali.",
+  "@verifySheetStorageUnavailable": {
+    "description": "Phase 1 safety localization: snackbar for storage failure on our side; keeps truth that the driver complied."
+  },
+  "verifySheetNetworkError": "Selfie banuu hin dandeenye (dogoggora network{status}). Irra deebi'uuf tuqi.",
+  "@verifySheetNetworkError": {
+    "description": "Phase 1 safety localization: snackbar for fetch failures. 'status' is the caller-built suffix like ' HTTP 503' or empty; keep the parenthesis pattern.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "verifySheetGenericError": "Selfie banuu hin dandeenye. Irra deebi'uuf tuqi.",
+  "@verifySheetGenericError": {
+    "description": "Phase 1 safety localization: defensive snackbar for unmapped failures; must not show a fake image."
+  },
+  "verifyComparisonAppBarTitle": "{firstName} mirkaneessi",
+  "@verifyComparisonAppBarTitle": {
+    "description": "Phase 1 safety localization: app bar of the full-screen selfie comparison view.",
+    "placeholders": {
+      "firstName": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyPanelProfileLabel": "Suura agarsiisaa (galmaa irra jiru)",
+  "@verifyPanelProfileLabel": {
+    "description": "Phase 1 safety localization: left panel label in the comparison view."
+  },
+  "verifyPanelProfileMissing": "Diree daandii kanaaf suura agarsiisaa galmaa irra jiru hin qabu; kanaaf ammoo wanta wal bira qabamu hin jiru.",
+  "@verifyPanelProfileMissing": {
+    "description": "Phase 1 safety localization: honest note instead of a placeholder avatar pretending to be the registered photo."
+  },
+  "verifyPanelSelfieLabel": "Selfie amma ergame",
+  "@verifyPanelSelfieLabel": {
+    "description": "Phase 1 safety localization: right panel label in the comparison view."
+  },
+  "verifyPanelDecodeError": "Suurni hiikamuu hin dandeenye — bayitoonni sun cabe malee hin dhabaman. Gabatee sochii irraa irra deebi'aa yaali.",
+  "@verifyPanelDecodeError": {
+    "description": "Phase 1 safety localization: honest degradation when fetched bytes are corrupt; distinguishes corrupt from absent."
+  },
+  "verifyExpiryNote": "Selfiin wal qabxii kanaaf qofa kaafame · {expiry} haa barbaachisu",
+  "@verifyExpiryNote": {
+    "description": "Phase 1 safety localization: privacy/expiry footnote under the comparison panels.",
+    "placeholders": {
+      "expiry": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyButtonNotThem": "Isa/Ishee miti",
+  "@verifyButtonNotThem": {
+    "description": "Phase 1 safety localization: negative verdict button in the comparison view."
+  },
+  "verifyButtonLooksRight": "Sirreedha ta'a",
+  "@verifyButtonLooksRight": {
+    "description": "Phase 1 safety localization: positive verdict button in the comparison view."
+  },
+  "driverCallTooltip": "Diree daandiqa'aan bilbilaan waamaa",
+  "@driverCallTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the call action on the tracking driver card."
+  },
+  "driverChatTooltip": "Diree daandiqa'aan waliin haalaawaa",
+  "@driverChatTooltip": {
+    "description": "Phase 3 localization sweep: tooltip/semantics for the chat action on the tracking driver card."
+  },
+  "driverEtaMinutesUnit": "daq",
+  "@driverEtaMinutesUnit": {
+    "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
   }
 }
