@@ -318,7 +318,19 @@ class DismissRideCheckPrompt extends RideEvent {
 // ============================================================================
 
 abstract class RideState extends Equatable {
-  const RideState();
+  /// The event that drove the transition into this state. Set automatically
+  /// by [RideBloc] in its `on<...>` registration wrapper (see the bloc's
+  /// `_tagged` helper) — no handler constructs it manually.
+  ///
+  /// §2.6 re-anchor contract: `ride_request_page._handleRideState` reads
+  /// `state.event` to mirror a bloc-driven [RideOptionSelectionChanged] into
+  /// its carousel highlight without racing the stream (BlocBase does not
+  /// otherwise expose the current event to listeners). States emitted from
+  /// paths unrelated to the option carousel carry their own triggering event
+  /// — consumers must check the runtime type, never assume.
+  final RideEvent? event;
+
+  const RideState({this.event});
 
   @override
   List<Object?> get props => [];
@@ -765,6 +777,7 @@ class RideOptionsLoaded extends RideState {
     required this.options,
     required this.selectedType,
     this.estimate,
+    super.event,
   });
 
   RideOptionEstimate? get selected {
@@ -775,7 +788,7 @@ class RideOptionsLoaded extends RideState {
   }
 
   @override
-  List<Object?> get props => [options, selectedType, estimate];
+  List<Object?> get props => [options, selectedType, estimate, event];
 }
 
 /// §2.6: the estimate fetch failed. The carousel must render this as a
@@ -789,10 +802,10 @@ class RideOptionsFailed extends RideState {
   /// failure does not wipe an already-displayed footer fare.
   final FareEstimate? estimate;
 
-  const RideOptionsFailed(this.message, {this.estimate});
+  const RideOptionsFailed(this.message, {this.estimate, super.event});
 
   @override
-  List<Object?> get props => [message, estimate];
+  List<Object?> get props => [message, estimate, event];
 }
 
 /// Error state
@@ -1622,6 +1635,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
           options: current.options,
           selectedType: current.selectedType,
           estimate: estimate,
+          event: event,
         ));
         return;
       }
@@ -1663,6 +1677,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         emit(RideOptionsFailed(
           'No ride options are currently available',
           estimate: _lastFareEstimate,
+          event: event,
         ));
         return;
       }
@@ -1674,20 +1689,27 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       // available option and tell the page so its highlight follows the data.
       final stillValid = options.any(
           (o) => o.rideType == event.selectedType && o.available);
+      RideOptionSelectionChanged? reanchor;
       if (!stillValid) {
         final fallback =
             options.firstWhere((o) => o.available, orElse: () => options.first);
         _currentSelectedRideType = fallback.rideType;
-        add(RideOptionSelectionChanged(fallback.rideType));
+        reanchor = RideOptionSelectionChanged(fallback.rideType);
+        add(reanchor);
       }
 
       emit(RideOptionsLoaded(
         options: options,
         selectedType: _currentSelectedRideType,
         estimate: _lastFareEstimate,
+        // Tag the snapshot with the re-anchor event when one fired — this is
+        // how the request page mirrors a bloc-driven selection change into
+        // its highlight without racing the stream (see RideState.event).
+        event: reanchor ?? event,
       ));
     } catch (e) {
-      emit(RideOptionsFailed(e.toString(), estimate: _lastFareEstimate));
+      emit(RideOptionsFailed(e.toString(),
+          estimate: _lastFareEstimate, event: event));
     }
   }
 
@@ -1702,6 +1724,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         options: currentState.options,
         selectedType: event.rideType,
         estimate: currentState.estimate ?? _lastFareEstimate,
+        event: event,
       ));
     }
   }
@@ -1717,6 +1740,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         options: currentState.options,
         selectedType: event.rideType,
         estimate: currentState.estimate ?? _lastFareEstimate,
+        event: event,
       ));
     }
   }
