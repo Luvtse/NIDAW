@@ -747,13 +747,24 @@ class FareEstimateLoaded extends RideState {
 /// renders is data-driven (Shared and Wheelchair included). [selectedType]
 /// carries the current selection so a refresh that drops the selected type
 /// can re-anchor honestly instead of silently keeping a stale choice.
+///
+/// Also carries the last successful single-type [FareEstimate] ([estimate])
+/// when one exists: the estimate fetch clobbers the previous state, and the
+/// request page renders both surfaces from ONE snapshot — without this field
+/// the footer fare would vanish the moment the carousel finished loading.
 class RideOptionsLoaded extends RideState {
   final List<RideOptionEstimate> options;
   final String selectedType;
 
+  /// Server-confirmed single-type estimate from [FareEstimateLoaded], if any
+  /// fetch has succeeded yet. Null means genuinely unknown — the page keeps
+  /// its honest "FARE ESTIMATE" placeholder rather than inventing a number.
+  final FareEstimate? estimate;
+
   const RideOptionsLoaded({
     required this.options,
     required this.selectedType,
+    this.estimate,
   });
 
   RideOptionEstimate? get selected {
@@ -764,7 +775,7 @@ class RideOptionsLoaded extends RideState {
   }
 
   @override
-  List<Object?> get props => [options, selectedType];
+  List<Object?> get props => [options, selectedType, estimate];
 }
 
 /// §2.6: the estimate fetch failed. The carousel must render this as a
@@ -773,10 +784,15 @@ class RideOptionsLoaded extends RideState {
 class RideOptionsFailed extends RideState {
   final String message;
 
-  const RideOptionsFailed(this.message);
+  /// Server-confirmed single-type estimate from the last successful fetch,
+  /// if any (see [RideOptionsLoaded.estimate]). Carried so a carousel
+  /// failure does not wipe an already-displayed footer fare.
+  final FareEstimate? estimate;
+
+  const RideOptionsFailed(this.message, {this.estimate});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, estimate];
 }
 
 /// Error state
@@ -1569,7 +1585,14 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     GetFareEstimate event,
     Emitter<RideState> emit,
   ) async {
-    emit(const RideLoading());
+    // Only blank the surface while NOTHING real is on screen yet. Once the
+    // carousel or a prior estimate has produced data, RideLoading would
+    // clobber it and make live prices/ETA blink out on every waypoint edit.
+    final s = state;
+    final hasData = s is FareEstimateLoaded ||
+        s is RideOptionsLoaded ||
+        (s is RideOptionsFailed && s.estimate != null);
+    if (!hasData) emit(const RideLoading());
 
     try {
       final estimate = await _rideRepository.getFareEstimate(
@@ -1588,6 +1611,21 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         return;
       }
 
+      _lastFareEstimate = estimate;
+
+      // If the carousel already holds live option data, keep rendering it
+      // (with the refreshed footer estimate folded in) instead of replacing
+      // the whole snapshot with a bare FareEstimateLoaded.
+      final current = state;
+      if (current is RideOptionsLoaded) {
+        emit(RideOptionsLoaded(
+          options: current.options,
+          selectedType: current.selectedType,
+          estimate: estimate,
+        ));
+        return;
+      }
+
       emit(FareEstimateLoaded(estimate));
     } catch (e) {
       emit(RideError(
@@ -1600,6 +1638,14 @@ class RideBloc extends Bloc<RideEvent, RideState> {
   // ==========================================================================
   // §2.6 RIDE-OPTION CAROUSEL
   // ==========================================================================
+
+  /// The last server-confirmed single-type estimate, kept across the two
+  /// interleaved fetch paths ([GetFareEstimate] for the footer fare and
+  /// [LoadRideOptions] for the carousel). Because both handlers emit on the
+  /// same bloc, a carousel result clobbers the previous FareEstimateLoaded
+  /// state — without this cache the footer price would blink out whenever
+  /// the option list refreshed. Null until any estimate has succeeded.
+  FareEstimate? _lastFareEstimate;
 
   Future<void> _onLoadRideOptions(
     LoadRideOptions event,
@@ -1614,7 +1660,10 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       );
 
       if (options.isEmpty) {
-        emit(const RideOptionsFailed('No ride options are currently available'));
+        emit(RideOptionsFailed(
+          'No ride options are currently available',
+          estimate: _lastFareEstimate,
+        ));
         return;
       }
 
@@ -1635,9 +1684,10 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       emit(RideOptionsLoaded(
         options: options,
         selectedType: _currentSelectedRideType,
+        estimate: _lastFareEstimate,
       ));
     } catch (e) {
-      emit(RideOptionsFailed(e.toString()));
+      emit(RideOptionsFailed(e.toString(), estimate: _lastFareEstimate));
     }
   }
 
@@ -1651,6 +1701,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       emit(RideOptionsLoaded(
         options: currentState.options,
         selectedType: event.rideType,
+        estimate: currentState.estimate ?? _lastFareEstimate,
       ));
     }
   }
@@ -1665,6 +1716,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       emit(RideOptionsLoaded(
         options: currentState.options,
         selectedType: event.rideType,
+        estimate: currentState.estimate ?? _lastFareEstimate,
       ));
     }
   }

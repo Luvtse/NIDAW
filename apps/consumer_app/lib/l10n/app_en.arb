@@ -478,5 +478,13 @@
   "historyRetry": "Retry",
   "@historyRetry": {
     "description": "Phase 1: re-runs the history request."
+  },
+  "requestOptionsPricesUnavailable": "Prices unavailable — pull to refresh or tap Retry.",
+  "@requestOptionsPricesUnavailable": {
+    "description": "Phase 2 dead-code reconnect: carousel retry strip shown when GET /rides/estimates fails after locations are set. Server detail is appended by the page, never used alone."
+  },
+  "requestOptionsSetRouteFirst": "Prices unavailable — set pickup and dropoff to load live fares.",
+  "@requestOptionsSetRouteFirst": {
+    "description": "Phase 2 dead-code reconnect: carousel placeholder before both endpoints exist; honest 'unavailable', never a fabricated price."
   }
 }

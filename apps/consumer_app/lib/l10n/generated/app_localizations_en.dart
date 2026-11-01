@@ -104,6 +104,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get requestSelectRideType => 'Choose a ride';
 
   @override
+  String get requestOptionsPricesUnavailable =>
+      'Prices unavailable — pull to refresh or tap Retry.';
+
+  @override
+  String get requestOptionsSetRouteFirst =>
+      'Prices unavailable — set pickup and dropoff to load live fares.';
+
+  @override
   String get trackingSearchingTitle => 'Looking for drivers…';
 
   @override

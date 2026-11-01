@@ -104,6 +104,14 @@ class AppLocalizationsOm extends AppLocalizations {
   String get requestSelectRideType => 'Soora filadhu';
 
   @override
+  String get requestOptionsPricesUnavailable =>
+      'Gatii hin argamne — haaruuf walxaxi ykn Irra deebi\'i tuqi.';
+
+  @override
+  String get requestOptionsSetRouteFirst =>
+      'Gatii hin argamne — bakka ka\'umsaa fi dhaamsaa olkaa\'uun gatiiwwan soorata argadhu.';
+
+  @override
   String get trackingSearchingTitle => 'Daawwitoonni barbaadamaa jiru…';
 
   @override

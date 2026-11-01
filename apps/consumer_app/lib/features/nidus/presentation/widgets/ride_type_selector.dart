@@ -12,6 +12,11 @@ import '../../data/repositories/ride_repository.dart';
 /// cannot be fetched this widget renders an honest retryable "Prices
 /// unavailable" state instead of inventing numbers. Shared and Wheelchair
 /// options now appear because the backend returns them.
+///
+/// Phase 2 dead-code resolution: this widget is wired to the bloc path
+/// (`LoadRideOptions` → `RideOptionsLoaded`/`RideOptionsFailed`) by
+/// `RideRequestPage`, so every user-facing string here routes through the
+/// ARB catalog — no English literals ship in the degraded states.
 class RideTypeSelector extends StatelessWidget {
   /// Estimates for the current pickup/dropoff pair. Empty list => the caller
   /// has not fetched yet; combine with [loading]/[error] for full states.
@@ -19,13 +24,30 @@ class RideTypeSelector extends StatelessWidget {
   final String selectedType;
   final ValueChanged<String> onTypeSelected;
   final bool loading;
+
+  /// Raw failure detail from the bloc ([RideOptionsFailed.message]). Rendered
+  /// as a secondary line only — the localized headline carries the meaning.
   final String? error;
+
+  /// Localized primary copy for the retry strip (failure after both
+  /// endpoints are set). Required: callers resolve it via `context.l10n`.
+  final String pricesUnavailableLabel;
+
+  /// Localized primary copy shown before pickup/dropoff exist.
+  final String setRouteFirstLabel;
+
+  /// Localized label for the retry action on the degraded strip.
+  final String retryLabel;
+
   final VoidCallback? onRetry;
 
   const RideTypeSelector({
     super.key,
     required this.selectedType,
     required this.onTypeSelected,
+    required this.pricesUnavailableLabel,
+    required this.setRouteFirstLabel,
+    required this.retryLabel,
     this.options = const [],
     this.loading = false,
     this.error,
@@ -41,10 +63,10 @@ class RideTypeSelector extends StatelessWidget {
     }
     if (options.isEmpty) {
       return _UnavailableState(
-        message: error != null
-            ? 'Prices unavailable — pull to refresh or tap Retry.'
-            : 'Prices unavailable — set pickup and dropoff to load live fares.',
+        message: error != null ? pricesUnavailableLabel : setRouteFirstLabel,
+        detail: error,
         onRetry: onRetry,
+        retryLabel: retryLabel,
       );
     }
     if (error != null) {
@@ -312,11 +334,20 @@ class _CarouselSkeleton extends StatelessWidget {
 
 /// Honest degraded state with retry — satisfies the global rule that an
 /// unavailable dynamic value shows a real "unavailable" state, never a fake.
+/// The primary [message] is always a localized string resolved by the page;
+/// the raw server [detail] renders as a smaller secondary line only.
 class _UnavailableState extends StatelessWidget {
   final String message;
+  final String? detail;
   final VoidCallback? onRetry;
+  final String retryLabel;
 
-  const _UnavailableState({required this.message, this.onRetry});
+  const _UnavailableState({
+    required this.message,
+    this.detail,
+    this.onRetry,
+    required this.retryLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -332,16 +363,34 @@ class _UnavailableState extends StatelessWidget {
               color: AppColors.textSecondary, size: 22),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (detail != null && detail!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.nidusMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (onRetry != null)
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
+            TextButton(onPressed: onRetry, child: Text(retryLabel)),
         ],
       ),
     );
