@@ -468,4 +468,152 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get paymentNoneSaved => 'Hanga ammaa karaa olkaa\'amaa hin jiru. Gadi jalaa dabalaa.';
+
+  @override
+  String get trackingErrorLiveRideTitle => 'Walqunnamtiin cincaa — imalli keeti itti fufee jira';
+
+  @override
+  String get trackingErrorLiveRideBody => 'Odeeffannoo imala muraanga dhabne, garuu imalli keeti haqamaa hin jiru. Fuula kana irratti hachuu ykn ba\'uu dandeessa.';
+
+  @override
+  String get trackingErrorGenericTitle => 'Waanni tokko dogoggoraa ta\'e';
+
+  @override
+  String get trackingErrorGenericBody => 'Taksiin dhumaatti xumuramaa hin turre. Irra deebi\'uun dura bal\'ina gadii ilaali.';
+
+  @override
+  String get trackingErrorStay => 'Turi';
+
+  @override
+  String get trackingErrorLeave => 'Ba\'i';
+
+  @override
+  String get trackingErrorRetry => 'Irra deebi\'i';
+
+  @override
+  String get trackingErrorDismiss => 'Cufi';
+
+  @override
+  String get trackingErrorLiveRideA11y => 'Imala hojiirra ooluu keessatti dogoggorri mul\'ate. Imalli keeti itti fufee jira.';
+
+  @override
+  String get trackingErrorDetailA11y => 'Bal\'ina dogoggoraa';
+
+  @override
+  String get sosSlideLabel => 'SOS mirgaan fageenyaan simsimsi';
+
+  @override
+  String get sosSliderA11y => 'Harkisa mirga SOS. Mirga guutuutti simsimsi ykn Enter cuqaasi oguu gargaarsa hatattamaa ergachuuf.';
+
+  @override
+  String get sosActivateA11y => 'Amma SOS hatattamaa ergi';
+
+  @override
+  String get sosTooltip => 'Oguu gargaarsa hatattamaa mirkaneessuuf qabi, mirga guutuutti simsimsi';
+
+  @override
+  String get sosTitle => 'SOS Hatattamaa';
+
+  @override
+  String sosTileSubtitle(String number) {
+    return 'Lakkoofsa hatattamaa \$number bakka qabuun olkaa\'amtee waliin beeksisi';
+  }
+
+  @override
+  String get sosOverlayA11y => 'Lakkoofsa duubaa SOS hatattamaa';
+
+  @override
+  String get sosOverlayTitle => 'SOS Hatattamaa';
+
+  @override
+  String sosOverlayCountdownBody(String number, int seconds) {
+    return 'Bilbilli si\'a \$seconds\'tti lakkoofsa hatattamaa \$number bana…';
+  }
+
+  @override
+  String sosOverlayFallbackBody(String number) {
+    return 'Bilbilli yoo hin banne, tuqaa gadii fayyadami ykn kallattiin \$number bilbili.';
+  }
+
+  @override
+  String get sosOverlayCancel => 'Haqi — nagaan ani jira';
+
+  @override
+  String get sosOverlayCallNow => 'Tajaajila hatattamaa amma bilbili';
+
+  @override
+  String sosOverlayRetryCall(String number) {
+    return '\$number bilbilaan irra deebi\'i';
+  }
+
+  @override
+  String get sosStartedCountdown => 'SOS herregaa eegalame. Mireeduu qabi yookiin Safety Toolkit banaaf shield tuqi. (native review pending)';
+
+  @override
+  String get sosLocationUnavailable => 'Bakni argamuu dide — bakka keetiin SOS eegaluun hin danda\'amu. (native review pending)';
+
+  @override
+  String get openSafetyToolkit => 'Safety Toolkit banii (native review pending)';
+
+  @override
+  String sosOverlayCallDirectly(String number) {
+    return '\$number bilbila keetiin kallattiin bilbili.';
+  }
+
+  @override
+  String get historyFilterAll => 'Hunda';
+
+  @override
+  String get historyFilterCompleted => 'Xumurame';
+
+  @override
+  String get historyFilterCancelled => 'Haqame';
+
+  @override
+  String get historyFilterInProgress => 'Hojiirra ooluu';
+
+  @override
+  String historyEmptyFiltered(String filter) {
+    return 'Imala \$filter\'aa hanga ammaa hin qabu';
+  }
+
+  @override
+  String get historyEmptyBody => 'Seenaan imala keetii as mul\'ata.';
+
+  @override
+  String get historyEmptyFilteredBody => 'Imala dabalataa argachuuf filannoo biraa yaali.';
+
+  @override
+  String get historyClearFilter => 'Filannoo balleessi';
+
+  @override
+  String get historyRequestRide => 'Imala gaadhi';
+
+  @override
+  String get historyErrorPrimary => 'Imaloonni keetii fe\'amuu hin dandeenye';
+
+  @override
+  String get historyRetry => 'Irra deebi\'i';
+
+  @override
+  String get requestOptionChosenBadge => 'FILATAME';
+
+  @override
+  String requestOptionEtaMinutes(int minutes) {
+    return (minutes == 0 ? 'Amma dhufaa jira' : '\$minutes daqiqaa fageenya');
+  }
+
+  @override
+  String get requestOptionEtaUnavailable => 'ETA hin argamne';
+
+  @override
+  String requestOptionSeats(int count) {
+    return (count == 1 ? '1 teessoo' : '\$count teessoo');
+  }
+
+  @override
+  String get requestOptionCapacityUnknown => 'Odeeffannoo teessoo hin kennine';
+
+  @override
+  String get requestOptionUnavailable => 'Hin argamu';
 }

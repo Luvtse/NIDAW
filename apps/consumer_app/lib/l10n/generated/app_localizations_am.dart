@@ -468,4 +468,152 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get paymentNoneSaved => 'እስካሁን የተቀመጡ ዘዴዎች የሉም። ከታች ይጨምሩ።';
+
+  @override
+  String get trackingErrorLiveRideTitle => 'ግንኙነት ተቋረጠ — ጉዞዎ ገና በሂደት ላይ ነው';
+
+  @override
+  String get trackingErrorLiveRideBody => 'አንዳንድ የጉዞ መረጃ አጥተናል፣ ነገር ግን ጉዞዎ አልተሰረዘም። በዚህ ማያ ገጽ ላይ ሊቆዩ ወይም ሊወጡ ይችላሉ።';
+
+  @override
+  String get trackingErrorGenericTitle => 'አንድ ነገር ተስላሏል';
+
+  @override
+  String get trackingErrorGenericBody => 'የመጨረሻው እርምጃ አልተጠናቀቀም። እንደገና ከመሞከርዎ በፊት ዝርዝሮቹን ይመልከቱ።';
+
+  @override
+  String get trackingErrorStay => 'ቆይ';
+
+  @override
+  String get trackingErrorLeave => 'ውጣ';
+
+  @override
+  String get trackingErrorRetry => 'እንደገና ሞክር';
+
+  @override
+  String get trackingErrorDismiss => 'ዝጋ';
+
+  @override
+  String get trackingErrorLiveRideA11y => 'በንቁ ጉዞዎ ወቅት ስህተት። ጉዞዎ እየተቀጠለ ነው።';
+
+  @override
+  String get trackingErrorDetailA11y => 'የስህተት ዝርዝር';
+
+  @override
+  String get sosSlideLabel => 'SOS ለማረጋገጥ ወደ ቀኝ ጎትት';
+
+  @override
+  String get sosSliderA11y => 'የSOS ማረጋገጫ መንሸራተች። ወደ ቀኝ ሙሉ ለሙሉ ጎትተው ወይም Enter ጠቅተው የአደጋ ማሳወቂያ ይላኩ።';
+
+  @override
+  String get sosActivateA11y => 'አሁን የአደጋ SOS ይላኩ';
+
+  @override
+  String get sosTooltip => 'የአደጋ ማሳወቂያ ለማረጋገጥ ይያዙ እና ሙሉ ለሙሉ ወደ ቀኝ ይንሸራትቱ';
+
+  @override
+  String get sosTitle => 'የአደጋ SOS';
+
+  @override
+  String sosTileSubtitle(String number) {
+    return 'የቀጥታ አድራሻዎን ከ911 ጋር በማገናኘት የአደጋ መስመር ያስገንዝቡ';
+  }
+
+  @override
+  String get sosOverlayA11y => 'የአደጋ SOS ቆጣሪ';
+
+  @override
+  String get sosOverlayTitle => 'የአደጋ SOS';
+
+  @override
+  String sosOverlayCountdownBody(String number, int seconds) {
+    return 'ስልክዎ በ\$seconds ሰከንድ ውስገ \$number የአደጋ ቁጥር ላይ ይደውላል…';
+  }
+
+  @override
+  String sosOverlayFallbackBody(String number) {
+    return 'ስልክዎ ካልተከፈተ፣ ከታች ያለውን ቁልፍ ይጠቀሙ ወይም በቀጥታ \$numberን ይደውሉ።';
+  }
+
+  @override
+  String get sosOverlayCancel => 'ሰርዝ — ደህንነቴ ጥሩ ነው';
+
+  @override
+  String get sosOverlayCallNow => 'የአደጋ አገልግሎቶችን አሁን ደውሉ';
+
+  @override
+  String sosOverlayRetryCall(String number) {
+    return '\$numberን መደወል እንደገና ሞክር';
+  }
+
+  @override
+  String get sosStartedCountdown => 'የSOS ቆጣሪ ተጀምሯል ለማረጋገጥ ይያዙ ወይም Safety Toolkit ለመክፈት መጋረጃውን ይንኩ። (native review pending)';
+
+  @override
+  String get sosLocationUnavailable => 'አካባቢ ማግኘት አልተቻለም — ከአካባቢዎ ጋር SOS መጀመር አይቻልም። (native review pending)';
+
+  @override
+  String get openSafetyToolkit => 'Safety Toolkit ይክፈቱ (native review pending)';
+
+  @override
+  String sosOverlayCallDirectly(String number) {
+    return '\$numberን ከስልክዎ በቀጥታ ይደውሉ።';
+  }
+
+  @override
+  String get historyFilterAll => 'ሁሉም';
+
+  @override
+  String get historyFilterCompleted => 'የተጠናቀቀ';
+
+  @override
+  String get historyFilterCancelled => 'ተሰርዟል';
+
+  @override
+  String get historyFilterInProgress => 'በሂደት ላይ';
+
+  @override
+  String historyEmptyFiltered(String filter) {
+    return 'እስካሁን \$filter ጉዞ የለም';
+  }
+
+  @override
+  String get historyEmptyBody => 'የጉዞ ታሪክዎ እዚህ ይታያል።';
+
+  @override
+  String get historyEmptyFilteredBody => 'ተጨማሪ ጉዞዎችን ለማየት ሌላ ማጣሪያ ይሞክሩ።';
+
+  @override
+  String get historyClearFilter => 'ማጣሪያ አጽዳ';
+
+  @override
+  String get historyRequestRide => 'ጉዞ ይጠይቁ';
+
+  @override
+  String get historyErrorPrimary => 'ጉዞዎችን መጫን አልተሳካም';
+
+  @override
+  String get historyRetry => 'እንደገና ሞክር';
+
+  @override
+  String get requestOptionChosenBadge => 'ተመርጧል';
+
+  @override
+  String requestOptionEtaMinutes(int minutes) {
+    return (minutes == 0 ? 'አሁን እየመᣣ ል።' : '\$minutes ደቂቃ ርቀት ል።');
+  }
+
+  @override
+  String get requestOptionEtaUnavailable => 'ETA አልተገኘም';
+
+  @override
+  String requestOptionSeats(int count) {
+    return (count == 1 ? '1 ቦታ' : '\$count ቦታዎች');
+  }
+
+  @override
+  String get requestOptionCapacityUnknown => 'የሰው ብዛት አልቀረበም';
+
+  @override
+  String get requestOptionUnavailable => 'አይገኝም';
 }

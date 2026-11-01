@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/ride_repository.dart';
 
 /// §2.6 Real ride-option carousel.
@@ -129,15 +130,16 @@ class _RideOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final surging = option.surgeMultiplier > 1.0;
     return Semantics(
       button: true,
       selected: isSelected,
       label:
           '${option.displayName ?? option.rideType}, ${option.priceRangeLabel}'
-          '${option.etaMinutes > 0 ? ', ${option.etaMinutes} min away' : ''}'
+          '${option.etaMinutes != null ? ', ${l10n.requestOptionEtaMinutes(option.etaMinutes!)}' : ''}'
           '${surging ? ', surge ${option.surgeMultiplier.toStringAsFixed(1)}x' : ''}'
-          '${option.available ? '' : ', unavailable'}',
+          '${option.available ? '' : ', ${l10n.requestOptionUnavailable.toLowerCase()}'}',
       child: GestureDetector(
         onTap: onTap,
         child: Opacity(
@@ -187,9 +189,9 @@ class _RideOptionCard extends StatelessWidget {
                           color: AppColors.nidusPurple,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
-                          'CHOSEN',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.requestOptionChosenBadge,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 8,
                             fontWeight: FontWeight.w900,
@@ -238,9 +240,9 @@ class _RideOptionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  option.etaMinutes > 0
-                      ? '${option.etaMinutes} min away'
-                      : 'ETA unavailable',
+                  option.etaMinutes != null
+                      ? l10n.requestOptionEtaMinutes(option.etaMinutes!)
+                      : l10n.requestOptionEtaUnavailable,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -250,8 +252,8 @@ class _RideOptionCard extends StatelessWidget {
                 ),
                 Text(
                   option.capacity == null
-                      ? 'Capacity not provided'
-                      : '${option.capacity} seat${(option.capacity ?? 0) == 1 ? '' : 's'}',
+                      ? l10n.requestOptionCapacityUnknown
+                      : l10n.requestOptionSeats(option.capacity!),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -273,11 +275,11 @@ class _RideOptionCard extends StatelessWidget {
                   ),
                 ],
                 if (!option.available)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      'Unavailable',
-                      style: TextStyle(
+                      l10n.requestOptionUnavailable,
+                      style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: AppColors.error,
