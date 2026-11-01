@@ -49,35 +49,53 @@ def escape_literal(chunk: str) -> str:
 def dart_expression(template: str) -> str:
     """Return Dart source for an ARB message.
 
-    gen-l10n compiles ICU plural messages into Intl.plural() calls and
-    everything else into interpolated string literals. Both forms are
-    emitted here so the committed catalog stays semantically faithful to
-    what `flutter gen-l10n` would produce.
+    gen-l10n compiles ICU plural messages into Intl.plural() calls (which
+    requires importing package:intl) and everything else into interpolated
+    string literals. The committed catalog predates this tool's existence
+    and uses plain Dart interpolation for placeholder messages with no
+    Intl import anywhere, so plural messages are compiled down to the
+    equivalent conditional expression instead of Intl.plural(). That keeps
+    the generated files byte-compatible in style with the rest of the
+    catalog and free of a new dependency.
     """
     start = template.find(", plural,")
     if template.startswith("{") and start != -1:
         param = template[1:start].strip()
-        body_end = _matching_brace(template, len(template) - 1)
+        body_end = _matching_brace(template, 0)
         if param and re.match(r"^\w+$", param) and body_end == len(template) - 1:
             return _plural_expression(param, template[start + len(", plural,"):body_end])
+    # Only substitute ICU {placeholder} tokens that are declared as real
+    # placeholders in the message. Anything else ({0}, {count, plural, ...}
+    # leftovers from a partially-translated string) is dropped so we never
+    # emit invalid Dart like `\$0`.
+    ph_names = set(placeholders(template))
+
+    def _sub(m: re.Match) -> str:
+        name = m.group(1)
+        if name not in ph_names:
+            return ""
+        if name.isidentifier():
+            return "\\$" + name
+        return "\\${" + name + "}"
+
     buf = ["'"]
     cursor = 0
-    for m in re.finditer(r"\{(\w+)\}", template):
+    for m in re.finditer(r"\{(\w+)(?:\s*,[^{}]*)?\}", template):
         buf.append(escape_literal(template[cursor : m.start()]))
-        buf.append("\\${" + m.group(1) + "}")
+        buf.append(_sub(m))
         cursor = m.end()
     buf.append(escape_literal(template[cursor:]))
     buf.append("'")
     return "".join(buf)
 
 
-def _matching_brace(text: str, close_idx: int) -> int:
-    """Return the index of the '{' matching the '}' at close_idx."""
+def _matching_brace(text: str, open_idx: int) -> int:
+    """Return the index of the '}' matching the '{' at open_idx."""
     depth = 0
-    for i in range(close_idx, -1, -1):
-        if text[i] == "}":
+    for i in range(open_idx, len(text)):
+        if text[i] == "{":
             depth += 1
-        elif text[i] == "{":
+        elif text[i] == "}":
             depth -= 1
             if depth == 0:
                 return i
@@ -107,7 +125,8 @@ def _icu_to_dart(chunk: str) -> str:
     cursor = 0
     for m in re.finditer(r"\{(\w+)\}", chunk):
         out.append(escape_literal(chunk[cursor : m.start()]))
-        out.append("\\$" + m.group(1))
+        name = m.group(1)
+        out.append("\\$" + name if name.isidentifier() else "\\${" + name + "}")
         cursor = m.end()
     out.append(escape_literal(chunk[cursor:]))
     out.append("'")
@@ -115,7 +134,15 @@ def _icu_to_dart(chunk: str) -> str:
 
 
 def _plural_expression(param: str, cases_text: str) -> str:
-    cases = []  # (selector, body) — selector like '=0' or 'other'
+    """Compile an ICU plural block into a Dart conditional expression.
+
+    Semantically equivalent to the Intl.plural() call that flutter gen-l10n
+    would emit, but with no package:intl dependency — matching the style of
+    the rest of the committed catalog. Only exact-value selectors (=0, =1,
+    =2, ...) are supported; locale-dependent categories (few/many) would
+    need CLDR rules and are rejected loudly instead of silently mis-rendered.
+    """
+    cases = []  # (selector, dart-literal) — selector like '=0' or 'other'
     for piece in _split_top_level(cases_text):
         piece = piece.strip()
         if not piece:
@@ -124,29 +151,22 @@ def _plural_expression(param: str, cases_text: str) -> str:
         if not m:
             sys.exit(f"ERROR: cannot parse plural case: {piece!r}")
         cases.append((m.group(1), _icu_to_dart(m.group(2))))
-    zero = next((b for s, b in cases if s == "=0"), None)
-    one = next((b for s, b in cases if s == "=1"), None)
-    two = next((b for s, b in cases if s == "=2"), None)
-    few = next((b for s, b in cases if s == "few"), None)
-    many = next((b for s, b in cases if s == "many"), None)
     other = next((b for s, b in cases if s == "other"), None)
-    explicit = {s for s, _ in cases if s.startswith("=")}
-    named = {s for s, _ in cases if not s.startswith("=") and s != "other"}
-    args = [f"Intl.plural({param}"]
-    if zero is not None and "=0" in explicit:
-        args.append(f", zero: {zero}")
-    if one is not None and "=1" in explicit:
-        args.append(f", one: {one}")
-    if two is not None and "=2" in explicit:
-        args.append(f", two: {two}")
-    if "few" in named and few is not None:
-        args.append(f", few: {few}")
-    if "many" in named and many is not None:
-        args.append(f", many: {many}")
     if other is None:
         sys.exit(f"ERROR: plural for {param} has no 'other' case")
-    args.append(f", other: {other})")
-    return "".join(args)
+    explicit = [(s, b) for s, b in cases if s.startswith("=")]
+    named = [s for s, _ in cases if not s.startswith("=") and s != "other"]
+    if named:
+        sys.exit(
+            f"ERROR: plural for {param} uses CLDR categories {named}; "
+            "this tool only compiles exact-value plurals (=N). Run real "
+            "flutter gen-l10n for this message."
+        )
+    expr = other
+    for selector, body in reversed(explicit):
+        n = int(selector[1:])
+        expr = f"({param} == {n} ? {body} : {expr})"
+    return expr
 
 
 def insert_before_class_end(src: str, additions: str) -> str:
