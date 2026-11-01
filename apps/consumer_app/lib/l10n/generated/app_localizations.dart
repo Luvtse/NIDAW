@@ -1428,4 +1428,166 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **Looks right**
   String get verifyButtonLooksRight;
+
+  /// No description provided for @splitSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **Split fare**
+  String get splitSheetTitle;
+
+  /// No description provided for @splitSheetIntro.
+  ///
+  /// In en, this message translates to:
+  /// **Invites are sent by email/SMS. Your charge drops only as people accept — the totals below come straight from the server.**
+  String get splitSheetIntro;
+
+  /// No description provided for @splitAddPerson.
+  ///
+  /// In en, this message translates to:
+  /// **Add person**
+  String get splitAddPerson;
+
+  /// No description provided for @splitSendInvites.
+  ///
+  /// In en, this message translates to:
+  /// **Send invites · {amount}**
+  String splitSendInvites(String amount);
+
+  /// No description provided for @splitNeedOneShare.
+  ///
+  /// In en, this message translates to:
+  /// **Add at least one share before sending.**
+  String get splitNeedOneShare;
+
+  /// No description provided for @splitSharesExceedFare.
+  ///
+  /// In en, this message translates to:
+  /// **Shares must add up to less than the fare ({fare}).**
+  String splitSharesExceedFare(String fare);
+
+  /// No description provided for @splitSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **Could not send invites — try again.**
+  String get splitSendFailed;
+
+  /// No description provided for @splitNotYetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **Not split yet**
+  String get splitNotYetTitle;
+
+  /// No description provided for @splitNotYetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **Fare {fare} — you are paying the full amount until someone accepts an invite.**
+  String splitNotYetSubtitle(String fare);
+
+  /// No description provided for @splitStatusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **Split status**
+  String get splitStatusLabel;
+
+  /// No description provided for @splitKvFare.
+  ///
+  /// In en, this message translates to:
+  /// **Fare**
+  String get splitKvFare;
+
+  /// No description provided for @splitKvYourShare.
+  ///
+  /// In en, this message translates to:
+  /// **Your share after accepted invites**
+  String get splitKvYourShare;
+
+  /// No description provided for @splitKvTotalInvited.
+  ///
+  /// In en, this message translates to:
+  /// **Total invited**
+  String get splitKvTotalInvited;
+
+  /// No description provided for @splitKvStillWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **Still waiting**
+  String get splitKvStillWaiting;
+
+  /// No description provided for @splitFieldContact.
+  ///
+  /// In en, this message translates to:
+  /// **Email or phone**
+  String get splitFieldContact;
+
+  /// No description provided for @splitFieldShare.
+  ///
+  /// In en, this message translates to:
+  /// **Share ({currency})**
+  String splitFieldShare(String currency);
+
+  /// No description provided for @splitFieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **Required**
+  String get splitFieldRequired;
+
+  /// No description provided for @splitFieldInvalidContact.
+  ///
+  /// In en, this message translates to:
+  /// **Enter a valid email or phone number**
+  String get splitFieldInvalidContact;
+
+  /// No description provided for @splitFieldInvalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **Invalid**
+  String get splitFieldInvalidAmount;
+
+  /// No description provided for @splitFieldAtLeastFare.
+  ///
+  /// In en, this message translates to:
+  /// **≥ fare**
+  String get splitFieldAtLeastFare;
+
+  /// No description provided for @splitStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **pending**
+  String get splitStatusPending;
+
+  /// No description provided for @splitStatusAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **accepted**
+  String get splitStatusAccepted;
+
+  /// No description provided for @splitStatusPaid.
+  ///
+  /// In en, this message translates to:
+  /// **paid**
+  String get splitStatusPaid;
+
+  /// No description provided for @splitStatusDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **declined**
+  String get splitStatusDeclined;
+
+  /// No description provided for @splitStatusExpired.
+  ///
+  /// In en, this message translates to:
+  /// **expired**
+  String get splitStatusExpired;
+
+  /// No description provided for @splitClose.
+  ///
+  /// In en, this message translates to:
+  /// **Close**
+  String get splitClose;
+
+  /// No description provided for @splitRemoveShare.
+  ///
+  /// In en, this message translates to:
+  /// **Remove share**
+  String get splitRemoveShare;
 }

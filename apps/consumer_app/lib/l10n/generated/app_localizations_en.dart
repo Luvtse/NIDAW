@@ -705,4 +705,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get verifyButtonLooksRight => 'Looks right';
+
+  @override
+  String get splitSheetTitle => 'Split fare';
+
+  @override
+  String get splitSheetIntro => 'Invites are sent by email/SMS. Your charge drops only as people accept — the totals below come straight from the server.';
+
+  @override
+  String get splitAddPerson => 'Add person';
+
+  @override
+  String splitSendInvites(String amount) {
+    return 'Send invites · \$amount';
+  }
+
+  @override
+  String get splitNeedOneShare => 'Add at least one share before sending.';
+
+  @override
+  String splitSharesExceedFare(String fare) {
+    return 'Shares must add up to less than the fare (\$fare).';
+  }
+
+  @override
+  String get splitSendFailed => 'Could not send invites — try again.';
+
+  @override
+  String get splitNotYetTitle => 'Not split yet';
+
+  @override
+  String splitNotYetSubtitle(String fare) {
+    return 'Fare \$fare — you are paying the full amount until someone accepts an invite.';
+  }
+
+  @override
+  String get splitStatusLabel => 'Split status';
+
+  @override
+  String get splitKvFare => 'Fare';
+
+  @override
+  String get splitKvYourShare => 'Your share after accepted invites';
+
+  @override
+  String get splitKvTotalInvited => 'Total invited';
+
+  @override
+  String get splitKvStillWaiting => 'Still waiting';
+
+  @override
+  String get splitFieldContact => 'Email or phone';
+
+  @override
+  String splitFieldShare(String currency) {
+    return 'Share (\$currency)';
+  }
+
+  @override
+  String get splitFieldRequired => 'Required';
+
+  @override
+  String get splitFieldInvalidContact => 'Enter a valid email or phone number';
+
+  @override
+  String get splitFieldInvalidAmount => 'Invalid';
+
+  @override
+  String get splitFieldAtLeastFare => '≥ fare';
+
+  @override
+  String get splitStatusPending => 'pending';
+
+  @override
+  String get splitStatusAccepted => 'accepted';
+
+  @override
+  String get splitStatusPaid => 'paid';
+
+  @override
+  String get splitStatusDeclined => 'declined';
+
+  @override
+  String get splitStatusExpired => 'expired';
+
+  @override
+  String get splitClose => 'Close';
+
+  @override
+  String get splitRemoveShare => 'Remove share';
 }

@@ -705,4 +705,93 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get verifyButtonLooksRight => 'ትክክል ይመስላል';
+
+  @override
+  String get splitSheetTitle => 'ትከፋፌን ይካፈሉ';
+
+  @override
+  String get splitSheetIntro => 'መልእክቶች በኢሜይል/SMS ይላካሉ። የእርስዎ ክፍያ ሌሎች ሲቀበሉ ብቻ ይቀንሳል — ከታች ያሉት ድምሮች በቀጥታ ከአገልግሎት ዘውጡ የተወሰዱ ናቸው።';
+
+  @override
+  String get splitAddPerson => 'ሰው ይጨምሩ';
+
+  @override
+  String splitSendInvites(String amount) {
+    return 'መልእክቶችን ይላኩ · \$amount';
+  }
+
+  @override
+  String get splitNeedOneShare => 'ከመላክዎ በፊት ቢያንስ አንድ ድርሻ ይጨምሩ።';
+
+  @override
+  String splitSharesExceedFare(String fare) {
+    return 'ድርሻዎች ከክፍያው (\$fare) ማነስ አለባቸው።';
+  }
+
+  @override
+  String get splitSendFailed => 'መልእክቶችን መላክ አልተቻለም — እንደገና ይሞክሩ።';
+
+  @override
+  String get splitNotYetTitle => 'እስካሁን አልተከፋፈለም';
+
+  @override
+  String splitNotYetSubtitle(String fare) {
+    return 'ክፍያ \$fare — ማንኛውም ሰው ከተቀበለ ድረስ ሙሉውን መጠን እየከፈሉ ነው።';
+  }
+
+  @override
+  String get splitStatusLabel => 'የክፍፍል ሁኔታ';
+
+  @override
+  String get splitKvFare => 'ክፍያ';
+
+  @override
+  String get splitKvYourShare => 'ቀባዮች ከተቀበሉ በኋላ የእርስዎ ድርሻ';
+
+  @override
+  String get splitKvTotalInvited => 'ጠቅላላ የተጋበዙ';
+
+  @override
+  String get splitKvStillWaiting => 'ገና በመጠበቅ ላይ';
+
+  @override
+  String get splitFieldContact => 'ኢሜይል ወይም ስልክ';
+
+  @override
+  String splitFieldShare(String currency) {
+    return 'ድርሻ (\$currency)';
+  }
+
+  @override
+  String get splitFieldRequired => 'አስፈላጊ';
+
+  @override
+  String get splitFieldInvalidContact => 'ትክክለኛ ኢሜይል ወይም ስልክ ቁጥር ያስገቡ';
+
+  @override
+  String get splitFieldInvalidAmount => 'ተሳሳተ';
+
+  @override
+  String get splitFieldAtLeastFare => 'ከክፍያው ≥';
+
+  @override
+  String get splitStatusPending => 'በመጠበቅ ላይ';
+
+  @override
+  String get splitStatusAccepted => 'ተቀብሏል';
+
+  @override
+  String get splitStatusPaid => 'ተከፍሏል';
+
+  @override
+  String get splitStatusDeclined => 'ተውግዷል';
+
+  @override
+  String get splitStatusExpired => 'ጊዜው አልፏል';
+
+  @override
+  String get splitClose => 'ዝጋ';
+
+  @override
+  String get splitRemoveShare => 'ድርሻን አስወግድ';
 }

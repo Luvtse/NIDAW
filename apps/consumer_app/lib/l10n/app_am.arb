@@ -639,5 +639,32 @@
   "driverEtaMinutesUnit": "ደቂቃ",
   "@driverEtaMinutesUnit": {
     "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
-  }
+  },
+  "splitSheetTitle": "ትከፋፌን ይካፈሉ",
+  "splitSheetIntro": "መልእክቶች በኢሜይል/SMS ይላካሉ። የእርስዎ ክፍያ ሌሎች ሲቀበሉ ብቻ ይቀንሳል — ከታች ያሉት ድምሮች በቀጥታ ከአገልግሎት ዘውጡ የተወሰዱ ናቸው።",
+  "splitAddPerson": "ሰው ይጨምሩ",
+  "splitSendInvites": "መልእክቶችን ይላኩ · {amount}",
+  "splitNeedOneShare": "ከመላክዎ በፊት ቢያንስ አንድ ድርሻ ይጨምሩ።",
+  "splitSharesExceedFare": "ድርሻዎች ከክፍያው ({fare}) ማነስ አለባቸው።",
+  "splitSendFailed": "መልእክቶችን መላክ አልተቻለም — እንደገና ይሞክሩ።",
+  "splitNotYetTitle": "እስካሁን አልተከፋፈለም",
+  "splitNotYetSubtitle": "ክፍያ {fare} — ማንኛውም ሰው ከተቀበለ ድረስ ሙሉውን መጠን እየከፈሉ ነው።",
+  "splitStatusLabel": "የክፍፍል ሁኔታ",
+  "splitKvFare": "ክፍያ",
+  "splitKvYourShare": "ቀባዮች ከተቀበሉ በኋላ የእርስዎ ድርሻ",
+  "splitKvTotalInvited": "ጠቅላላ የተጋበዙ",
+  "splitKvStillWaiting": "ገና በመጠበቅ ላይ",
+  "splitFieldContact": "ኢሜይል ወይም ስልክ",
+  "splitFieldShare": "ድርሻ ({currency})",
+  "splitFieldRequired": "አስፈላጊ",
+  "splitFieldInvalidContact": "ትክክለኛ ኢሜይል ወይም ስልክ ቁጥር ያስገቡ",
+  "splitFieldInvalidAmount": "ተሳሳተ",
+  "splitFieldAtLeastFare": "ከክፍያው ≥",
+  "splitStatusPending": "በመጠበቅ ላይ",
+  "splitStatusAccepted": "ተቀብሏል",
+  "splitStatusPaid": "ተከፍሏል",
+  "splitStatusDeclined": "ተውግዷል",
+  "splitStatusExpired": "ጊዜው አልፏል",
+  "splitClose": "ዝጋ",
+  "splitRemoveShare": "ድርሻን አስወግድ"
 }

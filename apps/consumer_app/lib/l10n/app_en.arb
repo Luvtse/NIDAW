@@ -648,5 +648,32 @@
   "driverEtaMinutesUnit": "min",
   "@driverEtaMinutesUnit": {
     "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
-  }
+  },
+  "splitSheetTitle": "Split fare",
+  "splitSheetIntro": "Invites are sent by email/SMS. Your charge drops only as people accept — the totals below come straight from the server.",
+  "splitAddPerson": "Add person",
+  "splitSendInvites": "Send invites · {amount}",
+  "splitNeedOneShare": "Add at least one share before sending.",
+  "splitSharesExceedFare": "Shares must add up to less than the fare ({fare}).",
+  "splitSendFailed": "Could not send invites — try again.",
+  "splitNotYetTitle": "Not split yet",
+  "splitNotYetSubtitle": "Fare {fare} — you are paying the full amount until someone accepts an invite.",
+  "splitStatusLabel": "Split status",
+  "splitKvFare": "Fare",
+  "splitKvYourShare": "Your share after accepted invites",
+  "splitKvTotalInvited": "Total invited",
+  "splitKvStillWaiting": "Still waiting",
+  "splitFieldContact": "Email or phone",
+  "splitFieldShare": "Share ({currency})",
+  "splitFieldRequired": "Required",
+  "splitFieldInvalidContact": "Enter a valid email or phone number",
+  "splitFieldInvalidAmount": "Invalid",
+  "splitFieldAtLeastFare": "≥ fare",
+  "splitStatusPending": "pending",
+  "splitStatusAccepted": "accepted",
+  "splitStatusPaid": "paid",
+  "splitStatusDeclined": "declined",
+  "splitStatusExpired": "expired",
+  "splitClose": "Close",
+  "splitRemoveShare": "Remove share"
 }
