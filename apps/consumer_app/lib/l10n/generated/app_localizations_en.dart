@@ -595,6 +595,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get historyRetry => 'Retry';
 
+  // Manual catalog member (kept out of gen-l10n output).
   @override
   String get requestOptionChosenBadge => 'CHOSEN';
 
@@ -794,4 +795,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get splitRemoveShare => 'Remove share';
+
+  @override
+  String get promoCodeTitle => 'Promo code';
+
+  @override
+  String get promoCodeRemove => 'Remove';
+
+  @override
+  String get promoCodeHint => 'e.g. NIDUS20';
+
+  @override
+  String get promoCodeValidateApply => 'Validate & apply';
+
+  @override
+  String get promoCodeChecking => 'Checking…';
+
+  @override
+  String get promoCodeNeedsFare => 'Needs an estimated fare first — choose pickup and dropoff.';
+
+  @override
+  String get promoCodeYourCodes => 'Your codes';
+
+  @override
+  String get promoCodeLoadFailed => 'Could not load your saved codes.';
+
+  @override
+  String get promoCodeRetry => 'Retry';
+
+  @override
+  String get promoCodeEmpty => 'No active codes yet — new ones arrive as notifications.';
+
+  @override
+  String get promoCodeUse => 'Use';
+
+  @override
+  String get promoCodeEnterFirst => 'Enter a promo code first.';
+
+  @override
+  String get promoCodeNeedRoute => 'Set pickup and destination to see a fare before applying a code.';
+
+  @override
+  String get promoCodeInvalid => 'This code could not be validated.';
+
+  @override
+  String promoOffPercent(String percent) {
+    return '\$percent% off';
+  }
+
+  @override
+  String promoMaxCap(String currency, String amount) {
+    return 'max \$currency \$amount';
+  }
+
+  @override
+  String promoOffFixed(String currency, String amount) {
+    return '\$currency \$amount off';
+  }
+
+  @override
+  String promoMinFare(String currency, String amount) {
+    return 'min fare \$currency \$amount';
+  }
+
+  @override
+  String promoUntil(String date) {
+    return 'until \$date';
+  }
 }

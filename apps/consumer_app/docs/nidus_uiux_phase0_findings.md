@@ -202,6 +202,30 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   labels, verbatim unknown status, empty-vs-real failure-message precedence, localized validators,
   and the client-side pre-check firing without a network call.
 
+**Session-10 sweep progress (promo_code_sheet.dart — migration finished):**
+- Added 19 `promo*` keys ×3 locales (sheet title, remove/use/retry actions, code-field hint,
+  validate/checking button labels, needs-fare hint, your-codes header, load-failure line,
+  empty state, three client/server validators, and five parameterized saved-code row fragments:
+  percent-off, max-cap, fixed-off, min-fare, until-date) in en/am/om ARBs; `tool/sync_l10n.py`
+  compiled them into the committed catalogs and a re-run confirms sync. Placeholder types pinned
+  to String (pre-formatted server numbers interpolate as text).
+- **Seeding-bug fix**: the first pass wrote Amharic values into app_om.arb (Oromo must be Latin
+  script Afaan Oromoo); all 19 om entries were rewritten in proper Afaan Oromoo, and the am
+  entries replaced the earlier garbled transliterations with clean Ethiopic copy. The new test
+  includes a script-mixup regression guard (`om` strings must not contain U+1200–U+137F).
+- All user-facing strings in the sheet now resolve via `context.l10n`; literal scan shows zero
+  remaining English UI copy (only the `Icons.local_offer_outlined` identifier survives). Honesty
+  contract preserved: every discount/cap/min-fare number comes verbatim from the PromoCodeInfo
+  DTO inside localized fragment templates; a real server redeem failure reason stays PRIMARY and
+  the localized `promoCodeInvalid` fallback appears only for absent/empty messages (refined the
+  old `??` so empty-string payloads can't render a blank errorText).
+- New widget-level test: `test/features/nidus/presentation/promo_code_sheet_l10n_test.dart` —
+  no-network `_FakeMoneyRepo implements Phase2MoneyRepository` registered in GetIt; pumps the
+  sheet for en/am/om asserting catalog rendering, former-literal leak guards, needs-fare hint
+  gating, server-sourced row fragments under localized glue, honest retry recovery, primary-vs-
+  fallback message precedence, client-side validators firing with zero network calls, success
+  path applying the untouched server projection, and Remove clearing via onApplied(null,null).
+
 **Open items after Phase 3:**
 - No Dart/Flutter toolchain in this environment — `flutter analyze` / `flutter test` must run in CI
   before merge (catalogs, selector edits, driver_card + verify_driver_card edits, and all three
@@ -210,7 +234,7 @@ Sign-off: triage complete against working tree at HEAD 7ff8aa7. Ready for Phase 
   criterion "font ships in bundle"; carried into Phase 4.
 - Full Amharic/Oromo translation quality pass remains for human review (coverage ≠ correctness).
 - Remaining sweep files (chat_page, receipt_detail_page, notification_inbox_page,
-  ar_navigation_page, promo_code_sheet, pre_selfie_capture_sheet,
+  ar_navigation_page, pre_selfie_capture_sheet,
   stop_charge_card, place_autocomplete_sheet, location_input pending; ride_type_selector,
   driver_card, verify_driver_card, split_fare_sheet done) plus known literal at
   `ride_tracking_page.dart:1427`.
