@@ -6,11 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
-
 import '../../../../core/config/feature_flag_service.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/offline/offline_service.dart';
 import '../../data/repositories/pre_selfie_repository.dart';
 import '../../data/repositories/ride_repository.dart';
 import '../../data/repositories/safety_repository.dart';
@@ -381,8 +380,21 @@ mixin RideConnectivityAware on RideState {
 /// device has no connectivity. Distinct from [RideError]: nothing failed on
 /// the server — the request genuinely never left the phone, and the UI says
 /// so instead of faking a successful refresh over stale data.
+///
+/// Transient by design: [_emitConnectivityChange] re-emits the previous ride
+/// content state as soon as any event lands after this one, so surfaces must
+/// treat it as a signal ("the refresh you just attempted did not happen"),
+/// never as a replacement for the ride content itself.
 class OfflineRefreshBlockedState extends RideState {
-  const OfflineRefreshBlockedState();
+  /// The ride-content state that was live when the blocked refresh arrived.
+  /// Kept for debugging/tests; the fold in [_emitConnectivityChange] reads
+  /// the bloc's own `state` rather than this field.
+  final RideState? previous;
+
+  const OfflineRefreshBlockedState({this.previous});
+
+  @override
+  List<Object?> get props => [previous];
 }
 
 /// Loading state
@@ -517,7 +529,7 @@ class DriverMatched extends RideState with RideConnectivityAware {
 }
 
 /// Ride in progress
-class RideInProgress extends RideState {
+class RideInProgress extends RideState with RideConnectivityAware {
   final Ride ride;
 
   /// §4.5 RideCheck: the rider's live position when the trip started, used
@@ -535,10 +547,11 @@ class RideInProgress extends RideState {
     this.ride, {
     this.tripStartOrigin,
     this.pendingAnomaly,
+    super.isOffline,
   });
 
   @override
-  List<Object?> get props => [ride, tripStartOrigin, pendingAnomaly];
+  List<Object?> get props => [ride, tripStartOrigin, pendingAnomaly, isOffline];
 }
 
 /// Ride completed
@@ -655,7 +668,7 @@ class NoDriversFound extends RideState {
 }
 
 /// Driver is en route to pickup — dedicated arrival state.
-class DriverEnRoute extends RideState {
+class DriverEnRoute extends RideState with RideConnectivityAware {
   final String rideId;
   final DriverInfo driver;
   final double fare;
@@ -704,6 +717,7 @@ class DriverEnRoute extends RideState {
     this.pickupName,
     this.dropoffName,
     this.pendingAnomaly,
+    super.isOffline,
   });
 
   @override
@@ -721,6 +735,7 @@ class DriverEnRoute extends RideState {
         pickupName,
         dropoffName,
         pendingAnomaly,
+        isOffline,
       ];
 }
 
@@ -920,6 +935,46 @@ class RideBloc extends Bloc<RideEvent, RideState> {
 
   String get selectedRideType => _currentSelectedRideType;
 
+  // --- Phase 5 connectivity & state-honesty state ---------------------------
+
+  /// Latest settled connectivity verdict (`true` = offline), or null while no
+  /// sample has arrived yet. Null is NOT "online": surfaces render nothing
+  /// until it settles, rather than guessing (see [RideConnectivityAware]).
+  bool? _isOffline;
+
+  /// Whether the most recent refresh attempt was blocked for being offline.
+  /// The next successful content emission clears it — see [_foldConnectivity]
+  /// and [_emitConnectivityChange].
+  bool _refreshBlockedPending = false;
+
+  /// Last ride-content state that carried the connectivity verdict. Used to
+  /// recover the content view after the transient [OfflineRefreshBlockedState]
+  /// signal was emitted (the fold rebuilds it with the fresh verdict).
+  RideState? _lastConnectivityAwareState;
+
+  /// Active filters from the most recent [LoadRideHistory], retained in bloc
+  /// state (Phase 5: chips round-trip across navigation instead of resetting
+  /// to "all" on every entry). Null status = unfiltered.
+  String? _historyStatusFilter;
+
+  /// Stream of settled connectivity verdicts (`true` = offline) folded into
+  /// ride-content states. Surfaces that need continuous awareness (e.g. the
+  /// tracking page's reconnecting banner) listen here IN ADDITION to `stream`,
+  /// because periodic emissions like the ETA timer's LoadRide clobber the
+  /// transient OfflineRefreshBlockedState before a listener can observe it.
+  /// Never emits while the verdict is unset — honest null, never a guess.
+  final StreamController<bool> _offlineSignals =
+      StreamController<bool>.broadcast();
+
+  Stream<bool> get offlineChanges => _offlineSignals.stream;
+
+  /// Current settled verdict for synchronous reads by UI code. Null means
+  /// "unknown yet" — callers must render nothing, not assume online.
+  bool? get currentIsOffline => _isOffline;
+
+  /// Active history filter retained in bloc state (Phase 5 chip round-trip).
+  String? get historyStatusFilter => _historyStatusFilter;
+
   // --- §4.5 RideCheck anomaly detector state -------------------------------
   // The detector lives on the bloc so every consumer of ride state gets
   // identical behavior and the snooze/grace windows survive widget rebuilds.
@@ -1022,12 +1077,25 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     required SafetyRepository safetyRepository,
     String? Function()? currentUserIdResolver,
     FeatureFlagService? featureFlags,
+    // Phase 5 (connectivity & state-honesty UX): optional connectivity feed.
+    // DI wires OfflineService (initialized by the startup coordinator before
+    // any Nidus surface builds); tests can drive [ConnectivityChanged]
+    // directly. Null means "no connectivity awareness" — isOffline stays null
+    // forever and surfaces render no banner rather than guessing.
+    Stream<bool>? connectivityStream,
+    bool? Function()? initialConnectivity,
+    // Phase 5: offline queue for draft ride requests. Queued operations are
+    // replayed by OfflineService.syncPendingOperations when connectivity
+    // returns; null (tests) degrades to an in-memory draft list so the
+    // honest "queued, not sent" UX still works without Hive.
+    OfflineService? offlineService,
   })  : _rideRepository = rideRepository,
         _requestRideUseCase = requestRideUseCase,
         _getRideStatusUseCase = getRideStatusUseCase,
         _safetyRepository = safetyRepository,
         _currentUserId = currentUserIdResolver,
         _featureFlags = featureFlags,
+        _offlineService = offlineService,
         super(const RideInitial()) {
     on<RequestRide>(_onRequestRide);
     on<LoadRide>(_onLoadRide);
@@ -1050,6 +1118,161 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     on<ConfirmSos>(_onConfirmSos);
     on<ReportRidePosition>(_onReportRidePosition);
     on<DismissRideCheckPrompt>(_onDismissRideCheckPrompt);
+    // --- Phase 5 connectivity & state-honesty wiring -----------------------
+    on<ConnectivityChanged>(_onConnectivityChanged);
+    on<OfflineRefreshBlocked>(_onOfflineRefreshBlocked);
+    on<QueueOfflineRideRequest>(_onQueueOfflineRideRequest);
+
+    // Seed the verdict synchronously when a settled sample exists (DI passes
+    // OfflineService.isOnline after initialize), then follow the live stream.
+    final seed = initialConnectivity?.call();
+    if (seed != null) _isOffline = !seed;
+    if (connectivityStream != null) {
+      _connectivitySubscription =
+          connectivityStream.listen((isOnline) => add(ConnectivityChanged(isOnline)));
+    }
+  }
+
+  // ==========================================================================
+  // PHASE 5: CONNECTIVITY FOLD HELPERS
+  // ==========================================================================
+
+  final OfflineService? _offlineService;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  /// In-memory draft queue used when no [OfflineService] is injected (tests,
+  /// or a device where the offline subsystem failed to initialize). Mirrors
+  /// the queued/draft handling contract without pretending data persisted.
+  final List<RequestRide> _draftRequests = [];
+
+  /// Draft ride requests captured while offline. Non-empty means the UI must
+  /// tell the rider these are QUEUED, not booked.
+  List<RequestRide> get draftRequests => List.unmodifiable(_draftRequests);
+
+  /// Folds the settled connectivity verdict into a freshly-built content
+  /// state. Every emission site routes through this so `isOffline` reflects
+  /// the truth at emit time instead of the default null, and so a successful
+  /// fetch clears any pending "refresh blocked" signal.
+  T _foldConnectivity<T extends RideState>(T s) {
+    if (s is RideRequested) return s.copyWith(isOffline: _isOffline) as T;
+    if (s is DriverMatched) return s.copyWith(isOffline: _isOffline) as T;
+    if (s is DriverEnRoute) return s.copyWith(isOffline: _isOffline) as T;
+    if (s is RideInProgress) return s.copyWith(isOffline: _isOffline) as T;
+    // Any other state (loading/error/history/options…) means fresh server
+    // data arrived — the refresh genuinely happened, drop the blocked flag.
+    _refreshBlockedPending = false;
+    if (s is RideConnectivityAware) _lastConnectivityAwareState = s;
+    return s;
+  }
+
+  /// Wraps [emit] so every content state passes through the fold. Handlers
+  /// use this instead of raw `emit` for connectivity-aware states.
+  void _emitFolded(Emitter<RideState> emit, RideState s) {
+    if (s is RideConnectivityAware) {
+      emit(_foldConnectivity(s));
+    } else {
+      _refreshBlockedPending = false;
+      emit(s);
+    }
+  }
+
+  /// Re-emits the live connectivity-aware state with the current verdict
+  /// (used when a ConnectivityChanged arrives while a ride state is showing).
+  void _reemitWithConnectivity(Emitter<RideState> emit) {
+    final s = state;
+    if (s is RideRequested) {
+      emit(s.copyWith(isOffline: _isOffline));
+    } else if (s is DriverMatched) {
+      emit(s.copyWith(isOffline: _isOffline));
+    } else if (s is DriverEnRoute) {
+      emit(s.copyWith(isOffline: _isOffline));
+    } else if (s is RideInProgress) {
+      emit(s.copyWith(isOffline: _isOffline));
+    }
+  }
+
+  Future<void> _onConnectivityChanged(
+    ConnectivityChanged event,
+    Emitter<RideState> emit,
+  ) async {
+    final next = !event.isOnline;
+    if (_isOffline == next) return; // dedupe repeated samples
+    _isOffline = next;
+    if (!_offlineSignals.isClosed) _offlineSignals.add(next);
+
+    // Back online: honestly replay whatever refresh was blocked, so the user
+    // sees revalidated data instead of a stale screen that claims "fresh".
+    if (!next && _refreshBlockedPending) {
+      _refreshBlockedPending = false;
+      final prev = _lastConnectivityAwareState;
+      if (prev is RideRequested) {
+        add(LoadRide(prev.rideId));
+      } else if (prev is DriverMatched) {
+        add(LoadRide(prev.rideId));
+      } else if (prev is DriverEnRoute) {
+        add(LoadRide(prev.rideId));
+      }
+      // History/estimate refreshes are surface-owned (pull-to-refresh); the
+      // bloc replays only the tracked-ride refresh it can do authoritatively.
+    }
+
+    _reemitWithConnectivity(emit);
+  }
+
+  void _onOfflineRefreshBlocked(
+    OfflineRefreshBlocked event,
+    Emitter<RideState> emit,
+  ) {
+    // Only truthful when the verdict actually says offline; an unset/null
+    // verdict is NOT treated as offline (honest-null rule).
+    if (_isOffline != true) {
+      // Stale/blocked attempt while online — restore the content view so a
+      // surface never sits on the transient state.
+      _reemitWithConnectivity(emit);
+      return;
+    }
+    _refreshBlockedPending = true;
+    emit(OfflineRefreshBlockedState(previous: state));
+  }
+
+  /// Phase 5: capture a ride request as a local draft while offline instead
+  /// of firing a doomed network call. Persisted via [OfflineService] when
+  /// available (survives app restarts, synced on reconnect); otherwise kept
+  /// in memory so the "queued, not booked" copy stays truthful either way.
+  Future<void> _onQueueOfflineRideRequest(
+    QueueOfflineRideRequest event,
+    Emitter<RideState> emit,
+  ) async {
+    final request = event.request;
+    _draftRequests.add(request);
+    final svc = _offlineService;
+    if (svc != null && svc.isReady) {
+      try {
+        await svc.queueOperation(
+          endpoint: '/api/v1/nidus/rides',
+          method: 'POST',
+          priority: 10,
+          data: <String, dynamic>{
+            'pickup_lat': request.pickupLat,
+            'pickup_lng': request.pickupLng,
+            'dropoff_lat': request.dropoffLat,
+            'dropoff_lng': request.dropoffLng,
+            'pickup_address': request.pickupAddress,
+            'dropoff_address': request.dropoffAddress,
+            'ride_type': request.rideType,
+            'payment_method_id': request.paymentMethodId,
+            'payment_method_type': request.paymentMethodType,
+            'promo_code': request.promoCode,
+            'scheduled_at': request.scheduledAt?.toUtc().toIso8601String(),
+            'stops': request.stops.map((s) => s.toMap()).toList(),
+          },
+        );
+      } catch (_) {
+        // Queue write failed (box closed mid-shutdown etc.) — the in-memory
+        // draft still exists, and the UI keeps saying "queued locally".
+      }
+    }
+    emit(RideDraftQueued(draftCount: _draftRequests.length));
   }
 
   // ==========================================================================
