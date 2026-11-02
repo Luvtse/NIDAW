@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 
+/// Derives up-to-two-word initials from a display name ("Abebe Kebede" ->
+/// "AK"). Used by [DriverCard]'s honest avatar degradation: when no real
+/// driver photo exists we show the rider-visible initials plus an explicit
+/// semantic label, never a generic person silhouette that could be mistaken
+/// for an actual photo (verify_driver_card.dart §2.3 honesty rule).
+String driverAvatarInitials(String name) {
+  final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+  final initials = words.take(2).map((w) => w.characters.first.toUpperCase());
+  return initials.isEmpty ? '?' : initials.join('');
+}
+
 class DriverCard extends StatelessWidget {
   final String driverName;
   final double rating;
@@ -33,18 +44,31 @@ class DriverCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Driver Avatar
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person,
-              size: 32,
-              color: AppColors.primary,
+          // Driver Avatar — Phase 4 honest degradation. The backend does not
+          // deliver a driver photo to this card, so a generic Icons.person
+          // silhouette here was faking identity (and sat next to the real
+          // selfie in VerifyDriverCard). We now render the driver's initials
+          // with an explicit semantic label stating that no photo is
+          // available — the same rule verify_driver_card.dart:28 applies to
+          // a missing profile photo.
+          Semantics(
+            label: l10n.driverAvatarInitialsLabel(driverName),
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                driverAvatarInitials(driverName),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
             ),
           ),
           
@@ -98,15 +122,29 @@ class DriverCard extends StatelessWidget {
           
           Column(
             children: [
-              IconButton(
-                tooltip: l10n.driverCallTooltip,
-                onPressed: onCall,
-                icon: const Icon(Icons.call),
+              // Phase 4 accessibility: IconButton tooltips already name the
+              // action for hover/long-press; the wrapping Semantics gives
+              // screen-reader users an explicit button role and excludes the
+              // decorative glyph from a separate announcement.
+              Semantics(
+                button: true,
+                label: l10n.driverCallTooltip,
+                excludeSemantics: true,
+                child: IconButton(
+                  tooltip: l10n.driverCallTooltip,
+                  onPressed: onCall,
+                  icon: const Icon(Icons.call),
+                ),
               ),
-              IconButton(
-                tooltip: l10n.driverChatTooltip,
-                onPressed: onChat,
-                icon: const Icon(Icons.message_outlined),
+              Semantics(
+                button: true,
+                label: l10n.driverChatTooltip,
+                excludeSemantics: true,
+                child: IconButton(
+                  tooltip: l10n.driverChatTooltip,
+                  onPressed: onChat,
+                  icon: const Icon(Icons.message_outlined),
+                ),
               ),
             ],
           ),

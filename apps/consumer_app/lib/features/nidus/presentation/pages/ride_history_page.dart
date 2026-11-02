@@ -50,17 +50,27 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
               child: Row(
                 children: [
                   // Phase 1 §3: chip labels route through the ARB catalog
-                  // (were hardcoded English literals).
-                  _buildFilterChip('all', context.l10n.historyFilterAll),
+                  // (were hardcoded English literals). Phase 4 accessibility:
+                  // each chip now carries a semantic action hint so screen
+                  // readers announce what selecting it does, not just its
+                  // short label ("All", "Completed").
+                  _buildFilterChip('all', context.l10n.historyFilterAll,
+                      semanticsLabel: context.l10n.historyFilterAllLabel),
                   const SizedBox(width: 8),
                   _buildFilterChip(
-                      'completed', context.l10n.historyFilterCompleted),
+                      'completed', context.l10n.historyFilterCompleted,
+                      semanticsLabel:
+                          context.l10n.historyFilterCompletedLabel),
                   const SizedBox(width: 8),
                   _buildFilterChip(
-                      'cancelled', context.l10n.historyFilterCancelled),
+                      'cancelled', context.l10n.historyFilterCancelled,
+                      semanticsLabel:
+                          context.l10n.historyFilterCancelledLabel),
                   const SizedBox(width: 8),
                   _buildFilterChip(
-                      'in_progress', context.l10n.historyFilterInProgress),
+                      'in_progress', context.l10n.historyFilterInProgress,
+                      semanticsLabel:
+                          context.l10n.historyFilterInProgressLabel),
                 ],
               ),
             ),
@@ -163,23 +173,35 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
     );
   }
 
-  Widget _buildFilterChip(String value, String label) {
+  Widget _buildFilterChip(String value, String label,
+      {required String semanticsLabel}) {
     final isSelected = _selectedFilter == value;
-    return FilterChip(
-      label: Text(label),
+    // Phase 4 accessibility: the FilterChip's visual label is a single word
+    // ("All"); screen-reader users need the action it performs. Semantics
+    // (label + selected state) wraps the chip so TalkBack/VoiceOver announce
+    // "Show completed rides only, checkbox, on/off".
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
       selected: isSelected,
-      onSelected: (selected) {
-        setState(() => _selectedFilter = value);
-        context.read<RideBloc>().add(
-              LoadRideHistory(status: value == 'all' ? null : value),
-            );
-      },
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        // §4.4: named token — the chip's selected background is the primary
-        // (dark) fill, so white foreground is intentional; use the token so
-        // the intent is explicit rather than a raw Colors.white.
-        color: isSelected ? AppColors.textOnDark : AppColors.textPrimary,
+      excludeSemantics: true,
+      label: semanticsLabel,
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() => _selectedFilter = value);
+          context.read<RideBloc>().add(
+                LoadRideHistory(status: value == 'all' ? null : value),
+              );
+        },
+        selectedColor: AppColors.primary,
+        labelStyle: TextStyle(
+          // §4.4: named token — the chip's selected background is the primary
+          // (dark) fill, so white foreground is intentional; use the token so
+          // the intent is explicit rather than a raw Colors.white.
+          color: isSelected ? AppColors.textOnDark : AppColors.textPrimary,
+        ),
       ),
     );
   }
@@ -187,6 +209,10 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   Widget _buildRideCard(Ride ride) {
     final statusColor = _getStatusColor(ride.status);
     final statusIcon = _getStatusIcon(ride.status);
+    // Phase 4 accessibility: the status is conveyed by colored glyph +
+    // localized text chip; the glyph alone must carry a spoken label so
+    // screen-reader users get the status even when scanning the icon.
+    final statusText = _formatStatus(ride.status);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -201,13 +227,16 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
               // Header
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  Semantics(
+                    label: context.l10n.historyStatusIconLabel(statusText),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(statusIcon, color: statusColor, size: 20),
                     ),
-                    child: Icon(statusIcon, color: statusColor, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -290,7 +319,7 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      _formatStatus(ride.status),
+                      statusText,
                       style: TextStyle(
                         color: statusColor,
                         fontSize: 12,
@@ -613,6 +642,18 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   }
 
   String _formatStatus(String status) {
+    // Phase 4 accessibility: screen-reader labels for the status glyph are
+    // built from this localized map, so unknown wire values degrade to the
+    // raw token rather than a fabricated translation.
+    final known = switch (status) {
+      'completed' => context.l10n.historyFilterCompleted,
+      'cancelled' => context.l10n.historyFilterCancelled,
+      'in_progress' => context.l10n.historyFilterInProgress,
+      'requested' => context.l10n.historyStatusRequested,
+      'matched' => context.l10n.historyStatusMatched,
+      _ => null,
+    };
+    if (known != null) return known;
     return status.replaceAll('_', ' ').split(' ').map((word) {
       return word[0].toUpperCase() + word.substring(1);
     }).join(' ');
