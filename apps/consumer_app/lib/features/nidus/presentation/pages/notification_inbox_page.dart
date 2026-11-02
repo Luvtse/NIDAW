@@ -101,7 +101,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
       // visible but not catastrophic.
       setState(() => _loadingMore = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load more notifications.')),
+        SnackBar(content: Text(context.l10n.notifLoadMoreFailed)),
       );
     }
   }
@@ -163,7 +163,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Your updates'),
+        title: Text(context.l10n.inboxTitle),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
@@ -190,7 +190,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
             const SizedBox(height: 12),
             Center(
               child: Text(
-                'Inbox unavailable',
+                context.l10n.notifInboxUnavailable,
                 style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textSecondary),
@@ -211,7 +211,7 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
               child: FilledButton.icon(
                 onPressed: _fetchFirstPage,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(context.l10n.commonRetry),
               ),
             ),
           ],
@@ -219,12 +219,12 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
       case _LoadState.ready:
         if (_items.isEmpty) {
           return ListView(
-            children: const [
-              SizedBox(height: 120),
+            children: [
+              const SizedBox(height: 120),
               Center(
                 child: Text(
-                  'No notifications yet.',
-                  style: TextStyle(color: AppColors.textTertiary),
+                  context.l10n.notificationsEmpty,
+                  style: const TextStyle(color: AppColors.textTertiary),
                 ),
               ),
             ],
@@ -251,13 +251,18 @@ class _NotificationInboxPageState extends State<NotificationInboxPage> {
               onTap: () => _onTapRow(n),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              leading: CircleAvatar(
-                backgroundColor:
-                    n.isUnread ? AppColors.primary.withOpacity(0.12) : null,
-                child: Icon(
-                  _iconFor(n.category),
-                  size: 20,
-                  color: n.isUnread ? AppColors.primary : AppColors.textTertiary,
+              leading: Semantics(
+                label: context.l10n.notifCategoryIconLabel(
+                    NotificationRouter.categoryLabel(n.category).label),
+                child: CircleAvatar(
+                  backgroundColor:
+                      n.isUnread ? AppColors.primary.withOpacity(0.12) : null,
+                  child: Icon(
+                    _iconFor(n.category),
+                    size: 20,
+                    color:
+                        n.isUnread ? AppColors.primary : AppColors.textTertiary,
+                  ),
                 ),
               ),
               title: Text(

@@ -1013,4 +1013,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String notifCategoryIconLabel(String category) {
     return 'Notification category: $category';
   }
+
+  @override
+  String get notifLoadMoreFailed => 'Could not load more notifications.';
+
+  @override
+  String get notifInboxUnavailable => 'Inbox unavailable';
 }

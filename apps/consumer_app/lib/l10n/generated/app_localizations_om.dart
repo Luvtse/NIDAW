@@ -1013,4 +1013,10 @@ class AppLocalizationsOm extends AppLocalizations {
   String notifCategoryIconLabel(String category) {
     return 'Ramaddii beeksisa: $category';
   }
+
+  @override
+  String get notifLoadMoreFailed => 'Beeksisa dabalataa fe'uun hin danda'amne.';
+
+  @override
+  String get notifInboxUnavailable => 'Sanduuqa beeksisaa hin argamu';
 }

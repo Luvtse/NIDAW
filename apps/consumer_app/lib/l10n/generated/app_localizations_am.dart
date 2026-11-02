@@ -1013,4 +1013,10 @@ class AppLocalizationsAm extends AppLocalizations {
   String notifCategoryIconLabel(String category) {
     return 'የመልዕክት ምድብ፦ $category';
   }
+
+  @override
+  String get notifLoadMoreFailed => 'እባክዎ ተጨማሪ መልዕክቶችን ማምጣት አልተቻለም።';
+
+  @override
+  String get notifInboxUnavailable => 'መልዕክት ሳጥን አይገኝም';
 }

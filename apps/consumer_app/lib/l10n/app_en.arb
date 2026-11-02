@@ -922,5 +922,13 @@
         "type": "String"
       }
     }
+  },
+  "notifLoadMoreFailed": "Could not load more notifications.",
+  "@notifLoadMoreFailed": {
+    "placeholders": {}
+  },
+  "notifInboxUnavailable": "Inbox unavailable",
+  "@notifInboxUnavailable": {
+    "placeholders": {}
   }
 }
