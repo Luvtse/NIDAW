@@ -1863,19 +1863,43 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     LoadRideHistory event,
     Emitter<RideState> emit,
   ) async {
+    // Phase 5 (chip round-trip): resolve the effective filter BEFORE the
+    // network call. `status == null` with clearStatusFilter false means
+    // "keep what the rider last chose" — retained in bloc state so a
+    // pull-to-refresh or re-entry after navigation never silently resets
+    // the chips to "all".
+    final effectiveStatus = event.clearStatusFilter
+        ? null
+        : (event.status ?? _historyStatusFilter);
+
+    // Phase 5 (offline honesty): while the settled verdict says offline, a
+    // history refresh cannot succeed. Do not spin into a generic error and
+    // do NOT clobber the retained list — surface the transient blocked
+    // signal instead; [_onConnectivityChanged] replays this refresh when
+    // connectivity returns. Unset/null verdict proceeds normally.
+    if (_isOffline == true) {
+      add(const OfflineRefreshBlocked());
+      return;
+    }
+
     emit(const RideLoading());
 
     try {
       final result = await _rideRepository.listRides(
-        status: event.status,
+        status: effectiveStatus,
         limit: event.limit,
         offset: event.offset,
       );
 
-      emit(RideHistoryLoaded(
+      // Only adopt the filter after the fetch actually succeeded — a failed
+      // load must leave the retained filter untouched.
+      _historyStatusFilter = effectiveStatus;
+
+      _emitFolded(emit, RideHistoryLoaded(
         rides: result.rides,
         total: result.total,
         hasMore: result.hasMore,
+        statusFilter: effectiveStatus,
       ));
     } catch (e) {
       emit(RideError(
@@ -2368,7 +2392,9 @@ class RideBloc extends Bloc<RideEvent, RideState> {
             _lastKnownDriverId != null &&
             _lastKnownDriverId == me;
         if (iAmDriver) {
-          emit(DriverEnRouteForDriver(
+          // Phase 5: route through the fold so WS-driven transitions keep the
+          // settled connectivity verdict instead of dropping it to null.
+          _emitFolded(emit, DriverEnRouteForDriver(
             rideId: update.rideId,
             fare: _stateFare(),
             etaMinutes: driver?.etaMinutes ?? 0,
@@ -2418,7 +2444,9 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         break;
       case 'cancelled':
         final cancelledBy = update.cancelledBy ?? 'system';
-        emit(RideCancelled(
+        // Phase 5: route through the fold so a WS-driven cancellation keeps
+        // the settled connectivity verdict (the cancel-fee banner reads it).
+        _emitFolded(emit, RideCancelled(
           rideId: update.rideId,
           reason: update.cancelReason ??
               (cancelledBy == 'driver'
@@ -2616,6 +2644,12 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     _activeRideSubscriptionId = null;
     _etaUpdateTimer?.cancel();
     _sosCountdownTimer?.cancel();
+    // Phase 5: tear down the connectivity feed and verdict stream so a
+    // disposed bloc never leaks a broadcast controller or keeps queuing
+    // ConnectivityChanged events into an emitters-less handler.
+    await _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
+    await _offlineSignals.close();
     return super.close();
   }
 }

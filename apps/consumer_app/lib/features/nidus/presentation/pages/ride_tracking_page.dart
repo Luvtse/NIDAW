@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/geocoding/geocoding_service.dart';
 import '../../../../core/location/device_location_service.dart';
 import '../../../../core/map/live_map_widget.dart';
+import '../../../../core/network/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../bloc/ride_bloc.dart';
@@ -62,6 +64,25 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   final GlobalKey<LiveMapWidgetState> _mapKey =
       GlobalKey<LiveMapWidgetState>();
   late final RideBloc _rideBloc;
+
+  // ── Phase 5: connectivity & state-honesty awareness ──────────────────────
+
+  /// Latest settled device-connectivity verdict from the bloc's feed
+  /// (OfflineService). Null means "no sample yet" — honest null: the banner
+  /// renders NOTHING rather than guessing online or offline.
+  bool? _isOffline;
+
+  /// Live WebSocket link state for the tracking subscription. Distinct from
+  /// device connectivity: the radio can be up while the ride socket is down,
+  /// and that is exactly when the rider needs to know updates are stale.
+  WebSocketConnectionState _wsState = WebSocketConnectionState.connected;
+
+  StreamSubscription<bool>? _offlineSub;
+  StreamSubscription<WebSocketConnectionState>? _wsStateSub;
+
+  /// Set while the page holds a live ride worth keeping the reconnecting
+  /// banner for (mirrors [_lastLiveRideState] updates in the listener).
+  bool get _hasLiveRideNow => _hasActiveRide(_lastLiveRideState ?? const RideInitial());
 
   /// Previous driver fix — the tween start point for the next update.
   LatLng? _previousDriverPoint;
@@ -128,10 +149,34 @@ class _RideTrackingPageState extends State<RideTrackingPage>
     // false and the camera follows the driver marker instead. We default to
     // the in-trip behavior and adjust from state transitions in build.
     _rideBloc.add(SubscribeToRideUpdates(widget.rideId));
+
+    // Phase 5: subscribe to the two truth channels the tracking banner reads.
+    // Device connectivity comes from the bloc's OfflineService feed; the WS
+    // link state comes from the shared socket client. Both start null-ish /
+    // optimistic and only ever render when a real sample arrives — never a
+    // guessed "offline" on first frame, never a fake "reconnected".
+    _isOffline = _rideBloc.currentIsOffline;
+    _offlineSub = _rideBloc.offlineChanges.listen((offline) {
+      if (mounted) setState(() => _isOffline = offline);
+    });
+    try {
+      final ws = getIt<WebSocketClient>();
+      _wsState = ws.isConnected
+          ? WebSocketConnectionState.connected
+          : WebSocketConnectionState.connecting;
+      _wsStateSub = ws.stateStream.listen((s) {
+        if (mounted) setState(() => _wsState = s);
+      });
+    } on Object {
+      // Socket unavailable (tests without DI): leave _wsState at connected so
+      // no reconnecting banner can fabricate an outage.
+    }
   }
 
   @override
   void dispose() {
+    _offlineSub?.cancel();
+    _wsStateSub?.cancel();
     _rideBloc.add(UnsubscribeFromRideUpdates(widget.rideId));
     super.dispose();
   }
@@ -758,10 +803,108 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                   bottom: MediaQuery.of(context).size.height * 0.32,
                   child: _buildActiveErrorBanner(context),
                 ),
+
+              // Phase 5 (connectivity honesty): persistent "reconnecting…"
+              // surface while a live ride is showing and either the device
+              // verdict says offline or the ride socket dropped. Rendered
+              // ABOVE the error banner so both can coexist truthfully (a
+              // stale-data error during an outage is not contradictory).
+              if (_hasLiveRideNow && (_isOffline == true || _wsIsDown))
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  top: MediaQuery.of(context).padding.top + 96,
+                  child: _buildReconnectingBanner(context),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+
+  // ─── Phase 5: reconnecting / offline banner ───────────────────────────────
+
+  /// True when the shared socket link is not currently carrying updates.
+  /// `connecting` counts as down for messaging purposes ("updates paused")
+  /// because no fixes are flowing either way; only `connected` clears it.
+  bool get _wsIsDown => _wsState != WebSocketConnectionState.connected;
+
+  /// Persistent, explanatory connectivity surface. Two honest variants:
+  ///  * Device offline → "You're offline" — positions shown are last known,
+  ///    SOS still works via SMS fallback (safety toolkit owns that proof).
+  ///  * Device online but socket down → "Reconnecting…" — the radio works,
+  ///    the live feed does not; say precisely that instead of blaming the
+  ///    rider's network.
+  /// Never renders while the connectivity verdict is unsettled AND the socket
+  /// is fine (honest-null rule), and never auto-dismisses on a guess — it
+  /// disappears only when a real sample says the link is back.
+  Widget _buildReconnectingBanner(BuildContext context) {
+    final l10n = context.l10n;
+    final deviceOffline = _isOffline == true;
+
+    return Material(
+      color: AppColors.surface,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      child: Semantics(
+        liveRegion: true,
+        label: deviceOffline
+            ? l10n.trackingOfflineBannerA11y
+            : l10n.trackingReconnectingBannerA11y,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                deviceOffline ? Icons.wifi_off : Icons.sync_problem,
+                size: 20,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deviceOffline
+                          ? l10n.trackingOfflineBannerTitle
+                          : l10n.trackingReconnectingBannerTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      deviceOffline
+                          ? l10n.trackingOfflineBannerBody
+                          : l10n.trackingReconnectingBannerBody,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.trackingReconnectAction,
+                icon: const Icon(Icons.refresh, size: 20),
+                onPressed: () {
+                  // Honest retry: re-pull the authoritative ride snapshot
+                  // over REST. If the socket comes back the WS listener
+                  // resumes on its own; the bloc's ConnectivityChanged feed
+                  // clears this banner when a real sample arrives.
+                  _rideBloc.add(LoadRide(widget.rideId));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
