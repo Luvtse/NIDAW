@@ -171,48 +171,11 @@
   "chatTranslatedFrom": "ከ{language} የተተረጎመ",
   "@chatTranslatedFrom": {
     "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
-    "placeholders": { "language": { "type": "String" } }
-  },
-  "notifCatRideMatched": "የዶቈግ ተሙግ዇ን",
-  "@notifCatRideMatched": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatDriverArriving": "የዶቈግ ኩዮቹካ ግያ",
-  "@notifCatDriverArriving": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatPaymentFailed": "አጽያ አምያታምዛ",
-  "@notifCatPaymentFailed": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatPromo": "ምአዳትካያቊ",
-  "@notifCatPromo": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatSafety": "የአምትክር ምናአካቱ",
-  "@notifCatSafety": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatReceipt": "ደረሰኝ ይኝግ አያ",
-  "@notifCatReceipt": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatScheduledRide": "የተሓካቹ ግተ",
-  "@notifCatScheduledRide": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatOther": "ምከቢከረታቅ ምብታራ",
-  "@notifCatOther": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "inboxTitle": "Odeeffannoo kee",
-  "@inboxTitle": {
-    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
-  },
-  "notifCategoryIconLabel": "Beeksisa: {category}",
-  "@notifCategoryIconLabel": {
-    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
-    "placeholders": { "category": { "type": "String" } }
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
   },
   "chatTranslationHiddenNote": "ለዚህ ጉዞ ትርጉሞች ተጥፍተዋል።",
   "cancelSheetTitle": "ይህን ጉዞ ይተዉ?",
@@ -771,12 +734,20 @@
   "historyPickupAt": "መነሻ {date}",
   "@historyPickupAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
-    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "date": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyRequestedAt": "የተጠየቀበት {time}",
   "@historyRequestedAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
-    "placeholders": { "time": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "time": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyFileDispute": "ማጣረስ ያስገቡ",
   "@historyFileDispute": {
@@ -839,5 +810,50 @@
   "promoMaxCap": "ከፍተኛው {currency} {amount}",
   "promoOffFixed": "{currency} {amount} ቅናሽ",
   "promoMinFare": "ዝቅተኛ ክፍያ {currency} {amount}",
-  "promoUntil": "እስከ {date}"
+  "promoUntil": "እስከ {date}",
+  "notifCatRideMatched": "አሽከርካሪ ተመድቧል",
+  "@notifCatRideMatched": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatDriverArriving": "አሽከርካሪ እየመጛ ነው",
+  "@notifCatDriverArriving": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPaymentFailed": "ክፍያ አልተሳካም",
+  "@notifCatPaymentFailed": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPromo": "ማስተዋወቂያ",
+  "@notifCatPromo": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatSafety": "የደህንነት ማንቂያ",
+  "@notifCatSafety": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatReceipt": "ደረሰኝ ዝግጁ ነው",
+  "@notifCatReceipt": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatScheduledRide": "የታቀደ ጉዞ",
+  "@notifCatScheduledRide": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatOther": "ማሳወቂያ",
+  "@notifCatOther": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "inboxTitle": "መልዕክቶች",
+  "@inboxTitle": {
+    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
+  },
+  "notifCategoryIconLabel": "የመልዕክት ምድብ፦ {category}",
+  "@notifCategoryIconLabel": {
+    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }

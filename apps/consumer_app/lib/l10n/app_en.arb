@@ -174,48 +174,11 @@
   "chatTranslatedFrom": "Translated from {language}",
   "@chatTranslatedFrom": {
     "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
-    "placeholders": { "language": { "type": "String" } }
-  },
-  "notifCatRideMatched": "Driver matched",
-  "@notifCatRideMatched": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatDriverArriving": "Driver arriving",
-  "@notifCatDriverArriving": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatPaymentFailed": "Payment failed",
-  "@notifCatPaymentFailed": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatPromo": "Promotion",
-  "@notifCatPromo": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatSafety": "Safety alert",
-  "@notifCatSafety": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatReceipt": "Receipt ready",
-  "@notifCatReceipt": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatScheduledRide": "Scheduled ride",
-  "@notifCatScheduledRide": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "notifCatOther": "Notification",
-  "@notifCatOther": {
-    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
-  },
-  "inboxTitle": "የአውታካ ምከቢከርታ",
-  "@inboxTitle": {
-    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
-  },
-  "notifCategoryIconLabel": "ምከቢከረታቅ ምብታራግ {category}",
-  "@notifCategoryIconLabel": {
-    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
-    "placeholders": { "category": { "type": "String" } }
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
   },
   "chatTranslationHiddenNote": "Translations are turned off for this ride.",
   "cancelSheetTitle": "Cancel this ride?",
@@ -780,12 +743,20 @@
   "historyPickupAt": "Pickup {date}",
   "@historyPickupAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
-    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "date": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyRequestedAt": "Requested {time}",
   "@historyRequestedAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
-    "placeholders": { "time": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "time": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyFileDispute": "File a dispute",
   "@historyFileDispute": {
@@ -906,5 +877,50 @@
   "@promoCodeUse": {},
   "@promoCodeEnterFirst": {},
   "@promoCodeNeedRoute": {},
-  "@promoCodeInvalid": {}
+  "@promoCodeInvalid": {},
+  "notifCatRideMatched": "Driver matched",
+  "@notifCatRideMatched": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatDriverArriving": "Driver arriving",
+  "@notifCatDriverArriving": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPaymentFailed": "Payment failed",
+  "@notifCatPaymentFailed": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPromo": "Promotion",
+  "@notifCatPromo": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatSafety": "Safety alert",
+  "@notifCatSafety": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatReceipt": "Receipt ready",
+  "@notifCatReceipt": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatScheduledRide": "Scheduled ride",
+  "@notifCatScheduledRide": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatOther": "Notification",
+  "@notifCatOther": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "inboxTitle": "Notifications",
+  "@inboxTitle": {
+    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
+  },
+  "notifCategoryIconLabel": "Notification category: {category}",
+  "@notifCategoryIconLabel": {
+    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }
