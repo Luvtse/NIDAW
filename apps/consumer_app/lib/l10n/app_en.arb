@@ -143,6 +143,80 @@
   "chatSendButton": "Send",
   "chatEmptyState": "No messages yet. Use a quick reply below.",
   "chatSendFailed": "Message failed to send.",
+  "chatYourDriver": "Your driver",
+  "@chatYourDriver": {
+    "description": "Phase 3 localization tail: header label for the counterpart driver on the in-app chat screen."
+  },
+  "chatSubtitle": "Ride messages",
+  "@chatSubtitle": {
+    "description": "Phase 3 localization tail: header subtitle on the in-app chat screen."
+  },
+  "chatLoadRetry": "Retry",
+  "@chatLoadRetry": {
+    "description": "Phase 3 localization tail: retry button shown when chat history failed to load."
+  },
+  "chatMessageHint": "Message",
+  "@chatMessageHint": {
+    "description": "Phase 3 localization tail: hint text of the chat message input field."
+  },
+  "chatSendMessageTooltip": "Send message",
+  "@chatSendMessageTooltip": {
+    "description": "Phase 3 localization tail + accessibility: tooltip/semantic label of the chat send button."
+  },
+  "chatSending": "Sending…",
+  "@chatSending": {
+    "description": "Phase 3 localization tail: pending-status caption under an optimistic outgoing bubble."
+  },
+  "chatNotDeliveredRetry": "Not delivered — Retry",
+  "@chatNotDeliveredRetry": {
+    "description": "Phase 3 localization tail + accessibility: tappable failure affordance under a failed bubble."
+  },
+  "chatTranslatedFrom": "Translated from {language}",
+  "@chatTranslatedFrom": {
+    "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
+    "placeholders": { "language": { "type": "String" } }
+  },
+  "notifCatRideMatched": "Driver matched",
+  "@notifCatRideMatched": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatDriverArriving": "Driver arriving",
+  "@notifCatDriverArriving": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPaymentFailed": "Payment failed",
+  "@notifCatPaymentFailed": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPromo": "Promotion",
+  "@notifCatPromo": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatSafety": "Safety alert",
+  "@notifCatSafety": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatReceipt": "Receipt ready",
+  "@notifCatReceipt": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatScheduledRide": "Scheduled ride",
+  "@notifCatScheduledRide": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatOther": "Notification",
+  "@notifCatOther": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "inboxTitle": "የአውታካ ምከቢከርታ",
+  "@inboxTitle": {
+    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
+  },
+  "notifCategoryIconLabel": "ምከቢከረታቅ ምብታራግ {category}",
+  "@notifCategoryIconLabel": {
+    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
+    "placeholders": { "category": { "type": "String" } }
+  },
   "chatTranslationHiddenNote": "Translations are turned off for this ride.",
   "cancelSheetTitle": "Cancel this ride?",
   "cancelSheetFeeLabel": "Cancellation fee",
@@ -690,6 +764,28 @@
   "historyStatusMatched": "Driver matched",
   "@historyStatusMatched": {
     "description": "Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics."
+  },
+  "historyPickupUnknown": "Pickup location",
+  "@historyPickupUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing."
+  },
+  "historyDropoffUnknown": "Dropoff location",
+  "@historyDropoffUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing."
+  },
+  "historyScheduledChip": "Scheduled",
+  "@historyScheduledChip": {
+    "description": "Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page."
+  },
+  "historyPickupAt": "Pickup {date}",
+  "@historyPickupAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
+    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+  },
+  "historyRequestedAt": "Requested {time}",
+  "@historyRequestedAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
+    "placeholders": { "time": { "type": "{'type': 'String'}" } }
   },
   "historyFileDispute": "File a dispute",
   "@historyFileDispute": {

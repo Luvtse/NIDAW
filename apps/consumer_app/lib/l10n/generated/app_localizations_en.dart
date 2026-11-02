@@ -233,6 +233,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSendButton => 'Send';
 
   @override
+  String get chatYourDriver => 'Your driver';
+
+  @override
+  String get chatSubtitle => 'Ride messages';
+
+  @override
+  String get chatLoadRetry => 'Retry';
+
+  @override
+  String get chatMessageHint => 'Message';
+
+  @override
+  String get chatSendMessageTooltip => 'Send message';
+
+  @override
+  String get chatSending => 'Sending…';
+
+  @override
+  String get chatNotDeliveredRetry => 'Not delivered — Retry';
+
+  @override
+  String chatTranslatedFrom(String language) {
+    return 'Translated from $language';
+  }
+
+  @override
   String get chatEmptyState => 'No messages yet. Use a quick reply below.';
 
   @override
@@ -909,6 +935,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
   ///
+  /// Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page.
+  ///
+  /// In EN.
+  String get historyScheduledChip => 'Scheduled';
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.
+  ///
+  /// In EN.
+  String historyPickupAt(String date) {
+    return 'Pickup $date';
+  }
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.
+  ///
+  /// In EN.
+  String historyRequestedAt(String time) {
+    return 'Requested $time';
+  }
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing.
+  ///
+  /// In EN.
+  String get historyPickupUnknown => 'Pickup location';
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing.
+  ///
+  /// In EN.
+  String get historyDropoffUnknown => 'Dropoff location';
+
   /// In EN.
   String get historyFileDispute => 'File a dispute';
 

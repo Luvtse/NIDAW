@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../l10n/l10n.dart';
 import '../../../auth/data/repositories/auth_repository.dart';
 import '../../data/repositories/chat_repository.dart';
 
@@ -277,7 +278,7 @@ class _ChatPageState extends State<ChatPage> {
           // fake identity. Render the rider-facing label as text only — no
           // silhouette pretending to be the driver (verify_driver_card rule).
           Semantics(
-            label: 'Your driver',
+            label: context.l10n.chatYourDriver,
             child: Container(
               width: 36,
               height: 36,
@@ -297,10 +298,10 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           const SizedBox(width: 10),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Your driver', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF21172F))),
-            SizedBox(height: 2),
-            Text('Ride messages', style: TextStyle(fontSize: 11, color: Color(0xFF7D748C))),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(context.l10n.chatYourDriver, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF21172F))),
+            const SizedBox(height: 2),
+            Text(context.l10n.chatSubtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF7D748C))),
           ]),
         ]),
       ),
@@ -315,7 +316,7 @@ class _ChatPageState extends State<ChatPage> {
               actions: [
                 TextButton(
                   onPressed: _load,
-                  child: const Text('Retry'),
+                  child: Text(context.l10n.chatLoadRetry),
                 ),
               ],
             ),
@@ -412,7 +413,8 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Translated from ${message.translatedFrom}',
+                              context.l10n.chatTranslatedFrom(
+                                  message.translatedFrom!),
                               style: theme.textTheme.bodySmall,
                             ),
                           ],
@@ -425,7 +427,7 @@ class _ChatPageState extends State<ChatPage> {
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    'Sending…',
+                    context.l10n.chatSending,
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
@@ -444,7 +446,7 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Not delivered — Retry',
+                          context.l10n.chatNotDeliveredRetry,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.error,
                           ),
@@ -474,10 +476,10 @@ class _ChatPageState extends State<ChatPage> {
                 maxLength: 1000,
                 minLines: 1,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Message',
+                decoration: InputDecoration(
+                  hintText: context.l10n.chatMessageHint,
                   counterText: '',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 onSubmitted: (_) => _sendText(),
@@ -487,7 +489,7 @@ class _ChatPageState extends State<ChatPage> {
             IconButton.filled(
               onPressed: _sending ? null : _sendText,
               icon: const Icon(Icons.send),
-              tooltip: 'Send message',
+              tooltip: context.l10n.chatSendMessageTooltip,
             ),
           ],
         ),

@@ -140,6 +140,39 @@
   "chatSendButton": "Ergi",
   "chatEmptyState": "Ammaaf ergaan hin jiru. Deebisota ariifataa gadii fayyadami.",
   "chatSendFailed": "Ergaan ergamuun hin milkoofne.",
+  "chatYourDriver": "Daawwitii kee",
+  "@chatYourDriver": {
+    "description": "Phase 3 localization tail: header label for the counterpart driver on the in-app chat screen."
+  },
+  "chatSubtitle": "Ergaa imala",
+  "@chatSubtitle": {
+    "description": "Phase 3 localization tail: header subtitle on the in-app chat screen."
+  },
+  "chatLoadRetry": "Irra deebii yaali",
+  "@chatLoadRetry": {
+    "description": "Phase 3 localization tail: retry button shown when chat history failed to load."
+  },
+  "chatMessageHint": "Ergaa",
+  "@chatMessageHint": {
+    "description": "Phase 3 localization tail: hint text of the chat message input field."
+  },
+  "chatSendMessageTooltip": "Ergaa ergi",
+  "@chatSendMessageTooltip": {
+    "description": "Phase 3 localization tail + accessibility: tooltip/semantic label of the chat send button."
+  },
+  "chatSending": "Geessaa jira…",
+  "@chatSending": {
+    "description": "Phase 3 localization tail: pending-status caption under an optimistic outgoing bubble."
+  },
+  "chatNotDeliveredRetry": "Hin ergamne — Irra deebii yaali",
+  "@chatNotDeliveredRetry": {
+    "description": "Phase 3 localization tail + accessibility: tappable failure affordance under a failed bubble."
+  },
+  "chatTranslatedFrom": "{language} irraa hiikame",
+  "@chatTranslatedFrom": {
+    "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
+    "placeholders": { "language": { "type": "String" } }
+  },
   "chatTranslationHiddenNote": "Afaan jijjiirama soora kanaaf cufamaa dha.",
   "cancelSheetTitle": "Soora kana haquu?",
   "cancelSheetFeeLabel": "Kaffaltii haqinsa",
@@ -681,6 +714,28 @@
   "historyStatusMatched": "Daawwitii filatameera",
   "@historyStatusMatched": {
     "description": "Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics."
+  },
+  "historyPickupUnknown": "Iddoo ka'umsaa",
+  "@historyPickupUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing."
+  },
+  "historyDropoffUnknown": "Iddoo deemu",
+  "@historyDropoffUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing."
+  },
+  "historyScheduledChip": "Karoorfame",
+  "@historyScheduledChip": {
+    "description": "Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page."
+  },
+  "historyPickupAt": "Fuudhammsa {date}",
+  "@historyPickupAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
+    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+  },
+  "historyRequestedAt": "Yeroo gaafatame {time}",
+  "@historyRequestedAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
+    "placeholders": { "time": { "type": "{'type': 'String'}" } }
   },
   "historyFileDispute": "Ikkaaansa galmeessi",
   "@historyFileDispute": {
