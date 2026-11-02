@@ -95,14 +95,22 @@ class LoadRideHistory extends RideEvent {
   final int limit;
   final int offset;
 
+  /// Phase 5 (state-honesty): a plain `const LoadRideHistory()` no longer
+  /// silently means "unfiltered" — null now means "keep the bloc's retained
+  /// filter" so refreshes (pull-to-refresh, post-cancel reloads, chip
+  /// round-trips after navigation) never reset the rider's active filter.
+  /// Pass [clearStatusFilter] true to genuinely request the unfiltered list.
+  final bool clearStatusFilter;
+
   const LoadRideHistory({
     this.status,
     this.limit = 20,
     this.offset = 0,
+    this.clearStatusFilter = false,
   });
 
   @override
-  List<Object?> get props => [status, limit, offset];
+  List<Object?> get props => [status, limit, offset, clearStatusFilter];
 }
 
 /// Cancel current ride
@@ -1264,13 +1272,22 @@ class RideBloc extends Bloc<RideEvent, RideState> {
   /// the truth at emit time instead of the default null, and so a successful
   /// fetch clears any pending "refresh blocked" signal.
   T _foldConnectivity<T extends RideState>(T s) {
+    // Phase 5 verdict-clobbering fix: EVERY connectivity-aware content
+    // state folds through here (previously only RideRequested was rebuilt,
+    // so DriverMatched / DriverEnRoute / RideInProgress / RideHistoryLoaded
+    // silently dropped the settled verdict back to null on every REST poll).
     if (s is RideRequested) return s.copyWith(isOffline: _isOffline) as T;
     if (s is DriverMatched) return s.copyWith(isOffline: _isOffline) as T;
     if (s is DriverEnRoute) return s.copyWith(isOffline: _isOffline) as T;
     if (s is RideInProgress) return s.copyWith(isOffline: _isOffline) as T;
-    // Any other state (loading/error/history/options…) means fresh server
-    // data arrived — the refresh genuinely happened, drop the blocked flag.
-    _refreshBlockedPending = false;
+    if (s is RideHistoryLoaded) return s.copyWith(isOffline: _isOffline) as T;
+    // Any other state (loading/error/options…) means a genuine round-trip
+    // happened (success or server-side failure) — drop the blocked flag.
+    // NOTE: RideError emissions that represent an ACTUAL fetch attempt clear
+    // the pending "refresh blocked" signal because the user's refresh did
+    // reach the network this time; transient states like RideLoading do NOT
+    // clear it (see [_emitFolded]).
+    if (s is! RideLoading) _refreshBlockedPending = false;
     if (s is RideConnectivityAware) _lastConnectivityAwareState = s;
     return s;
   }
@@ -1279,9 +1296,16 @@ class RideBloc extends Bloc<RideEvent, RideState> {
   /// use this instead of raw `emit` for connectivity-aware states.
   void _emitFolded(Emitter<RideState> emit, RideState s) {
     if (s is RideConnectivityAware) {
+      // _foldConnectivity rebuilds the verdict AND records the content state
+      // (for blocked-refresh replay) AND clears the pending flag on genuine
+      // round-trips — do not clear it again here with stale semantics.
       emit(_foldConnectivity(s));
     } else {
-      _refreshBlockedPending = false;
+      // Non-content states: a real fetch attempt happened (loading/error/
+      // options/ratings…). RideLoading is transient and must NOT clear the
+      // pending flag (a refresh that merely started offline proves nothing);
+      // everything else means the network was genuinely reached.
+      if (s is! RideLoading) _refreshBlockedPending = false;
       emit(s);
     }
   }
@@ -1309,6 +1333,16 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       emit(s.copyWith(isOffline: _isOffline));
     } else if (s is RideHistoryLoaded) {
       emit(s.copyWith(isOffline: _isOffline));
+    } else if (s is OfflineRefreshBlockedState) {
+      // Phase 5 honesty fix: we are currently sitting on the transient
+      // "refresh blocked" signal and a new verdict arrived. If that verdict
+      // says ONLINE, the screen's stale content was just revalidated by the
+      // reconnect itself — restore the content view instead of leaving the
+      // user stranded on "not refreshed" until some unrelated event clobbers
+      // it. An offline verdict keeps the blocked state (still true).
+      if (_isOffline != true && s.previous != null) {
+        emit(_foldConnectivity(s.previous!));
+      }
     }
   }
 
