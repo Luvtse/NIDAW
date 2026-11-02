@@ -683,6 +683,14 @@
       }
     }
   },
+  "historyStatusRequested": "Requested",
+  "@historyStatusRequested": {
+    "description": "Phase 4 accessibility: localized display/announcement text for the 'requested' ride status on history cards and status-glyph semantics."
+  },
+  "historyStatusMatched": "Driver matched",
+  "@historyStatusMatched": {
+    "description": "Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics."
+  },
   "historyFileDispute": "File a dispute",
   "@historyFileDispute": {
     "description": "Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal)."

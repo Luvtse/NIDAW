@@ -391,18 +391,40 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.directions_car, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${ride.distanceKm?.toStringAsFixed(1) ?? '0'} km',
-                        style: TextStyle(color: Colors.grey[600]),
+                      // Phase 4 accessibility: the car glyph is decorative —
+                      // screen readers must hear the distance, not the icon.
+                      Semantics(
+                        label:
+                            '${ride.distanceKm?.toStringAsFixed(1) ?? '0'} km',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.directions_car,
+                                size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${ride.distanceKm?.toStringAsFixed(1) ?? '0'} km',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 16),
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${ride.durationMinutes ?? 0} min',
-                        style: TextStyle(color: Colors.grey[600]),
+                      // Phase 4 accessibility: same rule for the duration.
+                      Semantics(
+                        label: '${ride.durationMinutes ?? 0} min',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time,
+                                size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${ride.durationMinutes ?? 0} min',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -426,7 +448,7 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                   child: TextButton.icon(
                     onPressed: () => context.goWalletDispute(ride.id),
                     icon: const Icon(Icons.gavel, size: 16),
-                    label: const Text('File a dispute'),
+                    label: Text(context.l10n.historyFileDispute),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.error,
                     ),
@@ -446,7 +468,7 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                   child: TextButton.icon(
                     onPressed: () => _cancelScheduledRide(ride),
                     icon: const Icon(Icons.cancel_outlined, size: 16),
-                    label: const Text('Cancel scheduled ride'),
+                    label: Text(context.l10n.historyCancelScheduledRide),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.error,
                     ),

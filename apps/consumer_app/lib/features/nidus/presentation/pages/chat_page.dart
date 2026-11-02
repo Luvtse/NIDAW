@@ -271,10 +271,33 @@ class _ChatPageState extends State<ChatPage> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 4,
-        title: const Row(children: [
-          CircleAvatar(radius: 18, backgroundColor: Color(0xFFF0EBFF), child: Icon(Icons.directions_car_rounded, color: Color(0xFF7658D6), size: 19)),
-          SizedBox(width: 10),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        title: Row(children: [
+          // Phase 4 honest degradation: the backend does not deliver a driver
+          // photo to this screen, so a generic car/person avatar here would
+          // fake identity. Render the rider-facing label as text only — no
+          // silhouette pretending to be the driver (verify_driver_card rule).
+          Semantics(
+            label: 'Your driver',
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF0EBFF),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'YD',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF7658D6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Your driver', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF21172F))),
             SizedBox(height: 2),
             Text('Ride messages', style: TextStyle(fontSize: 11, color: Color(0xFF7D748C))),

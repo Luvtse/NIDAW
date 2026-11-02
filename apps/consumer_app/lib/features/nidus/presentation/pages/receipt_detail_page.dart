@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/config/feature_flag_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/repositories/phase2_money_repository.dart';
 import '../../data/repositories/ride_repository.dart';
 import '../widgets/split_fare_sheet.dart';
@@ -212,20 +213,37 @@ class ReceiptDetailPage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _downloadPdf(context),
-                  icon: const Icon(Icons.picture_as_pdf, size: 18),
-                  label: const Text('Download PDF'),
+                // Phase 4 accessibility: the icon alone conveyed nothing to
+                // screen readers; the tooltip doubles as the semantic hint.
+                child: Semantics(
+                  button: true,
+                  label: context.l10n.receiptDownloadPdfTooltip,
+                  child: Tooltip(
+                    message: context.l10n.receiptDownloadPdfTooltip,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _downloadPdf(context),
+                      icon: const Icon(Icons.picture_as_pdf, size: 18),
+                      label: const Text('Download PDF'),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: ride.status == 'completed'
-                      ? () => _emailReceipt(context)
-                      : null,
-                  icon: const Icon(Icons.mail_outline, size: 18),
-                  label: const Text('Email receipt'),
+                child: Semantics(
+                  button: true,
+                  enabled: ride.status == 'completed',
+                  label: context.l10n.receiptEmailTooltip,
+                  child: Tooltip(
+                    message: context.l10n.receiptEmailTooltip,
+                    child: OutlinedButton.icon(
+                      onPressed: ride.status == 'completed'
+                          ? () => _emailReceipt(context)
+                          : null,
+                      icon: const Icon(Icons.mail_outline, size: 18),
+                      label: const Text('Email receipt'),
+                    ),
+                  ),
                 ),
               ),
             ],
