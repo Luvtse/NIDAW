@@ -640,6 +640,56 @@
   "@driverEtaMinutesUnit": {
     "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
   },
+  "driverAvatarInitialsLabel": "የ{name} ፎቶ ለማግኘት አልተቻለም — በዝርዝር ፊደላት ብቻ ይታያል",
+  "@driverAvatarInitialsLabel": {
+    "description": "Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFilterAllLabel": "ሁሉንም ጉዞዎች ያሳዩ",
+  "@historyFilterAllLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'All' filter chip so screen readers announce the action, not just the label."
+  },
+  "historyFilterCompletedLabel": "የተጠናቀቁ ጉዞዎችን ብቻ ያሳዩ",
+  "@historyFilterCompletedLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'Completed' filter chip."
+  },
+  "historyFilterCancelledLabel": "የተሰበሱ ጉዞዎችን ብቻ ያሳዩ",
+  "@historyFilterCancelledLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'Cancelled' filter chip."
+  },
+  "historyFilterInProgressLabel": "በሂደት ላይ ያሉ ጉዞዎችን ብቻ ያሳዩ",
+  "@historyFilterInProgressLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'In progress' filter chip."
+  },
+  "historyStatusIconLabel": "የጉዞ ሁኔታ፦ {status}",
+  "@historyStatusIconLabel": {
+    "description": "Phase 4 accessibility: semantic label wrapping the colored status glyph on each history ride card, since color+icon alone are invisible to screen readers.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFileDispute": "ማጣረስ ያስገቡ",
+  "@historyFileDispute": {
+    "description": "Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal)."
+  },
+  "historyCancelScheduledRide": "የታቀደውን ጉዞ ይሰርዙ",
+  "@historyCancelScheduledRide": {
+    "description": "Phase 4 accessibility sweep: label of the scheduled-ride cancel action on history ride cards (was a hardcoded English literal)."
+  },
+  "receiptDownloadPdfTooltip": "ይህንን ደረሰኝ እንደ PDF ሰነድ ያውርዱ",
+  "@receiptDownloadPdfTooltip": {
+    "description": "Phase 4 accessibility: tooltip/semantic hint for the receipt PDF download action (the PDF document itself stays English-only by decision)."
+  },
+  "receiptEmailTooltip": "ይህንን ደረሰኝ በኢሜይል ላኩ",
+  "@receiptEmailTooltip": {
+    "description": "Phase 4 accessibility: tooltip/semantic hint for the email-receipt action on the receipt page."
+  },
   "splitSheetTitle": "ትከፋፌን ይካፈሉ",
   "splitSheetIntro": "መልእክቶች በኢሜይል/SMS ይላካሉ። የእርስዎ ክፍያ ሌሎች ሲቀበሉ ብቻ ይቀንሳል — ከታች ያሉት ድምሮች በቀጥታ ከአገልግሎት ዘውጡ የተወሰዱ ናቸው።",
   "splitAddPerson": "ሰው ይጨምሩ",

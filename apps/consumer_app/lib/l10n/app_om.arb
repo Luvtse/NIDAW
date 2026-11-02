@@ -640,6 +640,56 @@
   "@driverEtaMinutesUnit": {
     "description": "Phase 3 localization sweep: unit label under the ETA badge on the tracking driver card."
   },
+  "driverAvatarInitialsLabel": "Suuraan {name} argamuun hin danda'amne — jalqabaa maqaa qofa mul'ata",
+  "@driverAvatarInitialsLabel": {
+    "description": "Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFilterAllLabel": "Imala hunda agarsiisi",
+  "@historyFilterAllLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'All' filter chip so screen readers announce the action, not just the label."
+  },
+  "historyFilterCompletedLabel": "Imala xumuramaman qofa agarsiisi",
+  "@historyFilterCompletedLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'Completed' filter chip."
+  },
+  "historyFilterCancelledLabel": "Imala haqamaman qofa agarsiisi",
+  "@historyFilterCancelledLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'Cancelled' filter chip."
+  },
+  "historyFilterInProgressLabel": "Imala hojiirra ooluu qofa agarsiisi",
+  "@historyFilterInProgressLabel": {
+    "description": "Phase 4 accessibility: semantic hint on the history 'In progress' filter chip."
+  },
+  "historyStatusIconLabel": "Haala imala: {status}",
+  "@historyStatusIconLabel": {
+    "description": "Phase 4 accessibility: semantic label wrapping the colored status glyph on each history ride card, since color+icon alone are invisible to screen readers.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "historyFileDispute": "Ikkaaansa galmeessi",
+  "@historyFileDispute": {
+    "description": "Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal)."
+  },
+  "historyCancelScheduledRide": "Imala karoorfame haqi",
+  "@historyCancelScheduledRide": {
+    "description": "Phase 4 accessibility sweep: label of the scheduled-ride cancel action on history ride cards (was a hardcoded English literal)."
+  },
+  "receiptDownloadPdfTooltip": "Ragaa kaffaltii kana PDF'n buusi",
+  "@receiptDownloadPdfTooltip": {
+    "description": "Phase 4 accessibility: tooltip/semantic hint for the receipt PDF download action (the PDF document itself stays English-only by decision)."
+  },
+  "receiptEmailTooltip": "Ragaa kaffaltii kana imeeliin ergi",
+  "@receiptEmailTooltip": {
+    "description": "Phase 4 accessibility: tooltip/semantic hint for the email-receipt action on the receipt page."
+  },
   "splitSheetTitle": "Geeffata qoodi",
   "splitSheetIntro": "Afeerramni imeelii/SMS'n ergama. Baalli keessan namoonni fudhataniin qofa hir'ata — kuusaan gadii kallattiin tajaajila irraa dhufe.",
   "splitAddPerson": "Namni dabalaa",
