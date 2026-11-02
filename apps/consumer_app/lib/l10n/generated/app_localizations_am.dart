@@ -981,4 +981,36 @@ class AppLocalizationsAm extends AppLocalizations {
   ///
   /// In AM.
   String get receiptEmailTooltip => 'ይህንን ደረሰኝ በኢሜይል ላኩ';
+
+  @override
+  String get notifCatRideMatched => 'አሽከርካሪ ተመድቧል';
+
+  @override
+  String get notifCatDriverArriving => 'አሽከርካሪ እየመጛ ነው';
+
+  @override
+  String get notifCatPaymentFailed => 'ክፍያ አልተሳካም';
+
+  @override
+  String get notifCatPromo => 'ማስተዋወቂያ';
+
+  @override
+  String get notifCatSafety => 'የደህንነት ማንቂያ';
+
+  @override
+  String get notifCatReceipt => 'ደረሰኝ ዝግጁ ነው';
+
+  @override
+  String get notifCatScheduledRide => 'የታቀደ ጉዞ';
+
+  @override
+  String get notifCatOther => 'ማሳወቂያ';
+
+  @override
+  String get inboxTitle => 'መልዕክቶች';
+
+  @override
+  String notifCategoryIconLabel(String category) {
+    return 'የመልዕክት ምድብ፦ $category';
+  }
 }

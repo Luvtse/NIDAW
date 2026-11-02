@@ -7,6 +7,7 @@ import '../../../../core/notifications/notification_repository.dart';
 import '../../../../core/notifications/notification_router.dart';
 import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Notification inbox surface (§1.4 step 7). Reached from the app-bar bell.
 ///

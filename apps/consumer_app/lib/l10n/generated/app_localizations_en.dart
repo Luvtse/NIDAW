@@ -981,4 +981,36 @@ class AppLocalizationsEn extends AppLocalizations {
   ///
   /// In EN.
   String get receiptEmailTooltip => 'Email this receipt to your account email address';
+
+  @override
+  String get notifCatRideMatched => 'Driver matched';
+
+  @override
+  String get notifCatDriverArriving => 'Driver arriving';
+
+  @override
+  String get notifCatPaymentFailed => 'Payment failed';
+
+  @override
+  String get notifCatPromo => 'Promotion';
+
+  @override
+  String get notifCatSafety => 'Safety alert';
+
+  @override
+  String get notifCatReceipt => 'Receipt ready';
+
+  @override
+  String get notifCatScheduledRide => 'Scheduled ride';
+
+  @override
+  String get notifCatOther => 'Notification';
+
+  @override
+  String get inboxTitle => 'Notifications';
+
+  @override
+  String notifCategoryIconLabel(String category) {
+    return 'Notification category: $category';
+  }
 }

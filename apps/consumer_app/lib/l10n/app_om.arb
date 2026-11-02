@@ -171,7 +171,11 @@
   "chatTranslatedFrom": "{language} irraa hiikame",
   "@chatTranslatedFrom": {
     "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
-    "placeholders": { "language": { "type": "String" } }
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
   },
   "chatTranslationHiddenNote": "Afaan jijjiirama soora kanaaf cufamaa dha.",
   "cancelSheetTitle": "Soora kana haquu?",
@@ -730,12 +734,20 @@
   "historyPickupAt": "Fuudhammsa {date}",
   "@historyPickupAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
-    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "date": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyRequestedAt": "Yeroo gaafatame {time}",
   "@historyRequestedAt": {
     "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
-    "placeholders": { "time": { "type": "{'type': 'String'}" } }
+    "placeholders": {
+      "time": {
+        "type": "{'type': 'String'}"
+      }
+    }
   },
   "historyFileDispute": "Ikkaaansa galmeessi",
   "@historyFileDispute": {
@@ -798,5 +810,50 @@
   "promoMaxCap": "guddaatti {currency} {amount}",
   "promoOffFixed": "{currency} {amount} hir’inaa",
   "promoMinFare": "kaffaltii xiqqaa {currency} {amount}",
-  "promoUntil": "hanga {date}"
+  "promoUntil": "hanga {date}",
+  "notifCatRideMatched": "Deeqsaan walqabate",
+  "@notifCatRideMatched": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatDriverArriving": "Deeqsaan ni dhufa",
+  "@notifCatDriverArriving": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPaymentFailed": "Kaffaltiin hin taane",
+  "@notifCatPaymentFailed": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPromo": "Dadhabii",
+  "@notifCatPromo": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatSafety": "Ibsa nageenyaa",
+  "@notifCatSafety": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatReceipt": "Ragaan kaffaltii qophaahe",
+  "@notifCatReceipt": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatScheduledRide": "Geejjiba dursee karoorfame",
+  "@notifCatScheduledRide": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatOther": "Beeksisa",
+  "@notifCatOther": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "inboxTitle": "Odeeffannoo",
+  "@inboxTitle": {
+    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
+  },
+  "notifCategoryIconLabel": "Ramaddii beeksisa: {category}",
+  "@notifCategoryIconLabel": {
+    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -1827,4 +1827,54 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   ///
   /// In EN.
   String get receiptEmailTooltip;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatRideMatched;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatDriverArriving;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatPaymentFailed;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatPromo;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatSafety;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatReceipt;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatScheduledRide;
+
+  /// Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel).
+  ///
+  /// In EN.
+  String get notifCatOther;
+
+  /// Phase 4 accessibility sweep: title of the notification inbox page.
+  ///
+  /// In EN.
+  String get inboxTitle;
+
+  /// Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.
+  ///
+  /// In EN.
+  String notifCategoryIconLabel(String category);
 }

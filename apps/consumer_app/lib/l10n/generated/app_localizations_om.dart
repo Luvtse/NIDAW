@@ -981,4 +981,36 @@ class AppLocalizationsOm extends AppLocalizations {
   ///
   /// In OM.
   String get receiptEmailTooltip => 'Ragaa kaffaltii kana imeeliin ergi';
+
+  @override
+  String get notifCatRideMatched => 'Deeqsaan walqabate';
+
+  @override
+  String get notifCatDriverArriving => 'Deeqsaan ni dhufa';
+
+  @override
+  String get notifCatPaymentFailed => 'Kaffaltiin hin taane';
+
+  @override
+  String get notifCatPromo => 'Dadhabii';
+
+  @override
+  String get notifCatSafety => 'Ibsa nageenyaa';
+
+  @override
+  String get notifCatReceipt => 'Ragaan kaffaltii qophaahe';
+
+  @override
+  String get notifCatScheduledRide => 'Geejjiba dursee karoorfame';
+
+  @override
+  String get notifCatOther => 'Beeksisa';
+
+  @override
+  String get inboxTitle => 'Odeeffannoo';
+
+  @override
+  String notifCategoryIconLabel(String category) {
+    return 'Ramaddii beeksisa: $category';
+  }
 }
