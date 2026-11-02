@@ -371,6 +371,34 @@
   "@trackingErrorDetailA11y": {
     "description": "Phase 1: screen-reader live-region label for the generic banner variant."
   },
+  "trackingOfflineBannerTitle": "You're offline",
+  "@trackingOfflineBannerTitle": {
+    "description": "Phase 5: headline of the persistent connectivity banner when the settled device verdict is offline."
+  },
+  "trackingOfflineBannerBody": "Live positions are paused — showing the last known location. SOS still works.",
+  "@trackingOfflineBannerBody": {
+    "description": "Phase 5: body copy for the offline tracking banner; states honestly which data is stale and that emergency help is unaffected."
+  },
+  "trackingOfflineBannerA11y": "You are offline. Map positions shown are the last known location.",
+  "@trackingOfflineBannerA11y": {
+    "description": "Phase 5: screen-reader live-region label for the offline banner variant."
+  },
+  "trackingReconnectingBannerTitle": "Reconnecting…",
+  "@trackingReconnectingBannerTitle": {
+    "description": "Phase 5: headline when the device is online but the ride websocket subscription dropped — blames the feed, not the rider's network."
+  },
+  "trackingReconnectingBannerBody": "Your connection is fine, but live updates from your driver paused. Trying to reconnect.",
+  "@trackingReconnectingBannerBody": {
+    "description": "Phase 5: body copy distinguishing a dropped ride feed from a dead device network."
+  },
+  "trackingReconnectingBannerA11y": "Live ride updates paused. Reconnecting.",
+  "@trackingReconnectingBannerA11y": {
+    "description": "Phase 5: screen-reader live-region label for the reconnecting banner variant."
+  },
+  "trackingReconnectAction": "Try to reconnect now",
+  "@trackingReconnectAction": {
+    "description": "Phase 5: tooltip/semantics for the banner action that re-pulls the authoritative ride snapshot over REST."
+  },
   "sosSlideLabel": "Slide to confirm SOS",
   "@sosSlideLabel": {
     "description": "Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized)."

@@ -1889,4 +1889,46 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **'Inbox unavailable'**
   String get notifInboxUnavailable;
+
+  /// Phase 5: headline of the persistent connectivity banner when the settled device verdict is offline.
+  ///
+  /// In en, this message translates to:
+  /// **You're offline**
+  String get trackingOfflineBannerTitle;
+
+  /// Phase 5: body copy for the offline tracking banner; states honestly which data is stale and that emergency help is unaffected.
+  ///
+  /// In en, this message translates to:
+  /// **Live positions are paused — showing the last known location. SOS still works.**
+  String get trackingOfflineBannerBody;
+
+  /// Phase 5: screen-reader live-region label for the offline banner variant.
+  ///
+  /// In en, this message translates to:
+  /// **You are offline. Map positions shown are the last known location.**
+  String get trackingOfflineBannerA11y;
+
+  /// Phase 5: headline when the device is online but the ride websocket subscription dropped — blames the feed, not the rider's network.
+  ///
+  /// In en, this message translates to:
+  /// **Reconnecting…**
+  String get trackingReconnectingBannerTitle;
+
+  /// Phase 5: body copy distinguishing a dropped ride feed from a dead device network.
+  ///
+  /// In en, this message translates to:
+  /// **Your connection is fine, but live updates from your driver paused. Trying to reconnect.**
+  String get trackingReconnectingBannerBody;
+
+  /// Phase 5: screen-reader live-region label for the reconnecting banner variant.
+  ///
+  /// In en, this message translates to:
+  /// **Live ride updates paused. Reconnecting.**
+  String get trackingReconnectingBannerA11y;
+
+  /// Phase 5: tooltip/semantics for the banner action that re-pulls the authoritative ride snapshot over REST.
+  ///
+  /// In en, this message translates to:
+  /// **Try to reconnect now**
+  String get trackingReconnectAction;
 }

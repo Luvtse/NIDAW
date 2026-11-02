@@ -1019,4 +1019,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifInboxUnavailable => 'Inbox unavailable';
+
+  @override
+  String get trackingOfflineBannerTitle => 'You\'re offline';
+
+  @override
+  String get trackingOfflineBannerBody => 'Live positions are paused — showing the last known location. SOS still works.';
+
+  @override
+  String get trackingOfflineBannerA11y => 'You are offline. Map positions shown are the last known location.';
+
+  @override
+  String get trackingReconnectingBannerTitle => 'Reconnecting…';
+
+  @override
+  String get trackingReconnectingBannerBody => 'Your connection is fine, but live updates from your driver paused. Trying to reconnect.';
+
+  @override
+  String get trackingReconnectingBannerA11y => 'Live ride updates paused. Reconnecting.';
+
+  @override
+  String get trackingReconnectAction => 'Try to reconnect now';
 }
