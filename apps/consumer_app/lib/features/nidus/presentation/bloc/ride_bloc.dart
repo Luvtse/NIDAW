@@ -6,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+
 import '../../../../core/config/feature_flag_service.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -247,6 +249,27 @@ class ClearCurrentRide extends RideEvent {
   const ClearCurrentRide();
 }
 
+/// Phase 5 (connectivity & state-honesty UX): a connectivity sample from
+/// [Connectivity] (or a test harness). The bloc folds it into the active-ride
+/// states so tracking/history/request surfaces can tell the truth about the
+/// network instead of silently freezing live data.
+class ConnectivityChanged extends RideEvent {
+  final bool isOnline;
+
+  const ConnectivityChanged(this.isOnline);
+
+  @override
+  List<Object?> get props => [isOnline];
+}
+
+/// Phase 5: the user pulled to refresh while offline. Nothing was dispatched
+/// — the request genuinely cannot go through until connectivity returns, and
+/// surfaces render this as an honest "not refreshed" message rather than
+/// pretending the pull revalidated stale data.
+class OfflineRefreshBlocked extends RideEvent {
+  const OfflineRefreshBlocked();
+}
+
 /// Begin the SOS pre-alarm countdown. The rider gets [RideBloc.sosCountdownSeconds]
 /// to back out before emergency services / trusted contacts are notified.
 class StartSosCountdown extends RideEvent {
@@ -342,13 +365,33 @@ class RideInitial extends RideState {
   const RideInitial();
 }
 
+/// Phase 5 (connectivity & state-honesty UX): mix-in for ride-content states
+/// that can carry an honest network verdict. [isOffline] is null while the
+/// connectivity sample has not settled yet — surfaces must render NOTHING
+/// rather than guessing "online" or "offline" from an unset value. Once
+/// settled, `true` means the device reports no usable connection and the
+/// surface should show its offline/reconnecting treatment.
+mixin RideConnectivityAware on RideState {
+  final bool? isOffline;
+
+  const RideConnectivityAware({this.isOffline});
+}
+
+/// Phase 5: pull-to-refresh (or an explicit refresh) was blocked because the
+/// device has no connectivity. Distinct from [RideError]: nothing failed on
+/// the server — the request genuinely never left the phone, and the UI says
+/// so instead of faking a successful refresh over stale data.
+class OfflineRefreshBlockedState extends RideState {
+  const OfflineRefreshBlockedState();
+}
+
 /// Loading state
 class RideLoading extends RideState {
   const RideLoading();
 }
 
 /// Ride requested, waiting for driver
-class RideRequested extends RideState {
+class RideRequested extends RideState with RideConnectivityAware {
   final String rideId;
   final double fare;
   final int etaMinutes;
@@ -393,6 +436,7 @@ class RideRequested extends RideState {
     this.pickupName,
     this.dropoffName,
     this.pendingAnomaly,
+    super.isOffline,
   });
 
   @override
@@ -409,11 +453,12 @@ class RideRequested extends RideState {
         pickupName,
         dropoffName,
         pendingAnomaly,
+        isOffline,
       ];
 }
 
 /// Driver matched
-class DriverMatched extends RideState {
+class DriverMatched extends RideState with RideConnectivityAware {
   final String rideId;
   final DriverInfo driver;
   final double fare;
@@ -451,6 +496,7 @@ class DriverMatched extends RideState {
     this.pickupName,
     this.dropoffName,
     this.pendingAnomaly,
+    super.isOffline,
   });
 
   @override
@@ -466,6 +512,7 @@ class DriverMatched extends RideState {
         dropoffLng,
         pickupName,
         dropoffName,
+        isOffline,
       ];
 }
 
