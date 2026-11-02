@@ -1371,6 +1371,22 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       // bloc replays only the tracked-ride refresh it can do authoritatively.
     }
 
+    // Phase 5: replay locally-captured drafts now that the network is back.
+    // The queue lives in OfflineService's pending box (survives restarts) —
+    // syncPendingOperations POSTs them to /rides and drops each on success,
+    // so a draft booked while offline becomes a real request without rider
+    // action. In-memory-only drafts (no OfflineService injected) stay visible
+    // via RideDraftQueued until the rider retries from the request surface;
+    // we never pretend they were sent.
+    if (!next && _offlineService != null && _offlineService!.isReady) {
+      try {
+        await _offlineService!.syncPendingOperations();
+      } catch (_) {
+        // Sync failures keep the ops queued with their retry count — the
+        // next reconnect (or the service's own retry path) picks them up.
+      }
+    }
+
     _reemitWithConnectivity(emit);
   }
 
