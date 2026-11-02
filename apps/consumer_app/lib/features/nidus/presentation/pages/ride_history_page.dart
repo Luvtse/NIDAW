@@ -256,7 +256,9 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                         // stays as the secondary line for traceability.
                         if (_isScheduledUpcoming(ride)) ...[
                           Text(
-                            'Pickup ${DateFormat('MMM d • h:mm a').format(ride.scheduledAt!.toLocal())}',
+                            context.l10n.historyPickupAt(DateFormat(
+                                    'MMM d • h:mm a')
+                                .format(ride.scheduledAt!.toLocal())),
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.primary,
@@ -264,7 +266,8 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                             ),
                           ),
                           Text(
-                            'Requested ${_formatTime(ride.requestedAt)}',
+                            context.l10n.historyRequestedAt(
+                                _formatTime(ride.requestedAt)),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -294,15 +297,17 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                         color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Row(
+                      // Phase 4 accessibility sweep: the schedule glyph is
+                      // decorative; the localized chip text carries meaning.
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.schedule,
                               size: 12, color: AppColors.primary),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            'Scheduled',
-                            style: TextStyle(
+                            context.l10n.historyScheduledChip,
+                            style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primary,
@@ -643,15 +648,21 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   }
 
   String _filterLabel(String value) {
+    // Phase 4 residual-literal cleanup: the empty-state headline interpolates
+    // this label, so it must resolve from the ARB catalog like the chips do —
+    // never hardcoded English. Unknown wire values degrade to the raw token
+    // (honest display), matching _formatStatus's rule.
     switch (value) {
+      case 'all':
+        return context.l10n.historyFilterAll;
       case 'completed':
-        return 'Completed';
+        return context.l10n.historyFilterCompleted;
       case 'cancelled':
-        return 'Cancelled';
+        return context.l10n.historyFilterCancelled;
       case 'in_progress':
-        return 'In progress';
+        return context.l10n.historyFilterInProgress;
       default:
-        return 'All';
+        return value;
     }
   }
 
