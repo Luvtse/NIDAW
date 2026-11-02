@@ -140,6 +140,80 @@
   "chatSendButton": "ላክ",
   "chatEmptyState": "እስካሁን መልዕክቶች የሉም። ከታች ያሉትን ፈጣን ምላሾች ይጠቀሙ።",
   "chatSendFailed": "መልዕክቱ መላክ አልተሳካም።",
+  "chatYourDriver": "እርስዎ ሾፈር",
+  "@chatYourDriver": {
+    "description": "Phase 3 localization tail: header label for the counterpart driver on the in-app chat screen."
+  },
+  "chatSubtitle": "የጉዞ መልዕክቶች",
+  "@chatSubtitle": {
+    "description": "Phase 3 localization tail: header subtitle on the in-app chat screen."
+  },
+  "chatLoadRetry": "እንደገና ሞክር",
+  "@chatLoadRetry": {
+    "description": "Phase 3 localization tail: retry button shown when chat history failed to load."
+  },
+  "chatMessageHint": "መልዕክት",
+  "@chatMessageHint": {
+    "description": "Phase 3 localization tail: hint text of the chat message input field."
+  },
+  "chatSendMessageTooltip": "መልዕክት ላክ",
+  "@chatSendMessageTooltip": {
+    "description": "Phase 3 localization tail + accessibility: tooltip/semantic label of the chat send button."
+  },
+  "chatSending": "በመላክ ላይ…",
+  "@chatSending": {
+    "description": "Phase 3 localization tail: pending-status caption under an optimistic outgoing bubble."
+  },
+  "chatNotDeliveredRetry": "አልተላከም — እንደገና ሞክር",
+  "@chatNotDeliveredRetry": {
+    "description": "Phase 3 localization tail + accessibility: tappable failure affordance under a failed bubble."
+  },
+  "chatTranslatedFrom": "ከ{language} የተተረጎመ",
+  "@chatTranslatedFrom": {
+    "description": "Phase 3 localization tail: caption showing the source language of a translated inbound message.",
+    "placeholders": { "language": { "type": "String" } }
+  },
+  "notifCatRideMatched": "የዶቈግ ተሙግ዇ን",
+  "@notifCatRideMatched": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatDriverArriving": "የዶቈግ ኩዮቹካ ግያ",
+  "@notifCatDriverArriving": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPaymentFailed": "አጽያ አምያታምዛ",
+  "@notifCatPaymentFailed": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatPromo": "ምአዳትካያቊ",
+  "@notifCatPromo": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatSafety": "የአምትክር ምናአካቱ",
+  "@notifCatSafety": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatReceipt": "ደረሰኝ ይኝግ አያ",
+  "@notifCatReceipt": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatScheduledRide": "የተሓካቹ ግተ",
+  "@notifCatScheduledRide": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "notifCatOther": "ምከቢከረታቅ ምብታራ",
+  "@notifCatOther": {
+    "description": "Phase 4 accessibility sweep: localized category label for notification inbox icon semantics (mirrors NotificationRouter.categoryLabel)."
+  },
+  "inboxTitle": "Odeeffannoo kee",
+  "@inboxTitle": {
+    "description": "Phase 4 accessibility sweep: title of the notification inbox page."
+  },
+  "notifCategoryIconLabel": "Beeksisa: {category}",
+  "@notifCategoryIconLabel": {
+    "description": "Phase 4 accessibility sweep: semantics announcement template wrapping a notification category label on the leading avatar.",
+    "placeholders": { "category": { "type": "String" } }
+  },
   "chatTranslationHiddenNote": "ለዚህ ጉዞ ትርጉሞች ተጥፍተዋል።",
   "cancelSheetTitle": "ይህን ጉዞ ይተዉ?",
   "cancelSheetFeeLabel": "የመሰረዣ ክፍያ",
@@ -681,6 +755,28 @@
   "historyStatusMatched": "ሾፈር ተመርጧል",
   "@historyStatusMatched": {
     "description": "Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics."
+  },
+  "historyPickupUnknown": "መነሻ ቦታ",
+  "@historyPickupUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing."
+  },
+  "historyDropoffUnknown": "መድረሻ ቦታ",
+  "@historyDropoffUnknown": {
+    "description": "Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing."
+  },
+  "historyScheduledChip": "የታቀደ",
+  "@historyScheduledChip": {
+    "description": "Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page."
+  },
+  "historyPickupAt": "መነሻ {date}",
+  "@historyPickupAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.",
+    "placeholders": { "date": { "type": "{'type': 'String'}" } }
+  },
+  "historyRequestedAt": "የተጠየቀበት {time}",
+  "@historyRequestedAt": {
+    "description": "Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.",
+    "placeholders": { "time": { "type": "{'type': 'String'}" } }
   },
   "historyFileDispute": "ማጣረስ ያስገቡ",
   "@historyFileDispute": {

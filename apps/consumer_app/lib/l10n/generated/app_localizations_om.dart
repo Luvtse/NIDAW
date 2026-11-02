@@ -233,6 +233,32 @@ class AppLocalizationsOm extends AppLocalizations {
   String get chatSendButton => 'Ergi';
 
   @override
+  String get chatYourDriver => 'Daawwitii kee';
+
+  @override
+  String get chatSubtitle => 'Ergaa imala';
+
+  @override
+  String get chatLoadRetry => 'Irra deebii yaali';
+
+  @override
+  String get chatMessageHint => 'Ergaa';
+
+  @override
+  String get chatSendMessageTooltip => 'Ergaa ergi';
+
+  @override
+  String get chatSending => 'Geessaa jira…';
+
+  @override
+  String get chatNotDeliveredRetry => 'Hin ergamne — Irra deebii yaali';
+
+  @override
+  String chatTranslatedFrom(String language) {
+    return '$language irraa hiikame';
+  }
+
+  @override
   String get chatEmptyState => 'Ammaaf ergaan hin jiru. Deebisota ariifataa gadii fayyadami.';
 
   @override
@@ -909,6 +935,35 @@ class AppLocalizationsOm extends AppLocalizations {
 
   /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
   ///
+  /// Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page.
+  ///
+  /// In OM.
+  String get historyScheduledChip => 'Karoorfame';
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.
+  ///
+  /// In OM.
+  String historyPickupAt(String date) {
+    return 'Fuudhammsa $date';
+  }
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.
+  ///
+  /// In OM.
+  String historyRequestedAt(String time) {
+    return 'Yeroo gaafatame $time';
+  }
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing.
+  ///
+  /// In OM.
+  String get historyPickupUnknown => 'Iddoo ka'umsaa';
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing.
+  ///
+  /// In OM.
+  String get historyDropoffUnknown => 'Iddoo deemu';
+
   /// In OM.
   String get historyFileDispute => 'Ikkaaansa galmeessi';
 

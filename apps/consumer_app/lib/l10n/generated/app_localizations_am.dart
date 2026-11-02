@@ -233,6 +233,32 @@ class AppLocalizationsAm extends AppLocalizations {
   String get chatSendButton => 'ላክ';
 
   @override
+  String get chatYourDriver => 'እርስዎ ሾፈር';
+
+  @override
+  String get chatSubtitle => 'የጉዞ መልዕክቶች';
+
+  @override
+  String get chatLoadRetry => 'እንደገና ሞክር';
+
+  @override
+  String get chatMessageHint => 'መልዕክት';
+
+  @override
+  String get chatSendMessageTooltip => 'መልዕክት ላክ';
+
+  @override
+  String get chatSending => 'በመላክ ላይ…';
+
+  @override
+  String get chatNotDeliveredRetry => 'አልተላከም — እንደገና ሞክር';
+
+  @override
+  String chatTranslatedFrom(String language) {
+    return 'ከ$language የተተረጎመ';
+  }
+
+  @override
   String get chatEmptyState => 'እስካሁን መልዕክቶች የሉም። ከታች ያሉትን ፈጣን ምላሾች ይጠቀሙ።';
 
   @override
@@ -909,6 +935,35 @@ class AppLocalizationsAm extends AppLocalizations {
 
   /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
   ///
+  /// Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page.
+  ///
+  /// In AM.
+  String get historyScheduledChip => 'የታቀደ';
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.
+  ///
+  /// In AM.
+  String historyPickupAt(String date) {
+    return 'መነሻ $date';
+  }
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.
+  ///
+  /// In AM.
+  String historyRequestedAt(String time) {
+    return 'የተጠየቀበት $time';
+  }
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing.
+  ///
+  /// In AM.
+  String get historyPickupUnknown => 'መነሻ ቦታ';
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing.
+  ///
+  /// In AM.
+  String get historyDropoffUnknown => 'መድረሻ ቦታ';
+
   /// In AM.
   String get historyFileDispute => 'ማጣረስ ያስገቡ';
 

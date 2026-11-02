@@ -520,6 +520,46 @@ abstract class AppLocalizations {
   /// **'Send'**
   String get chatSendButton;
 
+  /// Phase 3 localization tail: header label for the counterpart driver on the in-app chat screen.
+  ///
+  /// In EN.
+  String get chatYourDriver;
+
+  /// Phase 3 localization tail: header subtitle on the in-app chat screen.
+  ///
+  /// In EN.
+  String get chatSubtitle;
+
+  /// Phase 3 localization tail: retry button shown when chat history failed to load.
+  ///
+  /// In EN.
+  String get chatLoadRetry;
+
+  /// Phase 3 localization tail: hint text of the chat message input field.
+  ///
+  /// In EN.
+  String get chatMessageHint;
+
+  /// Phase 3 localization tail + accessibility: tooltip/semantic label of the chat send button.
+  ///
+  /// In EN.
+  String get chatSendMessageTooltip;
+
+  /// Phase 3 localization tail: pending-status caption under an optimistic outgoing bubble.
+  ///
+  /// In EN.
+  String get chatSending;
+
+  /// Phase 3 localization tail + accessibility: tappable failure affordance under a failed bubble.
+  ///
+  /// In EN.
+  String get chatNotDeliveredRetry;
+
+  /// Phase 3 localization tail: caption showing the source language of a translated inbound message.
+  ///
+  /// In EN.
+  String chatTranslatedFrom(String language);
+
   /// No description provided for @chatEmptyState.
   ///
   /// In en, this message translates to:
@@ -1742,6 +1782,31 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   ///
   /// In EN.
   String get historyStatusMatched;
+
+  /// Phase 4 residual-literal cleanup: localized label of the scheduled-ride filter chip on the history page.
+  ///
+  /// In EN.
+  String get historyScheduledChip;
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing the pickup date.
+  ///
+  /// In EN.
+  String historyPickupAt(String date);
+
+  /// Phase 4 residual-literal cleanup: scheduled-ride card line showing when the ride was requested.
+  ///
+  /// In EN.
+  String historyRequestedAt(String time);
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the pickup address is missing.
+  ///
+  /// In EN.
+  String get historyPickupUnknown;
+
+  /// Phase 4 residual-literal cleanup: fallback shown on history ride cards when the dropoff address is missing.
+  ///
+  /// In EN.
+  String get historyDropoffUnknown;
 
   /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
   ///

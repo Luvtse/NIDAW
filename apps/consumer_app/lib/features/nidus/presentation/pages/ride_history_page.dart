@@ -372,12 +372,16 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          ride.pickupAddress ?? 'Pickup location',
+                          // Phase 4 residual-literal cleanup: fallbacks now
+                          // route through l10n instead of English literals.
+                          ride.pickupAddress ??
+                              context.l10n.historyPickupUnknown,
                           style: const TextStyle(fontSize: 14),
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          ride.dropoffAddress ?? 'Dropoff location',
+                          ride.dropoffAddress ??
+                              context.l10n.historyDropoffUnknown,
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],
