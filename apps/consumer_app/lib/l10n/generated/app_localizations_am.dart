@@ -862,4 +862,68 @@ class AppLocalizationsAm extends AppLocalizations {
   String promoUntil(String date) {
     return 'እስከ {date}';
   }
+
+  /// Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.
+  ///
+  /// In AM.
+  String driverAvatarInitialsLabel(String name) {
+    return 'የ$name ፎቶ ለማግኘት አልተቻለም — በዝርዝር ፊደላት ብቻ ይታያል';
+  }
+
+  /// Phase 4 accessibility: semantic hint on the history 'All' filter chip so screen readers announce the action, not just the label.
+  ///
+  /// In AM.
+  String get historyFilterAllLabel => 'ሁሉንም ጉዞዎች ያሳዩ';
+
+  /// Phase 4 accessibility: semantic hint on the history 'Completed' filter chip.
+  ///
+  /// In AM.
+  String get historyFilterCompletedLabel => 'የተጠናቀቁ ጉዞዎችን ብቻ ያሳዩ';
+
+  /// Phase 4 accessibility: semantic hint on the history 'Cancelled' filter chip.
+  ///
+  /// In AM.
+  String get historyFilterCancelledLabel => 'የተሰበሱ ጉዞዎችን ብቻ ያሳዩ';
+
+  /// Phase 4 accessibility: semantic hint on the history 'In progress' filter chip.
+  ///
+  /// In AM.
+  String get historyFilterInProgressLabel => 'በሂደት ላይ ያሉ ጉዞዎችን ብቻ ያሳዩ';
+
+  /// Phase 4 accessibility: semantic label wrapping the colored status glyph on each history ride card, since color+icon alone are invisible to screen readers.
+  ///
+  /// In AM.
+  String historyStatusIconLabel(String status) {
+    return 'የጉዞ ሁኔታ፦ $status';
+  }
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'requested' ride status on history cards and status-glyph semantics.
+  ///
+  /// In AM.
+  String get historyStatusRequested => 'ይጠየቋል';
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics.
+  ///
+  /// In AM.
+  String get historyStatusMatched => 'ሾፈር ተመርጧል';
+
+  /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
+  ///
+  /// In AM.
+  String get historyFileDispute => 'ማጣረስ ያስገቡ';
+
+  /// Phase 4 accessibility sweep: label of the scheduled-ride cancel action on history ride cards (was a hardcoded English literal).
+  ///
+  /// In AM.
+  String get historyCancelScheduledRide => 'የታቀደውን ጉዞ ይሰርዙ';
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the receipt PDF download action (the PDF document itself stays English-only by decision).
+  ///
+  /// In AM.
+  String get receiptDownloadPdfTooltip => 'ይህንን ደረሰኝ እንደ PDF ሰነድ ያውርዱ';
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the email-receipt action on the receipt page.
+  ///
+  /// In AM.
+  String get receiptEmailTooltip => 'ይህንን ደረሰኝ በኢሜይል ላኩ';
 }

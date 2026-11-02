@@ -1702,4 +1702,64 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **until {date}**
   String promoUntil(String date);
+
+  /// Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.
+  ///
+  /// In EN.
+  String driverAvatarInitialsLabel(String name);
+
+  /// Phase 4 accessibility: semantic hint on the history 'All' filter chip so screen readers announce the action, not just the label.
+  ///
+  /// In EN.
+  String get historyFilterAllLabel;
+
+  /// Phase 4 accessibility: semantic hint on the history 'Completed' filter chip.
+  ///
+  /// In EN.
+  String get historyFilterCompletedLabel;
+
+  /// Phase 4 accessibility: semantic hint on the history 'Cancelled' filter chip.
+  ///
+  /// In EN.
+  String get historyFilterCancelledLabel;
+
+  /// Phase 4 accessibility: semantic hint on the history 'In progress' filter chip.
+  ///
+  /// In EN.
+  String get historyFilterInProgressLabel;
+
+  /// Phase 4 accessibility: semantic label wrapping the colored status glyph on each history ride card, since color+icon alone are invisible to screen readers.
+  ///
+  /// In EN.
+  String historyStatusIconLabel(String status);
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'requested' ride status on history cards and status-glyph semantics.
+  ///
+  /// In EN.
+  String get historyStatusRequested;
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics.
+  ///
+  /// In EN.
+  String get historyStatusMatched;
+
+  /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
+  ///
+  /// In EN.
+  String get historyFileDispute;
+
+  /// Phase 4 accessibility sweep: label of the scheduled-ride cancel action on history ride cards (was a hardcoded English literal).
+  ///
+  /// In EN.
+  String get historyCancelScheduledRide;
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the receipt PDF download action (the PDF document itself stays English-only by decision).
+  ///
+  /// In EN.
+  String get receiptDownloadPdfTooltip;
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the email-receipt action on the receipt page.
+  ///
+  /// In EN.
+  String get receiptEmailTooltip;
 }

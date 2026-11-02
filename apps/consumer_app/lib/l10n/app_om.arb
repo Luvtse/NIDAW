@@ -674,6 +674,14 @@
       }
     }
   },
+  "historyStatusRequested": "Gaafatameera",
+  "@historyStatusRequested": {
+    "description": "Phase 4 accessibility: localized display/announcement text for the 'requested' ride status on history cards and status-glyph semantics."
+  },
+  "historyStatusMatched": "Daawwitii filatameera",
+  "@historyStatusMatched": {
+    "description": "Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics."
+  },
   "historyFileDispute": "Ikkaaansa galmeessi",
   "@historyFileDispute": {
     "description": "Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal)."

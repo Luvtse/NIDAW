@@ -862,4 +862,68 @@ class AppLocalizationsOm extends AppLocalizations {
   String promoUntil(String date) {
     return 'hanga \$date';
   }
+
+  /// Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.
+  ///
+  /// In OM.
+  String driverAvatarInitialsLabel(String name) {
+    return 'Suuraan $name argamuun hin danda\'amne — jalqabaa maqaa qofa mul\'ata';
+  }
+
+  /// Phase 4 accessibility: semantic hint on the history 'All' filter chip so screen readers announce the action, not just the label.
+  ///
+  /// In OM.
+  String get historyFilterAllLabel => 'Imala hunda agarsiisi';
+
+  /// Phase 4 accessibility: semantic hint on the history 'Completed' filter chip.
+  ///
+  /// In OM.
+  String get historyFilterCompletedLabel => 'Imala xumuramaman qofa agarsiisi';
+
+  /// Phase 4 accessibility: semantic hint on the history 'Cancelled' filter chip.
+  ///
+  /// In OM.
+  String get historyFilterCancelledLabel => 'Imala haqamaman qofa agarsiisi';
+
+  /// Phase 4 accessibility: semantic hint on the history 'In progress' filter chip.
+  ///
+  /// In OM.
+  String get historyFilterInProgressLabel => 'Imala hojiirra ooluu qofa agarsiisi';
+
+  /// Phase 4 accessibility: semantic label wrapping the colored status glyph on each history ride card, since color+icon alone are invisible to screen readers.
+  ///
+  /// In OM.
+  String historyStatusIconLabel(String status) {
+    return 'Haala imala: $status';
+  }
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'requested' ride status on history cards and status-glyph semantics.
+  ///
+  /// In OM.
+  String get historyStatusRequested => 'Gaafatameera';
+
+  /// Phase 4 accessibility: localized display/announcement text for the 'matched' ride status on history cards and status-glyph semantics.
+  ///
+  /// In OM.
+  String get historyStatusMatched => 'Daawwitii filatameera';
+
+  /// Phase 4 accessibility sweep: label of the dispute shortcut on completed history ride cards (was a hardcoded English literal).
+  ///
+  /// In OM.
+  String get historyFileDispute => 'Ikkaaansa galmeessi';
+
+  /// Phase 4 accessibility sweep: label of the scheduled-ride cancel action on history ride cards (was a hardcoded English literal).
+  ///
+  /// In OM.
+  String get historyCancelScheduledRide => 'Imala karoorfame haqi';
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the receipt PDF download action (the PDF document itself stays English-only by decision).
+  ///
+  /// In OM.
+  String get receiptDownloadPdfTooltip => 'Ragaa kaffaltii kana PDF\'n buusi';
+
+  /// Phase 4 accessibility: tooltip/semantic hint for the email-receipt action on the receipt page.
+  ///
+  /// In OM.
+  String get receiptEmailTooltip => 'Ragaa kaffaltii kana imeeliin ergi';
 }
