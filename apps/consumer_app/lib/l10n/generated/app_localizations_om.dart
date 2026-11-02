@@ -1019,4 +1019,25 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get notifInboxUnavailable => 'Sanduuqa beeksisaa hin argamu';
+
+  @override
+  String get trackingOfflineBannerTitle => 'Intarnetaa hin qaban';
+
+  @override
+  String get trackingOfflineBannerBody => 'Bakka turtii kallattiin dhaabbateera — bakni dhumaatti beekame agarsiisama jira. SOS hojjechaa jira.';
+
+  @override
+  String get trackingOfflineBannerA11y => 'Intarnetaa hin qaban. Bakka kaartaa irratti agarsiifame bakka dhumaatti beekamedha.';
+
+  @override
+  String get trackingReconnectingBannerTitle => 'Irra deebi\'anii walqunnamsiisaa jiru…';
+
+  @override
+  String get trackingReconnectingBannerBody => 'Walqunnamtiin kee gaarii dha; garuu odeeffannoo daqiiqaa kaaroota keetii dhaabbateera. Walqunnamtin haaraan yaalamaa jira.';
+
+  @override
+  String get trackingReconnectingBannerA11y => 'Odeeffannoo turtii kallattii dhaabbate. Irra deebi\'anii walqunnamsiisaa jira.';
+
+  @override
+  String get trackingReconnectAction => 'Amma irra deebi\'anii walqunnamsiisuuf yaali';
 }

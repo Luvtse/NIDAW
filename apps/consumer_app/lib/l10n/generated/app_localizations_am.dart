@@ -1019,4 +1019,25 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get notifInboxUnavailable => 'መልዕክት ሳጥን አይገኝም';
+
+  @override
+  String get trackingOfflineBannerTitle => 'ወታውር መሆንዎን ይጠቁማል';
+
+  @override
+  String get trackingOfflineBannerBody => 'ቀጥታ አቀማመጦች ለአፍታ ቆመዋል — የመጨረሻው የታወቀ አድራሻ እየታየ ነው። SOS አሁንም ይሰራል።';
+
+  @override
+  String get trackingOfflineBannerA11y => 'ወታውር መሆንዎን ይጠቁማል። በካርታ ላይ የሚታዩት አቀማመጦች የመጨረሻው የታወቀ አድራሻ ናቸው።';
+
+  @override
+  String get trackingReconnectingBannerTitle => 'እንደገና በማገናኘት ላይ…';
+
+  @override
+  String get trackingReconnectingBannerBody => 'አገናኛዎ ጥሩ ነው፤ ነገር ግን ከሹፌርዎ ቀጥታ መረጃ ማደስ ለአፍታ ቆሟል። እንደገና ለማገናኘት እየሞከርን ነው።';
+
+  @override
+  String get trackingReconnectingBannerA11y => 'ቀጥታ የጉዞ መረጃ ለአፍታ ቆሟል። እንደገና በማገናኘት ላይ።';
+
+  @override
+  String get trackingReconnectAction => 'አሁን እንደገና ለማገናኘት ይሞክሩ';
 }

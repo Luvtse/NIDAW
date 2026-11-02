@@ -362,6 +362,34 @@
   "@trackingErrorDetailA11y": {
     "description": "Phase 1: screen-reader live-region label for the generic banner variant."
   },
+  "trackingOfflineBannerTitle": "ወታውር መሆንዎን ይጠቁማል",
+  "@trackingOfflineBannerTitle": {
+    "description": "Phase 5: headline of the persistent connectivity banner when the settled device verdict is offline."
+  },
+  "trackingOfflineBannerBody": "ቀጥታ አቀማመጦች ለአፍታ ቆመዋል — የመጨረሻው የታወቀ አድራሻ እየታየ ነው። SOS አሁንም ይሰራል።",
+  "@trackingOfflineBannerBody": {
+    "description": "Phase 5: body copy for the offline tracking banner; states honestly which data is stale and that emergency help is unaffected."
+  },
+  "trackingOfflineBannerA11y": "ወታውር መሆንዎን ይጠቁማል። በካርታ ላይ የሚታዩት አቀማመጦች የመጨረሻው የታወቀ አድራሻ ናቸው።",
+  "@trackingOfflineBannerA11y": {
+    "description": "Phase 5: screen-reader live-region label for the offline banner variant."
+  },
+  "trackingReconnectingBannerTitle": "እንደገና በማገናኘት ላይ…",
+  "@trackingReconnectingBannerTitle": {
+    "description": "Phase 5: headline when the device is online but the ride websocket subscription dropped — blames the feed, not the rider's network."
+  },
+  "trackingReconnectingBannerBody": "አገናኛዎ ጥሩ ነው፤ ነገር ግን ከሹፌርዎ ቀጥታ መረጃ ማደስ ለአፍታ ቆሟል። እንደገና ለማገናኘት እየሞከርን ነው።",
+  "@trackingReconnectingBannerBody": {
+    "description": "Phase 5: body copy distinguishing a dropped ride feed from a dead device network."
+  },
+  "trackingReconnectingBannerA11y": "ቀጥታ የጉዞ መረጃ ለአፍታ ቆሟል። እንደገና በማገናኘት ላይ።",
+  "@trackingReconnectingBannerA11y": {
+    "description": "Phase 5: screen-reader live-region label for the reconnecting banner variant."
+  },
+  "trackingReconnectAction": "አሁን እንደገና ለማገናኘት ይሞክሩ",
+  "@trackingReconnectAction": {
+    "description": "Phase 5: tooltip/semantics for the banner action that re-pulls the authoritative ride snapshot over REST."
+  },
   "sosSlideLabel": "SOS ለማረጋገጥ ወደ ቀኝ ጎትት",
   "@sosSlideLabel": {
     "description": "Phase 1: track text of the SOS slide-to-confirm control (safety surface — must be localized)."
