@@ -855,5 +855,13 @@
         "type": "String"
       }
     }
+  },
+  "notifLoadMoreFailed": "Beeksisa dabalataa fe'uun hin danda'amne.",
+  "@notifLoadMoreFailed": {
+    "placeholders": {}
+  },
+  "notifInboxUnavailable": "Sanduuqa beeksisaa hin argamu",
+  "@notifInboxUnavailable": {
+    "placeholders": {}
   }
 }

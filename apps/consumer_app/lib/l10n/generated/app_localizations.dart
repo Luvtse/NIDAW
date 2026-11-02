@@ -1877,4 +1877,16 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   ///
   /// In EN.
   String notifCategoryIconLabel(String category);
+
+  /// No description provided for @notifLoadMoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load more notifications.'**
+  String get notifLoadMoreFailed;
+
+  /// No description provided for @notifInboxUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox unavailable'**
+  String get notifInboxUnavailable;
 }

@@ -855,5 +855,13 @@
         "type": "String"
       }
     }
+  },
+  "notifLoadMoreFailed": "እባክዎ ተጨማሪ መልዕክቶችን ማምጣት አልተቻለም።",
+  "@notifLoadMoreFailed": {
+    "placeholders": {}
+  },
+  "notifInboxUnavailable": "መልዕክት ሳጥን አይገኝም",
+  "@notifInboxUnavailable": {
+    "placeholders": {}
   }
 }
