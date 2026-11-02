@@ -248,6 +248,20 @@ class ClearCurrentRide extends RideEvent {
   const ClearCurrentRide();
 }
 
+/// Phase 5 (connectivity & state-honesty UX): the rider tapped "Request"
+/// while the settled connectivity verdict says offline. Instead of firing a
+/// doomed network call, the bloc captures the request as a draft — persisted
+/// through [OfflineService] when available, kept in memory otherwise — and
+/// emits [RideDraftQueued] so the UI can honestly say "queued, not booked".
+class QueueOfflineRideRequest extends RideEvent {
+  final RequestRide request;
+
+  const QueueOfflineRideRequest(this.request);
+
+  @override
+  List<Object?> get props => [request];
+}
+
 /// Phase 5 (connectivity & state-honesty UX): a connectivity sample from
 /// [Connectivity] (or a test harness). The bloc folds it into the active-ride
 /// states so tracking/history/request surfaces can tell the truth about the
@@ -467,6 +481,25 @@ class RideRequested extends RideState with RideConnectivityAware {
         pendingAnomaly,
         isOffline,
       ];
+
+  /// Phase 5: rebuild this state with a fresh connectivity verdict. Only
+  /// `isOffline` is foldable — every content field carries over untouched so
+  /// the fold can never invent or drop ride data.
+  RideRequested copyWith({bool? isOffline}) => RideRequested(
+        rideId: rideId,
+        fare: fare,
+        etaMinutes: etaMinutes,
+        requestedAt: requestedAt,
+        promoDiscount: promoDiscount,
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        dropoffLat: dropoffLat,
+        dropoffLng: dropoffLng,
+        pickupName: pickupName,
+        dropoffName: dropoffName,
+        pendingAnomaly: pendingAnomaly,
+        isOffline: isOffline ?? this.isOffline,
+      );
 }
 
 /// Driver matched
@@ -526,6 +559,23 @@ class DriverMatched extends RideState with RideConnectivityAware {
         dropoffName,
         isOffline,
       ];
+
+  /// Phase 5: rebuild this state with a fresh connectivity verdict; content
+  /// fields carry over untouched (see [RideRequested.copyWith]).
+  DriverMatched copyWith({bool? isOffline}) => DriverMatched(
+        rideId: rideId,
+        driver: driver,
+        fare: fare,
+        etaMinutes: etaMinutes,
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        dropoffLat: dropoffLat,
+        dropoffLng: dropoffLng,
+        pickupName: pickupName,
+        dropoffName: dropoffName,
+        pendingAnomaly: pendingAnomaly,
+        isOffline: isOffline ?? this.isOffline,
+      );
 }
 
 /// Ride in progress
@@ -552,6 +602,15 @@ class RideInProgress extends RideState with RideConnectivityAware {
 
   @override
   List<Object?> get props => [ride, tripStartOrigin, pendingAnomaly, isOffline];
+
+  /// Phase 5: rebuild this state with a fresh connectivity verdict; content
+  /// fields carry over untouched (see [RideRequested.copyWith]).
+  RideInProgress copyWith({bool? isOffline}) => RideInProgress(
+        ride,
+        tripStartOrigin: tripStartOrigin,
+        pendingAnomaly: pendingAnomaly,
+        isOffline: isOffline ?? this.isOffline,
+      );
 }
 
 /// Ride completed
@@ -737,6 +796,25 @@ class DriverEnRoute extends RideState with RideConnectivityAware {
         pendingAnomaly,
         isOffline,
       ];
+
+  /// Phase 5: rebuild this state with a fresh connectivity verdict; content
+  /// fields carry over untouched (see [RideRequested.copyWith]).
+  DriverEnRoute copyWith({bool? isOffline}) => DriverEnRoute(
+        rideId: rideId,
+        driver: driver,
+        fare: fare,
+        etaMinutes: etaMinutes,
+        pinCode: pinCode,
+        preSelfie: preSelfie,
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        dropoffLat: dropoffLat,
+        dropoffLng: dropoffLng,
+        pickupName: pickupName,
+        dropoffName: dropoffName,
+        pendingAnomaly: pendingAnomaly,
+        isOffline: isOffline ?? this.isOffline,
+      );
 }
 
 /// Driver-side mirror of [DriverEnRoute] (§2.3): the same lifecycle stage,
@@ -792,19 +870,51 @@ class RideRated extends RideState {
 }
 
 /// Ride history loaded
-class RideHistoryLoaded extends RideState {
+class RideHistoryLoaded extends RideState with RideConnectivityAware {
   final List<Ride> rides;
   final int total;
   final bool hasMore;
+
+  /// Phase 5: the status filter that produced this page, retained in bloc
+  /// state so history chips round-trip across navigation instead of
+  /// resetting to "all" on every entry. Null = unfiltered.
+  final String? statusFilter;
 
   const RideHistoryLoaded({
     required this.rides,
     required this.total,
     required this.hasMore,
+    this.statusFilter,
+    super.isOffline,
   });
 
   @override
-  List<Object?> get props => [rides, total, hasMore];
+  List<Object?> get props => [rides, total, hasMore, statusFilter, isOffline];
+
+  /// Phase 5: rebuild this state with a fresh connectivity verdict; content
+  /// fields carry over untouched (see [RideRequested.copyWith]).
+  RideHistoryLoaded copyWith({bool? isOffline}) => RideHistoryLoaded(
+        rides: rides,
+        total: total,
+        hasMore: hasMore,
+        statusFilter: statusFilter,
+        isOffline: isOffline ?? this.isOffline,
+      );
+}
+
+/// Phase 5 (connectivity & state-honesty UX): a ride request was captured as
+/// an offline draft instead of being sent. The rider MUST see this as
+/// "queued, not booked" — nothing reached the server, and
+/// [OfflineService.syncPendingOperations] replays the queue when connectivity
+/// returns (or the drafts stay local until the rider retries while online).
+class RideDraftQueued extends RideState {
+  /// How many drafts are currently waiting (1 right after the first tap).
+  final int draftCount;
+
+  const RideDraftQueued({required this.draftCount});
+
+  @override
+  List<Object?> get props => [draftCount];
 }
 
 /// Fare estimate loaded
@@ -1176,6 +1286,15 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     }
   }
 
+  /// Phase 5: re-emits a freshly-built ride-content state through the
+  /// connectivity fold. `_emitStateForRide` builds its states with literal
+  /// constructors (no `isOffline` argument), so without this wrapper periodic
+  /// REST polls would silently drop the settled verdict back to null and the
+  /// tracking banner would flicker off on every ETA tick. Every emit site
+  /// inside `_emitStateForRide` routes through here instead of raw `emit`.
+  void _emitRide(Emitter<RideState> emit, RideState s) =>
+      _emitFolded(emit, s);
+
   /// Re-emits the live connectivity-aware state with the current verdict
   /// (used when a ConnectivityChanged arrives while a ride state is showing).
   void _reemitWithConnectivity(Emitter<RideState> emit) {
@@ -1187,6 +1306,8 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     } else if (s is DriverEnRoute) {
       emit(s.copyWith(isOffline: _isOffline));
     } else if (s is RideInProgress) {
+      emit(s.copyWith(isOffline: _isOffline));
+    } else if (s is RideHistoryLoaded) {
       emit(s.copyWith(isOffline: _isOffline));
     }
   }
@@ -1264,7 +1385,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
             'payment_method_type': request.paymentMethodType,
             'promo_code': request.promoCode,
             'scheduled_at': request.scheduledAt?.toUtc().toIso8601String(),
-            'stops': request.stops.map((s) => s.toMap()).toList(),
+            'stops': request.stops.map((s) => s.toRequestJson()).toList(),
           },
         );
       } catch (_) {
@@ -1529,7 +1650,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     final s = state;
     final anomaly = _pendingAnomaly;
     if (s is RideRequested) {
-      emit(RideRequested(
+      _emitFolded(emit, RideRequested(
         rideId: s.rideId,
         fare: s.fare,
         etaMinutes: s.etaMinutes,
@@ -1544,7 +1665,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         pendingAnomaly: anomaly,
       ));
     } else if (s is DriverMatched) {
-      emit(DriverMatched(
+      _emitFolded(emit, DriverMatched(
         rideId: s.rideId,
         driver: s.driver,
         fare: s.fare,
@@ -1558,7 +1679,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         pendingAnomaly: anomaly,
       ));
     } else if (s is DriverEnRoute) {
-      emit(DriverEnRoute(
+      _emitFolded(emit, DriverEnRoute(
         rideId: s.rideId,
         driver: s.driver,
         fare: s.fare,
@@ -1574,7 +1695,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         pendingAnomaly: anomaly,
       ));
     } else if (s is RideInProgress) {
-      emit(RideInProgress(
+      _emitFolded(emit, RideInProgress(
         s.ride,
         tripStartOrigin: s.tripStartOrigin,
         pendingAnomaly: anomaly,
@@ -1590,6 +1711,16 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     RequestRide event,
     Emitter<RideState> emit,
   ) async {
+    // Phase 5 (offline start): when the settled verdict says offline, do NOT
+    // fire a doomed network call. Route through the draft queue so the rider
+    // sees an honest "queued, not booked" surface instead of a spinner that
+    // dies into a generic error. An unset/null verdict is NOT treated as
+    // offline (honest-null rule) — the request proceeds normally.
+    if (_isOffline == true) {
+      add(QueueOfflineRideRequest(event));
+      return;
+    }
+
     emit(const RideLoading());
 
     try {
@@ -1633,7 +1764,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
       _lastKnownMatchedEtaMinutes = null;
       _lastKnownPreSelfie = null;
 
-      emit(RideRequested(
+      _emitFolded(emit, RideRequested(
         rideId: result.rideId!,
         fare: result.fare!,
         etaMinutes: result.eta!,
@@ -2174,7 +2305,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
                   : null) ??
               0;
           final fare = _stateFare();
-          emit(DriverMatched(
+          _emitFolded(emit, DriverMatched(
             rideId: update.rideId,
             driver: matchedDriver,
             fare: fare,
@@ -2210,7 +2341,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
           ));
         } else if (driver != null) {
           _lastKnownDriver = driver;
-          emit(DriverEnRoute(
+          _emitFolded(emit, DriverEnRoute(
             rideId: update.rideId,
             driver: driver,
             fare: _stateFare(),
@@ -2333,7 +2464,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
     switch (ride.status) {
       case 'requested':
       case 'searching':
-        emit(RideRequested(
+        _emitRide(emit,RideRequested(
           rideId: ride.id,
           fare: ride.fareAmount ?? 0,
           etaMinutes: ride.durationMinutes ?? 0,
@@ -2359,7 +2490,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
           final eta = ride.matchedEtaMinutes ??
               (ride.driver!.etaMinutes > 0 ? ride.driver!.etaMinutes : null) ??
               0;
-          emit(DriverMatched(
+          _emitRide(emit,DriverMatched(
             rideId: ride.id,
             driver: ride.driver!,
             fare: ride.fareAmount ?? 0,
@@ -2383,13 +2514,13 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         // DriverEnRoute state with the pre-selfie verification block.
         final me = _currentUserId?.call();
         if (me != null && ride.driverId != null && ride.driverId == me) {
-          emit(DriverEnRouteForDriver(
+          _emitRide(emit,DriverEnRouteForDriver(
             rideId: ride.id,
             fare: ride.fareAmount ?? 0,
             etaMinutes: ride.driver?.etaMinutes ?? 0,
           ));
         } else if (ride.driver != null) {
-          emit(DriverEnRoute(
+          _emitRide(emit,DriverEnRoute(
             rideId: ride.id,
             driver: ride.driver!,
             fare: ride.fareAmount ?? 0,
@@ -2411,7 +2542,7 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         // §4.6: same honest fare/currency carry-over as the WS path — the
         // REST DTO is authoritative, and a null fare stays null rather than
         // collapsing to 0 (which the sheet would render as "ETB 0.00").
-        emit(NoDriversFound(
+        _emitRide(emit,NoDriversFound(
           rideId: ride.id,
           searchedSeconds: _searchedSeconds(),
           currentFare: _stateFareOrNull(),
@@ -2419,13 +2550,13 @@ class RideBloc extends Bloc<RideEvent, RideState> {
         ));
         break;
       case 'in_progress':
-        emit(RideInProgress(ride));
+        _emitRide(emit,RideInProgress(ride));
         break;
       case 'completed':
-        emit(RideCompleted(ride));
+        _emitRide(emit,RideCompleted(ride));
         break;
       case 'cancelled':
-        emit(RideCancelled(
+        _emitRide(emit,RideCancelled(
           rideId: ride.id,
           reason: 'Ride cancelled',
         ));
