@@ -185,7 +185,7 @@ func TestHourlyQuotaPerIdentity(t *testing.T) {
 	sender := newFakeSender()
 	svc := NewOTPService(rdb, sender, OTPConfig{
 		TTL:                time.Minute,
-		ResendCooldown:     0, // disabled so the hourly quota is what gates
+		ResendCooldown:     -1, // disabled so the hourly quota is what gates
 		MaxAttempts:        3,
 		MaxRequestsPerHour: 5,
 		CodeLength:         6,

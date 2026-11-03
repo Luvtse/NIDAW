@@ -89,7 +89,7 @@ func (c OTPConfig) withDefaults() OTPConfig {
 	}
 	if c.ResendCooldown == 0 {
 		c.ResendCooldown = 60 * time.Second
-	}
+	} // explicit negative ResendCooldown disables the resend gate (test/ops override)
 	if c.MaxAttempts <= 0 {
 		c.MaxAttempts = 5
 	}
@@ -168,10 +168,11 @@ func NormalizePhone(raw string) (string, bool) {
 			return "", false
 		}
 		// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
-		// zero between the country code and the subscriber number. Only one
-		// zero is stripped; genuine numbers never start with 0 after '+'.
+		// zero between the country code and the subscriber number. Strip at
+		// most one zero, but only when the remainder still forms a plausible
+		// subscriber number (>=8 digits); otherwise keep the original digits.
 		digits := rest
-		if len(digits) >= 9 && digits[0] == '0' {
+		if len(digits) >= 9 && digits[0] == '0' && len(digits)-1 >= 8 {
 			digits = digits[1:]
 		}
 		if len(digits) < 8 || len(digits) > 15 {
@@ -243,10 +244,14 @@ func (s *OTPService) startCooldown(ctx context.Context, key string) error {
 	res, err := s.rdb.Eval(ctx, script, []string{otpCooldownKey(key)},
 		time.Now().UTC().Format(time.RFC3339Nano),
 		s.cfg.ResendCooldown.Milliseconds()).Result()
+	if errors.Is(err, redis.Nil) {
+		// SET NX returned no reply because the gate is still held.
+		return errCooldownActive
+	}
 	if err != nil {
 		return err
 	}
-	if res == nil || res == redis.Nil {
+	if res == nil {
 		return errCooldownActive
 	}
 	return nil
