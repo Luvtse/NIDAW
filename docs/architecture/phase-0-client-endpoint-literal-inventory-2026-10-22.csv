@@ -1,0 +1,72 @@
+client,file,line,method_guess,path_literal,evidence
+consumer,apps/consumer_app/lib/core/network/api_client.dart,497,UNRESOLVED,/api/v1/auth/login,"'/api/v1/auth/login',"
+consumer,apps/consumer_app/lib/core/network/api_client.dart,498,UNRESOLVED,/api/v1/auth/register,"'/api/v1/auth/register',"
+consumer,apps/consumer_app/lib/core/network/api_client.dart,499,UNRESOLVED,/api/v1/auth/refresh,"'/api/v1/auth/refresh',"
+consumer,apps/consumer_app/lib/core/network/api_client.dart,500,UNRESOLVED,/api/v1/legal/documents,"'/api/v1/legal/documents',"
+consumer,apps/consumer_app/lib/core/analytics/analytics_service.dart,274,POST,/api/v1/analytics/events,"'/api/v1/analytics/events',"
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,191,POST,/api/v1/auth/login,"'/api/v1/auth/login',"
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,248,POST,/api/v1/auth/register,"'/api/v1/auth/register',"
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,310,POST,/api/v1/auth/logout,await _apiClient.post('/api/v1/auth/logout').catchError((_) {});
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,336,GET,/api/v1/auth/me,await _apiClient.get('/api/v1/auth/me');
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,350,POST,/api/v1/auth/refresh,"'/api/v1/auth/refresh',"
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,403,GET,/api/v1/auth/me,final response = await _apiClient.get('/api/v1/auth/me');
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,425,GET,/api/v1/auth/onboarding-status,final response = await _apiClient.get('/api/v1/auth/onboarding-status');
+consumer,apps/consumer_app/lib/features/auth/data/repositories/auth_repository.dart,438,POST,/api/v1/auth/onboarding/complete,await _apiClient.post('/api/v1/auth/onboarding/complete');
+consumer,apps/consumer_app/lib/features/auth/presentation/bloc/legal_consent_bloc.dart,168,GET,/api/v1/legal/documents,"'/api/v1/legal/documents',"
+consumer,apps/consumer_app/lib/features/auth/presentation/bloc/legal_consent_bloc.dart,195,POST,/api/v1/consent,"'/api/v1/consent',"
+consumer,apps/consumer_app/lib/features/auth/presentation/bloc/legal_consent_bloc.dart,230,POST,/api/v1/consent/withdraw,"'/api/v1/consent/withdraw',"
+consumer,apps/consumer_app/lib/features/auth/presentation/bloc/legal_consent_bloc.dart,249,GET,/api/v1/consent,final response = await _apiClient.get('/api/v1/consent');
+consumer,apps/consumer_app/lib/features/wallet/data/repositories/wallet_repository.dart,92,UNRESOLVED,/api/v1/ledger,static const String _base = '/api/v1/ledger';
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/safety_repository.dart,212,UNRESOLVED,/api/v1/nidus/safety,static const String _base = '/api/v1/nidus/safety';
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,32,UNRESOLVED,/api/v1/nidus/payment-methods,"'/api/v1/nidus/payment-methods',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,81,UNRESOLVED,/api/v1/nidus/payment-methods,"'/api/v1/nidus/payment-methods',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,113,UNRESOLVED,/api/v1/nidus/payment-methods/$id,"'/api/v1/nidus/payment-methods/$id',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,129,UNRESOLVED,/api/v1/nidus/payment-methods/$id/default,"'/api/v1/nidus/payment-methods/$id/default',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,150,UNRESOLVED,/api/v1/nidus/rides/$rideId/confirm-cash-collection,"'/api/v1/nidus/rides/$rideId/confirm-cash-collection',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,181,UNRESOLVED,/api/v1/promotions/redeem,"'/api/v1/promotions/redeem',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,217,UNRESOLVED,/api/v1/promotions/mine,"'/api/v1/promotions/mine',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/phase2_money_repository.dart,255,UNRESOLVED,/api/v1/nidus/rides/$rideId/email-receipt,"'/api/v1/nidus/rides/$rideId/email-receipt',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/pre_selfie_repository.dart,221,UNRESOLVED,/api/v1/driver/rides/$rideId/pre-selfie,"'/api/v1/driver/rides/$rideId/pre-selfie',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/chat_repository.dart,231,UNRESOLVED,/api/v1/chat,static const String _base = '/api/v1/chat';
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/split_fare_repository.dart,30,UNRESOLVED,/api/v1/nidus/rides/$rideId/split,"'/api/v1/nidus/rides/$rideId/split',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/split_fare_repository.dart,71,UNRESOLVED,/api/v1/nidus/rides/$rideId/split,"'/api/v1/nidus/rides/$rideId/split',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/split_fare_repository.dart,104,UNRESOLVED,/api/v1/nidus/split/$inviteToken/accept,"'/api/v1/nidus/split/$inviteToken/accept',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1105,UNRESOLVED,/api/v1/nidus/rides,"'/api/v1/nidus/rides',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1159,GET,/api/v1/nidus/rides/$rideId,final response = await _apiClient.get('/api/v1/nidus/rides/$rideId');
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1183,UNRESOLVED,/api/v1/nidus/rides/$rideId/destination,"'/api/v1/nidus/rides/$rideId/destination',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1248,GET,/api/v1/nidus/rides,"'/api/v1/nidus/rides',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1270,POST,/api/v1/nidus/rides/$rideId/cancel,"'/api/v1/nidus/rides/$rideId/cancel',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1289,POST,/api/v1/nidus/rides/$rideId/rate,"'/api/v1/nidus/rides/$rideId/rate',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1313,POST,/api/v1/nidus/rides/estimate,"'/api/v1/nidus/rides/estimate',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1344,GET,/api/v1/nidus/rides/estimates,"'/api/v1/nidus/rides/estimates',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1359,POST,/api/v1/nidus/rides/estimate,"'/api/v1/nidus/rides/estimate',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1450,GET,/api/v1/nidus/rides/active,await _apiClient.get('/api/v1/nidus/rides/active');
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1468,UNRESOLVED,/api/v1/nidus/rides/$rideId/cancellation-quote,"'/api/v1/nidus/rides/$rideId/cancellation-quote',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1483,UNRESOLVED,/api/v1/nidus/rides/$rideId/price-extension,"'/api/v1/nidus/rides/$rideId/price-extension',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1526,UNRESOLVED,/api/v1/nidus/rides/$rideId/cancel,"'/api/v1/nidus/rides/$rideId/cancel',"
+consumer,apps/consumer_app/lib/features/nidus/data/repositories/ride_repository.dart,1567,POST,/api/v1/nidus/rides/$rideId/rate,"'/api/v1/nidus/rides/$rideId/rate',"
+driver,apps/driver_app/lib/core/network/api_client.dart,140,GET,)}/api/v1/auth/refresh,"'${authBox.get('base_url')}/api/v1/auth/refresh',"
+driver,apps/driver_app/lib/features/documents/data/repositories/document_repository.dart,20,GET,/api/v1/drivers/documents,final response = await _apiClient.get('/api/v1/drivers/documents');
+driver,apps/driver_app/lib/features/documents/data/repositories/document_repository.dart,45,POST,/api/v1/drivers/documents/upload,"'/api/v1/drivers/documents/upload',"
+driver,apps/driver_app/lib/features/documents/data/repositories/document_repository.dart,58,DELETE,/api/v1/drivers/documents/$documentId,await _apiClient.delete('/api/v1/drivers/documents/$documentId');
+driver,apps/driver_app/lib/features/profile/data/repositories/driver_profile_repository.dart,21,GET,/api/v1/drivers/profile,final response = await _apiClient.get('/api/v1/drivers/profile');
+driver,apps/driver_app/lib/features/profile/data/repositories/driver_profile_repository.dart,33,PATCH,/api/v1/drivers/profile,"'/api/v1/drivers/profile',"
+driver,apps/driver_app/lib/features/profile/data/repositories/driver_profile_repository.dart,47,PATCH,/api/v1/drivers/vehicle,"'/api/v1/drivers/vehicle',"
+driver,apps/driver_app/lib/features/profile/data/repositories/driver_profile_repository.dart,59,POST,/api/v1/drivers/profile/picture,"'/api/v1/drivers/profile/picture',"
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,30,POST,/api/v1/auth/login,"'/api/v1/auth/login',"
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,49,GET,/api/v1/drivers/profile,final driverResponse = await _apiClient.get('/api/v1/drivers/profile');
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,65,POST,/api/v1/auth/register,"'/api/v1/auth/register',"
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,92,POST,/api/v1/auth/logout,await _apiClient.post('/api/v1/auth/logout');
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,109,GET,/api/v1/drivers/profile,final response = await _apiClient.get('/api/v1/drivers/profile');
+driver,apps/driver_app/lib/features/auth/data/repositories/auth_repository.dart,140,PATCH,/api/v1/drivers/status,"'/api/v1/drivers/status',"
+driver,apps/driver_app/lib/features/ride/data/repositories/ride_repository.dart,28,POST,/api/v1/rides/$rideId/accept,"'/api/v1/rides/$rideId/accept',"
+driver,apps/driver_app/lib/features/ride/data/repositories/ride_repository.dart,41,POST,/api/v1/rides/$rideId/start,"'/api/v1/rides/$rideId/start',"
+driver,apps/driver_app/lib/features/ride/data/repositories/ride_repository.dart,54,POST,/api/v1/rides/$rideId/complete,"'/api/v1/rides/$rideId/complete',"
+driver,apps/driver_app/lib/features/ride/data/repositories/ride_repository.dart,67,GET,/api/v1/rides/active,final response = await _apiClient.get('/api/v1/rides/active');
+driver,apps/driver_app/lib/features/ride/data/repositories/ride_repository.dart,79,POST,/api/v1/rides/$rideId/cancel,"'/api/v1/rides/$rideId/cancel',"
+driver,apps/driver_app/lib/features/earnings/data/repositories/earnings_repository.dart,19,GET,/api/v1/drivers/earnings/daily,"'/api/v1/drivers/earnings/daily',"
+driver,apps/driver_app/lib/features/earnings/data/repositories/earnings_repository.dart,33,GET,/api/v1/drivers/earnings/weekly,"'/api/v1/drivers/earnings/weekly',"
+driver,apps/driver_app/lib/features/earnings/data/repositories/earnings_repository.dart,47,GET,/api/v1/drivers/earnings/monthly,"'/api/v1/drivers/earnings/monthly',"
+driver,apps/driver_app/lib/features/home/data/repositories/driver_home_repository.dart,25,GET,/api/v1/drivers/stats,final response = await _apiClient.get('/api/v1/drivers/stats');
+driver,apps/driver_app/lib/features/home/data/repositories/driver_home_repository.dart,37,PATCH,/api/v1/drivers/status,"'/api/v1/drivers/status',"
+admin,apps/admin_console/src/api/client.ts,5,UNRESOLVED,/api/v1/ledger,const BASE = import.meta.env.VITE_API_BASE ?? '/api/v1/ledger';
