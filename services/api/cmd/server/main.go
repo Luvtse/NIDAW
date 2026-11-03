@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	authapp "nidaw-backend/internal/modules/auth/application"
 	authhttp "nidaw-backend/internal/modules/auth/interfaces/http"
 	chatapp "nidaw-backend/internal/modules/chat/application"
 	chatinfra "nidaw-backend/internal/modules/chat/infrastructure"
@@ -194,8 +195,27 @@ func main() {
 	// backend:8080 directly on the private network).
 	observability.RegisterMetricsRoute(r)
 
+	// Phone-OTP delivery sender (Auth Phase 2): always constructed so the OTP
+	// endpoints work even when the broader notifications feature flag is off.
+	otpNotiSvc := notifs.NewMultiProviderNotificationService(notifs.NotificationConfig{
+		TwilioAccountSID: os.Getenv("TWILIO_ACCOUNT_SID"),
+		TwilioAuthToken:  os.Getenv("TWILIO_AUTH_TOKEN"),
+		TwilioFromNumber: os.Getenv("TWILIO_FROM_NUMBER"),
+		SendGridAPIKey:   os.Getenv("SENDGRID_API_KEY"),
+		AWSRegion:        os.Getenv("AWS_REGION"),
+	})
+	otpSender := authhttp.NewOTPSMSSender(otpNotiSvc)
+	otpCfg := authapp.OTPConfig{
+		TTL:                time.Duration(intFromEnv("OTP_TTL_SECONDS", 300)) * time.Second,
+		ResendCooldown:     time.Duration(intFromEnv("OTP_RESEND_COOLDOWN_SECONDS", 60)) * time.Second,
+		MaxAttempts:        intFromEnv("OTP_MAX_ATTEMPTS", 5),
+		MaxRequestsPerHour: intFromEnv("OTP_MAX_REQUESTS_PER_HOUR", 6),
+		CodeLength:         intFromEnv("OTP_CODE_LENGTH", 6),
+		HMACSecret:         os.Getenv("OTP_HMAC_SECRET"),
+	}
+
 	// Mount module routers
-	r.Mount("/", authhttp.NewRouter(db, authService, logger))
+	r.Mount("/", authhttp.NewRouter(db, authService, logger, otpSender, redisCache.RawClient(), otpCfg))
 
 	// Legal/consent module (Phase B/B2: admin-gated document management)
 	consentService := legalsvc.NewConsentService(db)
@@ -829,6 +849,19 @@ func durationFromEnv(key string, def time.Duration, logger *zap.Logger) time.Dur
 		return def
 	}
 	return d
+}
+
+// intFromEnv reads a positive integer environment override with a default.
+func intFromEnv(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }
 
 // splitCSV parses a comma-separated environment value into a trimmed,

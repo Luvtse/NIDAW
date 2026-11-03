@@ -7,10 +7,13 @@ import (
 	"strings"
 	"time"
 
+	authapp "nidaw-backend/internal/modules/auth/application"
 	"nidaw-backend/internal/shared/auth"
 	"nidaw-backend/internal/shared/database"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,6 +27,9 @@ type AuthHandler struct {
 	db          *database.Postgres
 	authService *auth.Service
 	logger      *zap.Logger
+	otpService  *authapp.OTPService
+	redis       *redis.Client
+	otpCfg      authapp.OTPConfig
 }
 
 // NewAuthHandler creates a new auth handler
@@ -36,6 +42,15 @@ func NewAuthHandler(db *database.Postgres, authService *auth.Service, logger *za
 		authService: authService,
 		logger:      logger,
 	}
+}
+
+// WithOTP equips the handler with the phone-OTP service and the raw Redis
+// client used for verification tickets. Returns the handler for chaining.
+func (h *AuthHandler) WithOTP(otp *authapp.OTPService, rdb *redis.Client, cfg authapp.OTPConfig) *AuthHandler {
+	h.otpService = otp
+	h.redis = rdb
+	h.otpCfg = cfg
+	return h
 }
 
 // ============================================================================
@@ -457,8 +472,8 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 }
 
 func isDuplicateKeyError(err error) bool {
-	return err != nil && (errors.Is(err, errors.New("duplicate key")) ||
-		err.Error() == "pq: duplicate key value violates unique constraint")
+	var pgErr *pgconn.PgError
+	return err != nil && errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // UpdateProfile handles PUT /api/v1/auth/profile.

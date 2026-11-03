@@ -1,0 +1,352 @@
+package application
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"strings"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// ============================================================================
+// OTP SERVICE — phone-number challenge codes (Auth roadmap Phase 2)
+//
+// Challenges live exclusively in Redis with TTLs; permanent records (the
+// verified timestamp on users) are written by the HTTP layer. Every challenge
+// is bound to the normalized phone number, the account type (rider|driver)
+// and the intended operation (login|register|recovery|substitute_invite), so
+// a code issued for one purpose can never satisfy another. Codes are stored
+// only as HMAC-SHA256 digests keyed by OTP_HMAC_SECRET — a Redis dump never
+// reveals live codes.
+// ============================================================================
+
+// OTPOperation enumerates the server-sanctioned purposes an OTP challenge may
+// be bound to. Clients cannot invent values; unknown operations are rejected.
+type OTPOperation string
+
+const (
+	OTPOpLogin            OTPOperation = "login"
+	OTPOpRegister         OTPOperation = "register"
+	OTPOpRecovery         OTPOperation = "recovery"
+	OTPOpSubstituteInvite OTPOperation = "substitute_invite"
+)
+
+func (o OTPOperation) valid() bool {
+	switch o {
+	case OTPOpLogin, OTPOpRegister, OTPOpRecovery, OTPOpSubstituteInvite:
+		return true
+	}
+	return false
+}
+
+// AccountType distinguishes rider vs driver challenges so a rider-purpose
+// code cannot authorize a driver login and vice versa.
+type AccountType string
+
+const (
+	AccountRider  AccountType = "rider"
+	AccountDriver AccountType = "driver"
+)
+
+func (a AccountType) IsValid() bool { return a == AccountRider || a == AccountDriver }
+
+// OTP errors. Handlers map these to neutral client-facing messages; none of
+// them reveal whether a phone number has an account.
+var (
+	ErrOTPCooldown      = errors.New("otp resend cooldown active")
+	ErrOTPTooManyReqs   = errors.New("otp request limit exceeded for this identity")
+	ErrOTPTooManyIP     = errors.New("otp request limit exceeded")
+	ErrOTPNoChallenge   = errors.New("no active otp challenge")
+	ErrOTPExpired       = errors.New("otp challenge expired")
+	ErrOTPMaxAttempts   = errors.New("otp attempt limit exceeded")
+	ErrOTPInvalidCode   = errors.New("otp code does not match")
+	ErrSMSDelivery      = errors.New("sms provider delivery failed")
+	ErrOTPInvalidParams = errors.New("invalid otp parameters")
+)
+
+// OTPConfig is injected from shared config; zero values fall back to safe
+// production defaults.
+type OTPConfig struct {
+	TTL                time.Duration // challenge lifetime (OTP_TTL_SECONDS)
+	ResendCooldown     time.Duration // minimum gap between sends (OTP_RESEND_COOLDOWN_SECONDS)
+	MaxAttempts        int           // wrong-code attempts before burn (OTP_MAX_ATTEMPTS)
+	MaxRequestsPerHour int           // per phone+op window (OTP_MAX_REQUESTS_PER_HOUR)
+	CodeLength         int           // digits (default 6)
+	HMACSecret         string        // OTP_HMAC_SECRET, >=32 chars enforced at config level
+}
+
+func (c OTPConfig) withDefaults() OTPConfig {
+	if c.TTL <= 0 {
+		c.TTL = 5 * time.Minute
+	}
+	if c.ResendCooldown <= 0 {
+		c.ResendCooldown = 60 * time.Second
+	}
+	if c.MaxAttempts <= 0 {
+		c.MaxAttempts = 5
+	}
+	if c.MaxRequestsPerHour <= 0 {
+		c.MaxRequestsPerHour = 6
+	}
+	if c.CodeLength <= 0 {
+		c.CodeLength = 6
+	}
+	if c.HMACSecret == "" {
+		c.HMACSecret = "insecure-dev-otp-secret-change-me-32b+"
+	}
+	return c
+}
+
+// SMSSender is the narrow port the OTP service needs from the notifications
+// integration (an adapter over MultiProviderNotificationService satisfies it).
+type SMSSender interface {
+	SendOTP(ctx context.Context, to, code string) error
+}
+
+// OTPService issues and verifies phone-bound OTP challenges in Redis.
+type OTPService struct {
+	rdb    *redis.Client
+	sender SMSSender
+	cfg    OTPConfig
+}
+
+// NewOTPService builds the service. A nil redis client or sender makes every
+// request fail explicitly (Available() == false) rather than silently
+// accepting any code.
+func NewOTPService(rdb *redis.Client, sender SMSSender, cfg OTPConfig) *OTPService {
+	return &OTPService{rdb: rdb, sender: sender, cfg: cfg.withDefaults()}
+}
+
+// Available reports whether the service can process challenges at all.
+func (s *OTPService) Available() bool { return s != nil && s.rdb != nil && s.sender != nil }
+
+// key derivation ---------------------------------------------------------------
+// All keys embed the triple (phone, account_type, operation) so challenges are
+// cryptographically scoped to their intended use.
+
+func otpKey(phone string, acct AccountType, op OTPOperation) string {
+	return fmt.Sprintf("auth:otp:%s:%s:%s", op, acct, phone)
+}
+func otpAttemptsKey(key string) string { return key + ":attempts" }
+func otpCooldownKey(key string) string { return key + ":cooldown" }
+func otpHourKey(key string) string     { return key + ":hour" }
+func otpBurnKey(key string) string     { return key + ":burned" }
+func otpIPKey(ip string, op OTPOperation) string {
+	return fmt.Sprintf("auth:otp:ip:%s:%s", ip, op)
+}
+
+// NormalizePhone canonicalizes E.164-ish input: strips spaces/dashes/parens
+// and legacy trunk-prefix artifacts (+25109... → +2519...), and enforces
+// length limits. Returns ("", false) for anything unusable so the handler can
+// emit a validation error without touching Redis.
+func NormalizePhone(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", false
+	}
+	var b strings.Builder
+	for _, r := range trimmed {
+		switch r {
+		case ' ', '-', '(', ')', '.':
+			continue
+		default:
+			b.WriteRune(r)
+		}
+	}
+	p := b.String()
+	if strings.HasPrefix(p, "+") {
+		rest := p[1:]
+		if len(rest) > 1 && rest[0] == '0' {
+			p = "+" + strings.TrimLeft(rest, "0")
+		}
+		digits := strings.TrimPrefix(p, "+")
+		if !allDigits(digits) {
+			return "", false
+		}
+		if len(digits) < 8 || len(digits) > 15 {
+			return "", false
+		}
+		return p, true
+	}
+	// Bare national formats are accepted only if purely numeric and plausible.
+	if !allDigits(p) {
+		return "", false
+	}
+	if len(p) < 9 || len(p) > 15 {
+		return "", false
+	}
+	return p, true
+}
+
+func allDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// generateCode returns a cryptographically random digit string of CodeLength.
+func (s *OTPService) generateCode() (string, error) {
+	max := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(s.cfg.CodeLength)), nil)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%0*d", s.cfg.CodeLength, n.Int64()), nil
+}
+
+// hashCode digests a code with the OTP secret; verification compares digests
+// in constant time so raw codes never persist server-side.
+func (s *OTPService) hashCode(code string) string {
+	mac := hmac.New(sha256.New, []byte(s.cfg.HMACSecret))
+	mac.Write([]byte(code))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// RequestResult communicates outcome without leaking identity existence.
+type RequestResult struct {
+	SentAt time.Time
+	TTL    time.Duration
+}
+
+// Request issues (or resends) a challenge for phone+account+operation.
+// Enforcement order: availability → parameter validity → burn state →
+// cooldown → hourly quota (per identity and per source IP) → generation →
+// store → SMS send. On SMS failure the challenge and cooldown are rolled back
+// so provider hiccups neither consume quota nor leave dangling codes.
+func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType, op OTPOperation, sourceIP string) (*RequestResult, error) {
+	if !s.Available() {
+		return nil, ErrSMSDelivery
+	}
+	if !acct.IsValid() || !op.valid() {
+		return nil, ErrOTPInvalidParams
+	}
+	key := otpKey(phone, acct, op)
+
+	// Burned identities must wait out the window before re-requesting.
+	if exists, _ := s.rdb.Exists(ctx, otpBurnKey(key)).Result(); exists > 0 {
+		return nil, ErrOTPMaxAttempts
+	}
+	// Cooldown between sends (prevents SMS bombing of one identity).
+	if exists, _ := s.rdb.Exists(ctx, otpCooldownKey(key)).Result(); exists > 0 {
+		return nil, ErrOTPCooldown
+	}
+	// Per-identity hourly quota.
+	hourKey := otpHourKey(key)
+	count, err := s.rdb.Incr(ctx, hourKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	if count == 1 {
+		_ = s.rdb.Expire(ctx, hourKey, time.Hour).Err()
+	}
+	if count > int64(s.cfg.MaxRequestsPerHour) {
+		return nil, ErrOTPTooManyReqs
+	}
+	// Per-IP quota across identities (abuse pump-brake).
+	ipKey := otpIPKey(sourceIP, op)
+	ipCount, err := s.rdb.Incr(ctx, ipKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	if ipCount == 1 {
+		_ = s.rdb.Expire(ctx, ipKey, time.Hour).Err()
+	}
+	if ipCount > int64(s.cfg.MaxRequestsPerHour*10) {
+		return nil, ErrOTPTooManyIP
+	}
+
+	code, err := s.generateCode()
+	if err != nil {
+		return nil, err
+	}
+	ttl := s.cfg.TTL
+	if err := s.rdb.Set(ctx, key, s.hashCode(code), ttl).Err(); err != nil {
+		return nil, err
+	}
+	// Reset attempt counter for the fresh challenge.
+	_ = s.rdb.Del(ctx, otpAttemptsKey(key)).Err()
+	// Start the resend cooldown.
+	if err := s.rdb.Set(ctx, otpCooldownKey(key), "1", s.cfg.ResendCooldown).Err(); err != nil {
+		return nil, err
+	}
+
+	if err := s.sender.SendOTP(ctx, phone, code); err != nil {
+		_ = s.rdb.Del(ctx, key, otpCooldownKey(key)).Err()
+		return nil, ErrSMSDelivery
+	}
+	return &RequestResult{SentAt: time.Now().UTC(), TTL: ttl}, nil
+}
+
+// Verify consumes a challenge on success (single-use). Failure modes are
+// distinguished so handlers can apply consistent lockout semantics. Replays
+// of a consumed code hit ErrOTPNoChallenge because the digest is deleted
+// atomically with the success return.
+func (s *OTPService) Verify(ctx context.Context, phone, code string, acct AccountType, op OTPOperation) error {
+	if !s.Available() {
+		return ErrSMSDelivery
+	}
+	if !acct.IsValid() || !op.valid() {
+		return ErrOTPInvalidParams
+	}
+	key := otpKey(phone, acct, op)
+
+	if exists, _ := s.rdb.Exists(ctx, otpBurnKey(key)).Result(); exists > 0 {
+		return ErrOTPMaxAttempts
+	}
+	stored, err := s.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return ErrOTPNoChallenge
+	}
+	if err != nil {
+		return err
+	}
+
+	attempts, err := s.rdb.Incr(ctx, otpAttemptsKey(key)).Result()
+	if err != nil {
+		return err
+	}
+	if attempts == 1 {
+		// Attempt counter should not outlive the challenge itself.
+		if ttl, terr := s.rdb.TTL(ctx, key).Result(); terr == nil && ttl > 0 {
+			_ = s.rdb.Expire(ctx, otpAttemptsKey(key), ttl).Err()
+		}
+	}
+	if int(attempts) > s.cfg.MaxAttempts {
+		// Burn the identity window: drop the challenge and forbid further
+		// attempts until the hourly quota resets.
+		burnTTL := 15 * time.Minute
+		if remaining, rerr := s.rdb.TTL(ctx, otpHourKey(key)).Result(); rerr == nil && remaining > 0 {
+			burnTTL = remaining
+		}
+		_ = s.rdb.Del(ctx, key).Err()
+		_ = s.rdb.Set(ctx, otpBurnKey(key), "1", burnTTL).Err()
+		return ErrOTPMaxAttempts
+	}
+
+	given := s.hashCode(strings.TrimSpace(code))
+	if subtle.ConstantTimeCompare([]byte(given), []byte(stored)) != 1 {
+		return ErrOTPInvalidCode
+	}
+
+	// Success: single-use consumption (delete challenge + counters) before
+	// returning.
+	pipe := s.rdb.TxPipeline()
+	pipe.Del(ctx, key)
+	pipe.Del(ctx, otpAttemptsKey(key))
+	pipe.Del(ctx, otpCooldownKey(key))
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}
