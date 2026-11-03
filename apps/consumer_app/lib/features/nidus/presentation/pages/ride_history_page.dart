@@ -20,10 +20,29 @@ class RideHistoryPage extends StatefulWidget {
 class _RideHistoryPageState extends State<RideHistoryPage> {
   String _selectedFilter = 'all';
 
+  /// Phase 5 (chip round-trip): true once this visit has resolved its first
+  /// post-dispatch history result. Drives the "Ride history updated" toast —
+  /// the initial load on entry is not a refresh and must not announce one.
+  bool _refreshPending = false;
+
+  /// Phase 5: last transient OfflineRefreshBlockedState identity, so repeated
+  /// blocked pulls while offline toast exactly once per block event.
+  RideState? _lastSeenBlocked;
+
   @override
   void initState() {
     super.initState();
-    context.read<RideBloc>().add(const LoadRideHistory());
+    // Phase 5 (chip round-trip): seed the chips from the bloc's RETAINED
+    // filter instead of resetting to 'all' on every entry. The bloc keeps
+    // the rider's active filter in state (_historyStatusFilter), so leaving
+    // for a receipt/tracking page and coming back shows the same filtered
+    // list the rider left — no silent reset. Null retained filter maps to
+    // the 'all' chip.
+    final bloc = context.read<RideBloc>();
+    _selectedFilter = bloc.historyStatusFilter ?? 'all';
+    // Plain dispatch (status omitted) now means "keep the retained filter"
+    // (Phase 5 bloc semantics) — re-entry reloads the SAME slice.
+    bloc.add(const LoadRideHistory());
   }
 
   @override
@@ -37,85 +56,162 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
         backgroundColor: AppColors.surface,
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // Filter chips
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            // §4.4: theme token (was hardcoded Colors.white).
-            color: AppColors.surface,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Phase 1 §3: chip labels route through the ARB catalog
-                  // (were hardcoded English literals). Phase 4 accessibility:
-                  // each chip now carries a semantic action hint so screen
-                  // readers announce what selecting it does, not just its
-                  // short label ("All", "Completed").
-                  _buildFilterChip('all', context.l10n.historyFilterAll,
-                      semanticsLabel: context.l10n.historyFilterAllLabel),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(
-                      'completed', context.l10n.historyFilterCompleted,
-                      semanticsLabel:
-                          context.l10n.historyFilterCompletedLabel),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(
-                      'cancelled', context.l10n.historyFilterCancelled,
-                      semanticsLabel:
-                          context.l10n.historyFilterCancelledLabel),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(
-                      'in_progress', context.l10n.historyFilterInProgress,
-                      semanticsLabel:
-                          context.l10n.historyFilterInProgressLabel),
-                ],
+      body: BlocConsumer<RideBloc, RideState>(
+        // Phase 5 (connectivity honesty): the bloc's LoadRideHistory handler
+        // routes offline pulls to OfflineRefreshBlocked instead of spinning
+        // into a generic error. Announce the block once per event; every
+        // successful post-pull reload announces "Ride history updated".
+        listener: (context, state) {
+          if (state is OfflineRefreshBlockedState) {
+            if (!identical(state, _lastSeenBlocked)) {
+              _lastSeenBlocked = state;
+              _showHistoryToast(context, context.l10n.historyOfflineBanner);
+            }
+            return;
+          }
+          if (_refreshPending && state is RideHistoryLoaded) {
+            _refreshPending = false;
+            _showHistoryToast(context, context.l10n.historyRefreshed);
+          } else if (state is not RideLoading) {
+            // Any settled non-loaded outcome (error, foreign state) ends a
+            // pending pull without a success toast — never claim freshness
+            // the fetch did not deliver.
+            _refreshPending = false;
+          }
+        },
+        builder: (context, state) {
+          final content = Column(
+            children: [
+              // Filter chips
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                // §4.4: theme token (was hardcoded Colors.white).
+                color: AppColors.surface,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Phase 1 §3: chip labels route through the ARB catalog
+                      // (were hardcoded English literals). Phase 4 accessibility:
+                      // each chip now carries a semantic action hint so screen
+                      // readers announce what selecting it does, not just its
+                      // short label ("All", "Completed").
+                      _buildFilterChip('all', context.l10n.historyFilterAll,
+                          semanticsLabel: context.l10n.historyFilterAllLabel),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                          'completed', context.l10n.historyFilterCompleted,
+                          semanticsLabel:
+                              context.l10n.historyFilterCompletedLabel),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                          'cancelled', context.l10n.historyFilterCancelled,
+                          semanticsLabel:
+                              context.l10n.historyFilterCancelledLabel),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                          'in_progress', context.l10n.historyFilterInProgress,
+                          semanticsLabel:
+                              context.l10n.historyFilterInProgressLabel),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Ride list
+              Expanded(
+                child: BlocBuilder<RideBloc, RideState>(
+                  builder: (context, state) {
+                    if (state is RideLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (state is RideHistoryLoaded) {
+                      if (state.rides.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: state.rides.length,
+                        itemBuilder: (context, index) {
+                          return _buildRideCard(state.rides[index]);
+                        },
+                      );
+                    }
+
+                    if (state is RideError) {
+                      return _buildErrorState(state.message);
+                    }
+
+                    // Phase 1 §3 (history loading/empty conflation): every
+                    // pre-load state — RideInitial, or any foreign bloc state
+                    // arriving before our first LoadRideHistory result lands —
+                    // renders the skeleton, NEVER a 'No rides found' message.
+                    // The old fallback here showed a false empty state during
+                    // the initial frame and whenever the shared RideBloc was in
+                    // an unrelated state, which read as "your history is gone".
+                    return _buildLoadingSkeleton();
+                  },
+                ),
+              ),
+            ],
+          );
+
+          // Phase 5 (pull-to-refresh): the whole surface sits under a
+          // RefreshIndicator so recovery is a gesture, not a re-navigation.
+          // A pull dispatches LoadRideHistory WITHOUT an explicit status —
+          // the bloc retains the rider's active filter (Phase 5 chip
+          // round-trip) — and while the settled verdict says offline the
+          // bloc routes the pull to OfflineRefreshBlocked (honest "not
+          // refreshed" toast above; retained rows stay on screen) instead of
+          // a doomed network call. OfflineRefreshBlocked is an EVENT, not a
+          // state, so currentIsOffline is the honest gate for stopping the
+          // spinner immediately rather than letting it hang until the bloc
+          // settles.
+          return RefreshIndicator(
+            onRefresh: () async {
+              final bloc = context.read<RideBloc>();
+              _refreshPending = true;
+              bloc.add(const LoadRideHistory());
+              if (bloc.currentIsOffline == true) {
+                // Blocked synchronously by the handler — nothing to await.
+                _showHistoryToast(context, context.l10n.historyOfflineBanner);
+                return;
+              }
+              await bloc.stream
+                  .firstWhere((s) => s is! RideLoading)
+                  .timeout(
+                    const Duration(seconds: 20),
+                    onTimeout: () => bloc.state,
+                  );
+            },
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: content,
+                ),
               ),
             ),
-          ),
-
-          // Ride list
-          Expanded(
-            child: BlocBuilder<RideBloc, RideState>(
-              builder: (context, state) {
-                if (state is RideLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (state is RideHistoryLoaded) {
-                  if (state.rides.isEmpty) {
-                    return _buildEmptyState();
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: state.rides.length,
-                    itemBuilder: (context, index) {
-                      return _buildRideCard(state.rides[index]);
-                    },
-                  );
-                }
-
-                if (state is RideError) {
-                  return _buildErrorState(state.message);
-                }
-
-                // Phase 1 §3 (history loading/empty conflation): every
-                // pre-load state — RideInitial, or any foreign bloc state
-                // arriving before our first LoadRideHistory result lands —
-                // renders the skeleton, NEVER a 'No rides found' message.
-                // The old fallback here showed a false empty state during
-                // the initial frame and whenever the shared RideBloc was in
-                // an unrelated state, which read as "your history is gone".
-                return _buildLoadingSkeleton();
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  /// Transient confirmation toast (Phase 5). Non-destructive information —
+  /// per the roadmap convention durable outcomes get banners, one-off
+  /// refresh acknowledgements stay snackbars.
+  void _showHistoryToast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+      ));
   }
 
   /// Skeleton placeholder for pre-load states. Mirrors the ride-card layout
