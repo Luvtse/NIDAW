@@ -235,6 +235,10 @@ class AppRouter {
             name: RouteNames.rideTracking,
             builder: (context, state) {
               final rideId = state.pathParameters['rideId']!;
+              // Phase 6: the tracking page owns its bloc and hands it to the
+              // Safety Toolkit route via `extra` (see _pushSafetyToolkit in
+              // ride_tracking_page.dart), so the toolkit must NOT create a
+              // fresh one when pushed from an active trip.
               return BlocProvider(
                 create: (_) => _rideBlocFactory(),
                 child: RideTrackingPage(rideId: rideId),
@@ -716,6 +720,146 @@ class _ErrorPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ============================================================================
+// PHASE 6 (nav consistency): receipt deep-link loader
+// ============================================================================
+
+/// Route-level wrapper for `/nidus/receipt/:rideId`.
+///
+/// Receipt deep-links must NOT assume a live bloc: the ride entity arrives
+/// either via `extra` (fast path from tracking, which holds the completed
+/// Ride in hand) or by loading GET /rides/{id} through the repository
+/// (cold deep link / web URL). While loading we show an honest skeleton —
+/// never a false 'not found' (Phase-1 rule: pre-load states are skeletons,
+/// not empty/error copy). On null/failure we surface a localized, retryable
+/// error state rather than silently popping.
+class _ReceiptRoute extends StatefulWidget {
+  const _ReceiptRoute({required this.rideId, this.preloadedRide});
+
+  final String rideId;
+  final Ride? preloadedRide;
+
+  @override
+  State<_ReceiptRoute> createState() => _ReceiptRouteState();
+}
+
+class _ReceiptRouteState extends State<_ReceiptRoute> {
+  late Future<Ride?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<Ride?> _load() async {
+    try {
+      return await getIt<RideRepository>().getRide(widget.rideId);
+    } catch (_) {
+      // Failure and absence render the same honest, retryable state; the
+      // raw error is intentionally swallowed at the primary surface (it may
+      // leak transport details), matching the Phase-1 error-copy rule.
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.preloadedRide != null) {
+      return ReceiptDetailPage(ride: widget.preloadedRide!);
+    }
+    return FutureBuilder<Ride?>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: SafeArea(child: _ReceiptLoadingSkeleton()),
+          );
+        }
+        final ride = snapshot.data;
+        if (ride == null) {
+          final l10n = context.l10n;
+          return Scaffold(
+            appBar: AppBar(title: Text(l10n.receiptTitle)),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.receipt_long,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.receiptLoadFailedTitle,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.receiptLoadFailedBody,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: () => setState(() => _future = _load()),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.commonRetry),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return ReceiptDetailPage(ride: ride);
+      },
+    );
+  }
+}
+
+/// Minimal static skeleton mirroring the receipt layout while the ride
+/// loads (no shimmer dependency here — keeps the router file light; the
+/// history page's richer skeleton stays where it lives).
+class _ReceiptLoadingSkeleton extends StatelessWidget {
+  const _ReceiptLoadingSkeleton();
+
+  Widget _bar(BuildContext context, double width, {double height = 16}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        _bar(context, 160, height: 28),
+        const SizedBox(height: 24),
+        _bar(context, double.infinity, height: 96),
+        const SizedBox(height: 16),
+        _bar(context, 220),
+        const SizedBox(height: 12),
+        _bar(context, 180),
+        const SizedBox(height: 12),
+        _bar(context, 200),
+        const SizedBox(height: 24),
+        _bar(context, double.infinity, height: 48),
+      ],
     );
   }
 }
