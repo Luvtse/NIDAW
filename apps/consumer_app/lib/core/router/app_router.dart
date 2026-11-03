@@ -37,14 +37,18 @@ import '../../features/profile/presentation/pages/consent_management_page.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/nidus/presentation/pages/ar_navigation_page.dart';
+import '../../features/nidus/presentation/pages/chat_page.dart';
+import '../../features/nidus/presentation/pages/receipt_detail_page.dart';
 import '../config/feature_flag_service.dart';
+import '../flags/ar_navigation_gate.dart';
 import '../startup/app_startup_coordinator.dart' show hasStartupCoordinator;
 import '../constants/app_constants.dart';
 
 /// Phase 6 (nav consistency): the AR gate + per-install rollout id now live
 /// in core/flags/ar_navigation_gate.dart as the single source of truth,
 /// shared by this router's redirect and the tracking page's entry button.
-/// (Previously both files carried hand-copied copies of this logic.)
+/// (Previously both files carried hand-copied copies of this logic — the
+/// router had its own `_resolveInstallId` private helper, which is gone.)
 
 // ============================================================================
 // ROUTE NAMES (for type-safe navigation)
@@ -60,6 +64,12 @@ class RouteNames {
   static const String rideArNavigation = 'rideArNavigation';
   static const String rideHistory = 'rideHistory';
   static const String safetyToolkit = 'safetyToolkit';
+  // Phase 6 (nav consistency): chat & receipt were long pushed as raw
+  // MaterialPageRoutes from tracking — invisible to deep links, flag gates
+  // and web URL sync. They are first-class GoRouter routes now; these names
+  // must stay byte-identical to ChatPage.routeName ('nidusChat').
+  static const String rideChat = 'nidusChat';
+  static const String rideReceipt = 'nidusReceipt';
   static const String hotelSearch = 'hotelSearch';
   static const String hotelDetail = 'hotelDetail';
   static const String booking = 'booking';
@@ -242,12 +252,12 @@ class AppRouter {
             path: '/nidus/ar-nav/:rideId',
             name: RouteNames.rideArNavigation,
             redirect: (context, state) async {
-              if (!AppConstants.enableARNavigation) {
-                return '/nidus/tracking/${state.pathParameters['rideId']}';
-              }
-              final flags = GetIt.instance<FeatureFlagService>();
-              final deviceId = await _resolveInstallId();
-              if (!flags.isEnabled('ar_navigation', deviceId: deviceId)) {
+              // Phase 6: single source of truth. ArNavigationGate.resolve()
+              // applies the compile switch AND the runtime flag against the
+              // same install bucket the tracking-page entry button uses
+              // (previously this redirect and the button each carried a
+              // hand-copied version of the logic).
+              if (!await ArNavigationGate.resolve()) {
                 return '/nidus/tracking/${state.pathParameters['rideId']}';
               }
               final hasDestination =
