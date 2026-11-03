@@ -9,6 +9,7 @@ This directory contains the maintained engineering documentation for the reposit
 - [Database and data ownership](architecture/database-and-data-ownership.md)
 - [API and event contracts](architecture/api-and-event-contracts.md)
 - [Deployment architecture](architecture/deployment-architecture.md)
+- [Authentication, security & driver substitute implementation map](architecture/auth-substitute-implementation-map.md)
 
 ## Products
 
