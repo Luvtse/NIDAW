@@ -1,14 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../di/injection.dart' show getIt;
 import 'package:go_router/go_router.dart';
-import 'package:hive/hive.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -45,37 +41,10 @@ import '../config/feature_flag_service.dart';
 import '../startup/app_startup_coordinator.dart' show hasStartupCoordinator;
 import '../constants/app_constants.dart';
 
-/// Stable per-install identifier used for deterministic feature-flag rollout
-/// bucketing (see FeatureFlagService.isEnabled). Generated once on first
-/// access and persisted in the already-open 'settings' Hive box. A random
-/// UUID-like value — never a real device fingerprint — so it carries no PII;
-/// reinstalling re-rolls the bucket, which is acceptable for rollout gates.
-String? _cachedInstallId;
-Future<String?> _resolveInstallId() async {
-  if (_cachedInstallId != null) return _cachedInstallId;
-  try {
-    final box = Hive.box('settings');
-    var id = box.get('install_id') as String?;
-    if (id == null || id.isEmpty) {
-      id = _generateOpaqueId();
-      await box.put('install_id', id);
-    }
-    _cachedInstallId = id;
-    return id;
-  } catch (_) {
-    // Hive unavailable (tests, corrupted store): fall back to an in-memory
-    // id so flag evaluation stays stable for this session at worst.
-    final id = _generateOpaqueId();
-    _cachedInstallId = id;
-    return id;
-  }
-}
-
-String _generateOpaqueId() {
-  final rand = math.Random.secure();
-  final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
-  return base64Url.encode(bytes).replaceAll('=', '');
-}
+/// Phase 6 (nav consistency): the AR gate + per-install rollout id now live
+/// in core/flags/ar_navigation_gate.dart as the single source of truth,
+/// shared by this router's redirect and the tracking page's entry button.
+/// (Previously both files carried hand-copied copies of this logic.)
 
 // ============================================================================
 // ROUTE NAMES (for type-safe navigation)
