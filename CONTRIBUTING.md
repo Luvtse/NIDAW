@@ -226,6 +226,7 @@ Brief description of changes
 - [ ] No new warnings
 - [ ] Tests pass locally
 - [ ] Changelog updated
+- [ ] Nidus surfaces: `apps/consumer_app/docs/nidus_surface_checklist.md` items 1–10 marked "applies / n-a (why)" for every touched file under `features/nidus/**`
 
 ## Screenshots
 (if applicable)
@@ -238,6 +239,7 @@ Automated checks must pass (CI/CD)
 Code review by at least 2 maintainers
 Security review for sensitive changes
 Performance review for performance-critical changes
+Nidus UI/UX changes are reviewed against the Nidus Surface Checklist (`apps/consumer_app/docs/nidus_surface_checklist.md`, Phase 7): route via RouteNames, l10n-wrapped strings, Semantics on custom gestures, RefreshIndicator on lists, honest avatar degradation, persistent banners for durable outcomes, skeleton-not-empty for pre-load states. New or changed Nidus surfaces must conform on first pass.
 🧪 Testing Guidelines
 Test Coverage Requirements
 Backend (Go): Minimum 80% coverage
