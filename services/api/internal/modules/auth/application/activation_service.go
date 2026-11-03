@@ -79,10 +79,18 @@ type dbLike interface {
 	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
 }
 
+// ActivationTx is the slice of *database.Tx this service needs inside one
+// activation transaction.
+type ActivationTx interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
+
 // TxBeginner is satisfied by *database.Postgres: activation flag flips run in
 // a single transaction so consent checks and the durable record stay atomic.
 type TxBeginner interface {
-	Begin(ctx context.Context) (*database.Tx, error)
+	Begin(ctx context.Context) (ActivationTx, error)
 }
 
 func NewActivationService(db dbLike) *ActivationService {
