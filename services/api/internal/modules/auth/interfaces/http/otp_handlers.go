@@ -11,7 +11,6 @@ import (
 	authapp "nidaw-backend/internal/modules/auth/application"
 	sharedauth "nidaw-backend/internal/shared/auth"
 
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
