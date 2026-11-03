@@ -5,6 +5,7 @@ import (
 	"time"
 
 	authapp "nidaw-backend/internal/modules/auth/application"
+	legalsvc "nidaw-backend/internal/modules/legal/application/services"
 	"nidaw-backend/internal/shared/auth"
 	"nidaw-backend/internal/shared/database"
 	"nidaw-backend/internal/shared/middleware"
@@ -30,6 +31,35 @@ func NewRouter(
 	rdb *redis.Client,
 	otpCfg authapp.OTPConfig,
 ) http.Handler {
+	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, nil, nil)
+}
+
+// NewRouterWithOnboarding is NewRouter plus the rider-activation wiring
+// (Phase 3): the activation service and the legal module's consent service.
+// Passing nil leaves the onboarding endpoints answering 503.
+func NewRouterWithOnboarding(
+	db *database.Postgres,
+	authService *auth.Service,
+	logger *zap.Logger,
+	otpSender authapp.SMSSender,
+	rdb *redis.Client,
+	otpCfg authapp.OTPConfig,
+	activation *authapp.ActivationService,
+	consent *legalsvc.ConsentService,
+) http.Handler {
+	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent)
+}
+
+func newRouter(
+	db *database.Postgres,
+	authService *auth.Service,
+	logger *zap.Logger,
+	otpSender authapp.SMSSender,
+	rdb *redis.Client,
+	otpCfg authapp.OTPConfig,
+	activation *authapp.ActivationService,
+	consent *legalsvc.ConsentService,
+) http.Handler {
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -46,7 +76,7 @@ func NewRouter(
 	// Initialize handler
 	handler := NewAuthHandler(db, authService, logger).WithOTP(
 		authapp.NewOTPService(rdb, otpSender, otpCfg), rdb, otpCfg,
-	)
+	).WithOnboarding(activation, consent)
 
 	// ========================================================================
 	// PUBLIC ROUTES (no auth required)
@@ -72,6 +102,14 @@ func NewRouter(
 		r.Post("/api/v1/auth/logout", handler.Logout)
 		r.Put("/api/v1/auth/profile", handler.UpdateProfile)
 		r.Post("/api/v1/auth/change-password", handler.ChangePassword)
+
+		// Rider onboarding / activation (Phase 3). The consent endpoints get a
+		// tighter limiter than the global one because each ticket request
+		// consumes an OTP verification attempt.
+		onboardingLimiter := middleware.RateLimit(20, time.Minute)
+		r.Get("/api/v1/auth/onboarding-status", handler.OnboardingStatusHandler)
+		r.With(onboardingLimiter).Post("/api/v1/auth/onboarding/consent-ticket", handler.ConsentTicketHandler)
+		r.With(onboardingLimiter).Post("/api/v1/auth/onboarding/complete", handler.CompleteOnboardingHandler)
 	})
 
 	// ========================================================================

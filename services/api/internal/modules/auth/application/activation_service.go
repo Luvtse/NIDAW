@@ -27,9 +27,9 @@ import (
 // ============================================================================
 
 var (
-	ErrActivationStore   = errors.New("activation store unavailable")
-	ErrActivationUser    = errors.New("account not found for activation")
-	ErrNoActiveDocument  = errors.New("no active legal document for type")
+	ErrActivationStore  = errors.New("activation store unavailable")
+	ErrActivationUser   = errors.New("account not found for activation")
+	ErrNoActiveDocument = errors.New("no active legal document for type")
 )
 
 // defaultRequiredAgreements is the fallback rider activation set used only
@@ -87,10 +87,54 @@ type ActivationTx interface {
 	Rollback(ctx context.Context) error
 }
 
-// TxBeginner is satisfied by *database.Postgres: activation flag flips run in
-// a single transaction so consent checks and the durable record stay atomic.
+// TxBeginner is what activation flag flips run through: a single transaction
+// per flip keeps the guarded UPDATE and its audit row atomic. The concrete
+// Postgres facade returns *database.Tx rather than this interface, so callers
+// adapt it with NewPostgresTxBeginner at composition time.
 type TxBeginner interface {
 	Begin(ctx context.Context) (ActivationTx, error)
+}
+
+// RawTx is the slice of *database.Tx (or any pgx-compatible transaction) the
+// adapter needs; kept structural so the application package never imports the
+// infrastructure package.
+type RawTx interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
+
+// postgresTxAdapter exposes a raw transaction as ActivationTx. Commit and
+// Rollback are idempotent because markActivated defers Rollback after Commit.
+type postgresTxAdapter struct{ raw RawTx }
+
+func (a *postgresTxAdapter) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
+	return a.raw.Exec(ctx, sql, args...)
+}
+
+func (a *postgresTxAdapter) Commit(ctx context.Context) error { return a.raw.Commit(ctx) }
+
+func (a *postgresTxAdapter) Rollback(ctx context.Context) error { return a.raw.Rollback(ctx) }
+
+// NewPostgresTxBeginner adapts the shared Postgres facade to the transactional
+// activation writer. Go interfaces are not structurally assignable through a
+// method's concrete return type, so callers pass a closure that wraps db.Begin
+// and returns the concrete transaction as the structural RawTx interface —
+// the application package never imports the database package.
+func NewPostgresTxBeginner(starter func(context.Context) (RawTx, error)) TxBeginner {
+	return &closureTxStarter{begin: starter}
+}
+
+type closureTxStarter struct {
+	begin func(context.Context) (RawTx, error)
+}
+
+func (c *closureTxStarter) Begin(ctx context.Context) (ActivationTx, error) {
+	raw, err := c.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &postgresTxAdapter{raw: raw}, nil
 }
 
 func NewActivationService(db dbLike) *ActivationService {
@@ -182,12 +226,12 @@ func (s *ActivationService) Status(ctx context.Context, userID uuid.UUID) (*Acti
 	// and the user's stored consent (if any).
 	for _, dt := range reqTypes {
 		var (
-			docID               string
-			title, version      string
-			requiresReconsent   bool
-			ucGiven             bool
-			ucAt                *time.Time
-			ucVersion           *string
+			docID             string
+			title, version    string
+			requiresReconsent bool
+			ucGiven           bool
+			ucAt              *time.Time
+			ucVersion         *string
 		)
 		err := s.db.QueryRow(ctx, `
 			SELECT ld.id, ld.title, ld.version, ld.requires_reconsent,
