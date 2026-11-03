@@ -2017,3 +2017,33 @@ class _PriceExtensionOption extends StatelessWidget {
     );
   }
 }
+
+/// Immutable backing data for the page-local durable-outcome banner
+/// (Phase 6 error-surface rule). Parked via `_showDurableBanner`, rendered by
+/// `_buildDurableBanner`, and cleared on dismiss or after its action runs.
+/// Destructive or money-relevant failures use this surface instead of a
+/// timer-based snackbar so the outcome persists until acknowledged.
+class _DurableBannerData {
+  const _DurableBannerData({
+    required this.title,
+    required this.body,
+    this.detail,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  /// Localized headline (primary, rider's language).
+  final String title;
+
+  /// Localized explanation of what failed and what it means for the rider.
+  final String body;
+
+  /// Raw server message, demoted to a secondary detail line — never primary.
+  final String? detail;
+
+  /// Label for the recovery action (e.g. Retry). Null → no action button.
+  final String? actionLabel;
+
+  /// Callback invoked after the banner is cleared. Null → no action button.
+  final VoidCallback? onAction;
+}
