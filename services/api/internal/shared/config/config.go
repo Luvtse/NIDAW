@@ -518,6 +518,14 @@ func (c *Config) Validate() error {
 		if len(c.Auth.JWTSecret) < 32 {
 			errors = append(errors, "JWT_SECRET must be at least 32 characters in production")
 		}
+		// OTP codes are stored only as HMAC digests; a weak or default secret
+		// would let anyone with DB/Redis read access brute-force live codes.
+		switch s := os.Getenv("OTP_HMAC_SECRET"); {
+		case s == "":
+			errors = append(errors, "OTP_HMAC_SECRET is required in production")
+		case len(s) < 32:
+			errors = append(errors, "OTP_HMAC_SECRET must be at least 32 characters in production")
+		}
 		// Phase B/B4: credentialed CORS with a wildcard origin is unsafe; require explicit allowlist.
 		for _, o := range c.Server.CORSOrigins {
 			if o == "*" {

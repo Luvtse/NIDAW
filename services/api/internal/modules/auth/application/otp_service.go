@@ -87,7 +87,7 @@ func (c OTPConfig) withDefaults() OTPConfig {
 	if c.TTL <= 0 {
 		c.TTL = 5 * time.Minute
 	}
-	if c.ResendCooldown <= 0 {
+	if c.ResendCooldown < 0 {
 		c.ResendCooldown = 60 * time.Second
 	}
 	if c.MaxAttempts <= 0 {
@@ -164,26 +164,27 @@ func NormalizePhone(raw string) (string, bool) {
 	p := b.String()
 	if strings.HasPrefix(p, "+") {
 		rest := p[1:]
-		if len(rest) > 1 && rest[0] == '0' {
-			p = "+" + strings.TrimLeft(rest, "0")
-		}
-		digits := strings.TrimPrefix(p, "+")
-		if !allDigits(digits) {
+		if !allDigits(rest) {
 			return "", false
 		}
+		// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
+		// zero between the country code and the subscriber number. Only one
+		// zero is stripped; genuine numbers never start with 0 after '+'.
+		if len(rest) > 11 && rest[0] == '0' {
+			rest = rest[1:]
+		}
+		digits := rest
 		if len(digits) < 8 || len(digits) > 15 {
 			return "", false
 		}
-		return p, true
+		return "+" + digits, true
 	}
-	// Bare national formats are accepted only if purely numeric and plausible.
-	if !allDigits(p) {
-		return "", false
+	// International format without the '+' sign (e.g. "251911223344").
+	// Bare national formats are rejected as ambiguous without a country code.
+	if allDigits(p) && len(p) >= 10 && len(p) <= 16 && (p[0] == '1' || p[0] == '2') {
+		return "+" + p, true
 	}
-	if len(p) < 9 || len(p) > 15 {
-		return "", false
-	}
-	return p, true
+	return "", false
 }
 
 func allDigits(s string) bool {
@@ -219,11 +220,21 @@ type RequestResult struct {
 	TTL    time.Duration
 }
 
+// reserveQuota atomically consumes one unit of an hourly counter, setting the
+// TTL only when the key is freshly created. It returns the post-increment
+// count; callers roll back with Decr when the limit would be exceeded so
+// rejected requests never consume quota.
+func (s *OTPService) reserveQuota(ctx context.Context, key string) (int64, error) {
+	const script = `local c = redis.call('INCR', KEYS[1]) if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return c`
+	return s.rdb.Eval(ctx, script, []string{key}, int(time.Hour.Seconds())).Int64()
+}
+
 // Request issues (or resends) a challenge for phone+account+operation.
 // Enforcement order: availability → parameter validity → burn state →
 // cooldown → hourly quota (per identity and per source IP) → generation →
-// store → SMS send. On SMS failure the challenge and cooldown are rolled back
-// so provider hiccups neither consume quota nor leave dangling codes.
+// store → SMS send. On SMS failure the challenge, cooldown, and any consumed
+// quota are rolled back so provider hiccups neither burn quota nor leave
+// dangling codes.
 func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType, op OTPOperation, sourceIP string) (*RequestResult, error) {
 	if !s.Available() {
 		return nil, ErrSMSDelivery
@@ -237,32 +248,33 @@ func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType
 	if exists, _ := s.rdb.Exists(ctx, otpBurnKey(key)).Result(); exists > 0 {
 		return nil, ErrOTPMaxAttempts
 	}
-	// Cooldown between sends (prevents SMS bombing of one identity).
-	if exists, _ := s.rdb.Exists(ctx, otpCooldownKey(key)).Result(); exists > 0 {
+	// Cooldown between sends (prevents SMS bombing of one identity). The
+	// key spans the challenge window and is deleted on successful Verify,
+	// so a consumed code never blocks requesting the next one; while a
+	// challenge is outstanding, only ResendCooldown seconds must elapse.
+	if ttl, terr := s.rdb.TTL(ctx, otpCooldownKey(key)).Result(); terr == nil && ttl > 0 && ttl < s.cfg.ResendCooldown {
 		return nil, ErrOTPCooldown
 	}
 	// Per-identity hourly quota.
 	hourKey := otpHourKey(key)
-	count, err := s.rdb.Incr(ctx, hourKey).Result()
+	count, err := s.reserveQuota(ctx, hourKey)
 	if err != nil {
 		return nil, err
 	}
-	if count == 1 {
-		_ = s.rdb.Expire(ctx, hourKey, time.Hour).Err()
-	}
 	if count > int64(s.cfg.MaxRequestsPerHour) {
+		_ = s.rdb.Decr(ctx, hourKey).Err()
 		return nil, ErrOTPTooManyReqs
 	}
 	// Per-IP quota across identities (abuse pump-brake).
 	ipKey := otpIPKey(sourceIP, op)
-	ipCount, err := s.rdb.Incr(ctx, ipKey).Result()
+	ipCount, err := s.reserveQuota(ctx, ipKey)
 	if err != nil {
+		_ = s.rdb.Decr(ctx, hourKey).Err()
 		return nil, err
 	}
-	if ipCount == 1 {
-		_ = s.rdb.Expire(ctx, ipKey, time.Hour).Err()
-	}
 	if ipCount > int64(s.cfg.MaxRequestsPerHour*10) {
+		_ = s.rdb.Decr(ctx, hourKey).Err()
+		_ = s.rdb.Decr(ctx, ipKey).Err()
 		return nil, ErrOTPTooManyIP
 	}
 
@@ -276,13 +288,18 @@ func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType
 	}
 	// Reset attempt counter for the fresh challenge.
 	_ = s.rdb.Del(ctx, otpAttemptsKey(key)).Err()
-	// Start the resend cooldown.
-	if err := s.rdb.Set(ctx, otpCooldownKey(key), "1", s.cfg.ResendCooldown).Err(); err != nil {
+	// Start the resend cooldown. The key lives for the whole challenge TTL;
+	// Verify deletes it on success so a fresh challenge can be requested
+	// immediately after one is consumed, while ResendCooldown governs the
+	// minimum gap between sends to one identity.
+	if err := s.rdb.Set(ctx, otpCooldownKey(key), "1", ttl).Err(); err != nil {
 		return nil, err
 	}
 
 	if err := s.sender.SendOTP(ctx, phone, code); err != nil {
 		_ = s.rdb.Del(ctx, key, otpCooldownKey(key)).Err()
+		_ = s.rdb.Decr(ctx, hourKey).Err()
+		_ = s.rdb.Decr(ctx, ipKey).Err()
 		return nil, ErrSMSDelivery
 	}
 	return &RequestResult{SentAt: time.Now().UTC(), TTL: ttl}, nil
