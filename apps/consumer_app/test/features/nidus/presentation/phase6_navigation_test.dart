@@ -378,8 +378,12 @@ void main() {
       // showDialog are intentional modal surfaces — only the raw Navigator
       // push API and MaterialPageRoute are banned here (context.push /
       // context.pushNamed are go_router's own methods and stay).
-      expect(RegExp(r'Navigator\s*(\.\w+)?\s*\.\s*push').hasMatch(src),
-          isFalse,
+      // `Navigator.pop` (dialog dismiss, leave-tracking confirmation, the
+      // Phase-1 explicit-ejection path) stays legitimate — only PUSH API
+      // sites are banned. Strip pops first so a false negative here can
+      // never mask a real regression.
+      final pushOnly = src.replaceAll('Navigator.of(context).pop()', '');
+      expect(RegExp(r'Navigator(\.\w+)*\.push').hasMatch(pushOnly), isFalse,
           reason: 'Phase 6: all tracking navigation must be GoRouter');
       expect(RegExp(r'MaterialPageRoute\(').hasMatch(src), isFalse);
       expect(src.contains("context.push('/nidus/chat/"), isTrue);
