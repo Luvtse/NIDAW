@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,10 +9,12 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/config/feature_flag_service.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/flags/ar_navigation_gate.dart';
 import '../../../../core/geocoding/geocoding_service.dart';
 import '../../../../core/location/device_location_service.dart';
 import '../../../../core/map/live_map_widget.dart';
 import '../../../../core/network/websocket_client.dart';
+import '../../../../core/router/app_router.dart' show RouteNames;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/l10n.dart';
 import '../bloc/ride_bloc.dart';
@@ -31,10 +32,11 @@ import '../widgets/pre_selfie_capture_sheet.dart';
 import '../widgets/rate_ride_sheet.dart';
 import '../widgets/safety_widgets.dart';
 import '../widgets/verify_driver_card.dart';
-import 'chat_page.dart';
 import '../../data/repositories/masked_call_repository.dart';
-import 'receipt_detail_page.dart';
-import 'safety_toolkit_page.dart';
+// Phase 6 (nav consistency): ChatPage / ReceiptDetailPage / SafetyToolkitPage
+// are reached through their GoRouter routes now (RouteNames above), so the
+// page imports are gone — deep links, flag gates and web URL sync apply to
+// them like every other Nidus surface.
 
 /// Tracking surface rebuilt on the Foundation map (§1.1):
 /// - driver marker animates between successive position updates with an
@@ -114,6 +116,13 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   /// Cleared when the user acts, when fresh non-error state arrives, or when
   /// the error belongs to a flow this page never triggered (see below).
   RideError? _activeErrorBanner;
+
+  /// Phase 6 (error-surface consistency): durable, money-relevant failures
+  /// raised by page-local flows (destination change, price extension) live
+  /// here until the rider acknowledges them — snackbars expire silently,
+  /// which is acceptable for confirmations but not for "your destination was
+  /// NOT changed". Rendered right below [_activeErrorBanner].
+  _DurableBannerData? _durableBanner;
 
   /// Last state observed that carried a live ride (Requested / Matched /
   /// EnRoute / InProgress). A `RideError` emitted by the shared bloc does not
@@ -305,25 +314,51 @@ class _RideTrackingPageState extends State<RideTrackingPage>
     return null;
   }
 
-  /// Stable per-install id for deterministic feature-flag rollout bucketing
-  /// (same 'settings' Hive box + key as app_router.dart's _resolveInstallId,
-  /// so the UI gate and the router gate put this install in the same bucket).
-  Future<String?> _resolveInstallId() async {
-    try {
-      final box = Hive.box('settings');
-      var id = box.get('install_id') as String?;
-      if (id == null || id.isEmpty) {
-        final rand = math.Random.secure();
-        id = List.generate(32, (_) => rand.nextInt(16).toRadixString(16))
-            .join();
-        await box.put('install_id', id);
-      }
-      return id;
-    } catch (_) {
-      // Hive unavailable (tests, corrupted store): evaluate without a device
-      // id — partial rollouts then resolve conservatively to false.
-      return null;
-    }
+  // ─── Phase 6 (nav consistency): GoRouter entry points ────────────────────
+
+  /// Chat now rides a real route (`/nidus/chat/:rideId`) instead of a raw
+  /// MaterialPageRoute — deep-linkable, URL-synced, one convention. The bare
+  /// path is safe here: this page only ever renders while mounted inside the
+  /// /nidus shell branch of the router.
+  void _openChat() => context.push('/nidus/chat/${widget.rideId}');
+
+  /// Receipt rides `/nidus/receipt/:rideId`. We hand the completed [Ride]
+  /// through `extra` (fast path — no re-fetch when tracking already holds
+  /// it); cold deep links load it from the repository instead (see
+  /// _ReceiptRoute in app_router.dart).
+  void _openReceipt(Ride ride) => context.pushNamed(
+        RouteNames.rideReceipt,
+        pathParameters: {'rideId': ride.id},
+        extra: ride,
+      );
+
+  /// Safety Toolkit via its GoRoute, passing the LIVE bloc through `extra`
+  /// so the toolkit operates on the trip in progress instead of a fresh
+  /// bloc that knows nothing about the ride (the route reuses it via
+  /// BlocProvider.value; a deep link without `extra` still works).
+  /// `_requireActiveRide` inside the toolkit keeps the old guardrail.
+  void _openSafetyToolkit() =>
+      context.pushNamed(RouteNames.safetyToolkit, extra: _rideBloc);
+
+  /// Durable-outcome banner (Phase 6 error-surface rule): destructive or
+  /// money-relevant failures persist until acknowledged instead of evaporating
+  /// with a snackbar timer. Transient confirmations stay snackbars.
+  void _showDurableBanner({
+    required String title,
+    required String body,
+    String? detail,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    setState(() {
+      _durableBanner = _DurableBannerData(
+        title: title,
+        body: body,
+        detail: detail,
+        actionLabel: actionLabel,
+        onAction: onAction,
+      );
+    });
   }
 
   /// §4.1: opens the AR walk-to-pickup surface. Triple gate exactly mirrors
@@ -593,7 +628,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                   child: IconButton(
                     icon: const Icon(Icons.shield, color: AppColors.error),
                     tooltip: 'Safety Toolkit',
-                    onPressed: () => SafetyToolkitPage.open(context),
+                    onPressed: () => _openSafetyToolkit(),
                   ),
                 ),
               ),
@@ -648,11 +683,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                           plateNumber: state.driver.vehiclePlate,
                           eta: state.etaMinutes,
                           onCall: () => _callDriver(),
-                          onChat: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChatPage(rideId: widget.rideId),
-                            ),
-                          ),
+                          onChat: _openChat,
                         ),
                         const SizedBox(height: 16),
                       ] else if (state is DriverEnRoute) ...[
@@ -663,11 +694,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                           plateNumber: state.driver.vehiclePlate,
                           eta: state.etaMinutes,
                           onCall: () => _callDriver(),
-                          onChat: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChatPage(rideId: widget.rideId),
-                            ),
-                          ),
+                          onChat: _openChat,
                         ),
                         const SizedBox(height: 12),
                         // §2.3 "Verify your driver" — one honest render per
@@ -677,11 +704,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                           driverName: state.driver.name,
                           onRecheck: () =>
                               context.read<RideBloc>().add(LoadRide(widget.rideId)),
-                          onContactDriver: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChatPage(rideId: widget.rideId),
-                            ),
-                          ),
+                          onContactDriver: _openChat,
                         ),
                         const SizedBox(height: 12),
                         _PinCodeCard(pinCode: state.pinCode),
@@ -1155,7 +1178,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
           content: Text(l10n.sosLocationUnavailable),
           action: SnackBarAction(
             label: l10n.openSafetyToolkit,
-            onPressed: () => SafetyToolkitPage.open(ctx),
+            onPressed: () => _openSafetyToolkit(),
           ),
         ),
       );
@@ -1617,10 +1640,7 @@ class _RideTrackingPageState extends State<RideTrackingPage>
         ),
         if (state is RideCompleted)
           TextButton(
-            onPressed: () => ReceiptDetailPage.open(
-              context,
-              ride: state.ride,
-            ),
+            onPressed: () => _openReceipt(state.ride),
             child: const Text('Receipt'),
           ),
       ],
