@@ -891,5 +891,34 @@
   "notifInboxUnavailable": "መልዕክት ሳጥን አይገኝም",
   "@notifInboxUnavailable": {
     "placeholders": {}
+  },
+  "historyOfflineBanner": "በመስመር ላይ አይደሉም — የቀሩዎትን ጉዞዎች እያሳነው ነው። ሲገናኙ ወደ ታች በመጎተት ደግመው ይሞክሩ።",
+  "@historyOfflineBanner": {
+    "description": "Phase 5: persistent banner on ride history when the settled connectivity verdict is offline; states that the list may be stale and how to refresh."
+  },
+  "historyRefreshed": "የጉዞ ታሪክ ተዘምኗል",
+  "@historyRefreshed": {
+    "description": "Phase 5: confirmation shown after a successful pull-to-refresh of ride history."
+  },
+  "requestOfflineBanner": "በመስመር ላይ አይደሉም — አዳዲስ የጉዞ ጥያቄዎች እንደ ክድት ይቀመጣሉ እንጂ አይመደቡም።",
+  "@requestOfflineBanner": {
+    "description": "Phase 5: banner atop the ride request surface while the device verdict is offline; honestly distinguishes drafting from booking."
+  },
+  "draftQueuedTitle": "ክድት ተቀምጧል — አልተመደበም",
+  "@draftQueuedTitle": {
+    "description": "Phase 5: headline of the strip confirming a ride request was captured locally while offline."
+  },
+  "draftQueuedBody": "{count, plural, =1{1 የጉዞ ጥያቄ በስልክዎ ላይ ተቀምጧል። ለNidus አልደረሰም — ሲገናኙ በራስ-ሰር ይላካል፤ አሁንም መልሰው ሊሞክሩ ይችላሉ።} other{{count} የጉዞ ጥያቄዎች በስልክዎ ላይ ተቀምጠዋል። ለNidus አልደረሱም — ሲገናኙ በራስ-ሰር ይላካሉ፤ አሁንም መልሰው ሊሞክሩ ይችላሉ።}}",
+  "@draftQueuedBody": {
+    "description": "Phase 5: body copy of the offline-draft strip; pluralized, states truthfully that nothing was sent.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRetryAction": "አሁን ለመላክ ይሞክሩ",
+  "@draftRetryAction": {
+    "description": "Phase 5: action button on the draft strip that attempts an immediate send (useful once back online)."
   }
 }

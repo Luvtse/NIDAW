@@ -542,7 +542,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String sosTileSubtitle(String number) {
-    return 'Alert the emergency line at \$number with your live location';
+    return 'Alert the emergency line at $number with your live location';
   }
 
   @override
@@ -553,12 +553,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String sosOverlayCountdownBody(String number, int seconds) {
-    return 'Opening your phone dialer for emergency number \$number in \$seconds s…';
+    return 'Opening your phone dialer for emergency number $number in $seconds s…';
   }
 
   @override
   String sosOverlayFallbackBody(String number) {
-    return 'If the dialer does not open, use the button below or call \$number directly.';
+    return 'If the dialer does not open, use the button below or call $number directly.';
   }
 
   @override
@@ -569,7 +569,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String sosOverlayRetryCall(String number) {
-    return 'Retry call \$number';
+    return 'Retry call $number';
   }
 
   @override
@@ -583,7 +583,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String sosOverlayCallDirectly(String number) {
-    return 'Call \$number directly from your phone.';
+    return 'Call $number directly from your phone.';
   }
 
   @override
@@ -600,7 +600,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String historyEmptyFiltered(String filter) {
-    return 'No \$filter rides yet';
+    return 'No $filter rides yet';
   }
 
   @override
@@ -627,7 +627,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String requestOptionEtaMinutes(int minutes) {
-    return (minutes == 0 ? 'Arriving now' : '\$minutes min away');
+    return (minutes == 0 ? 'Arriving now' : '$minutes min away');
   }
 
   @override
@@ -635,7 +635,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String requestOptionSeats(int count) {
-    return (count == 1 ? '1 seat' : '\$count seats');
+    return (count == 1 ? '1 seat' : '$count seats');
   }
 
   @override
@@ -658,7 +658,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String verifySelfieSubtitle(String driverName) {
-    return '\$driverName sent a selfie before picking you up. Tap to compare it with their profile photo.';
+    return '$driverName sent a selfie before picking you up. Tap to compare it with their profile photo.';
   }
 
   @override
@@ -699,7 +699,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String verifySheetNetworkError(String status) {
-    return 'Could not load the selfie (network error\$status). Tap to retry.';
+    return 'Could not load the selfie (network error$status). Tap to retry.';
   }
 
   @override
@@ -707,7 +707,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String verifyComparisonAppBarTitle(String firstName) {
-    return 'Verify \$firstName';
+    return 'Verify $firstName';
   }
 
   @override
@@ -724,7 +724,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String verifyExpiryNote(String expiry) {
-    return 'Selfie captured for this pickup only · valid until \$expiry';
+    return 'Selfie captured for this pickup only · valid until $expiry';
   }
 
   @override
@@ -744,7 +744,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String splitSendInvites(String amount) {
-    return 'Send invites · \$amount';
+    return 'Send invites · $amount';
   }
 
   @override
@@ -752,7 +752,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String splitSharesExceedFare(String fare) {
-    return 'Shares must add up to less than the fare (\$fare).';
+    return 'Shares must add up to less than the fare ($fare).';
   }
 
   @override
@@ -763,7 +763,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String splitNotYetSubtitle(String fare) {
-    return 'Fare \$fare — you are paying the full amount until someone accepts an invite.';
+    return 'Fare $fare — you are paying the full amount until someone accepts an invite.';
   }
 
   @override
@@ -786,7 +786,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String splitFieldShare(String currency) {
-    return 'Share (\$currency)';
+    return 'Share ($currency)';
   }
 
   @override
@@ -866,27 +866,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String promoOffPercent(String percent) {
-    return '\$percent% off';
+    return '$percent% off';
   }
 
   @override
   String promoMaxCap(String currency, String amount) {
-    return 'max \$currency \$amount';
+    return 'max $currency $amount';
   }
 
   @override
   String promoOffFixed(String currency, String amount) {
-    return '\$currency \$amount off';
+    return '$currency $amount off';
   }
 
   @override
   String promoMinFare(String currency, String amount) {
-    return 'min fare \$currency \$amount';
+    return 'min fare $currency $amount';
   }
 
   @override
   String promoUntil(String date) {
-    return 'until \$date';
+    return 'until $date';
   }
 
   /// Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.
@@ -1040,4 +1040,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trackingReconnectAction => 'Try to reconnect now';
+  @override
+  String get historyOfflineBanner => 'You\'re offline — showing your last loaded rides. Pull down to retry when you reconnect.';
+
+  @override
+  String get historyRefreshed => 'Ride history updated';
+
+  @override
+  String get requestOfflineBanner => 'You\'re offline — new ride requests are saved as drafts, not booked.';
+
+  @override
+  String get draftQueuedTitle => 'Draft saved — not booked';
+
+
+  @override
+  String draftQueuedBody(int count) {
+    return (count == 1
+        ? '1 ride request is queued on your phone. Nothing reached Nidus yet \u2014 it will send automatically when you reconnect, or you can retry now.'
+        : '$count ride requests are queued on your phone. Nothing reached Nidus yet \u2014 they will send automatically when you reconnect, or you can retry now.');
+  }
+
+  @override
+  String get draftRetryAction => 'Try to send now';
 }

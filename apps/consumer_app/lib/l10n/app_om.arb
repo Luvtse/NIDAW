@@ -891,5 +891,34 @@
   "notifInboxUnavailable": "Sanduuqa beeksisaa hin argamu",
   "@notifInboxUnavailable": {
     "placeholders": {}
+  },
+  "historyOfflineBanner": "Onlaayinii hin qabu — sochiiwwan duraanii siif agarsiifama jiru. Yoo walitti deebite gara gadi harkisuun irra deebi'ii yaali.",
+  "@historyOfflineBanner": {
+    "description": "Phase 5: persistent banner on ride history when the settled connectivity verdict is offline; states that the list may be stale and how to refresh."
+  },
+  "historyRefreshed": "Seenaan sochii haaraa ta'eera",
+  "@historyRefreshed": {
+    "description": "Phase 5: confirmation shown after a successful pull-to-refresh of ride history."
+  },
+  "requestOfflineBanner": "Onlaayinii hin qabu — gaafannoon sochii haaraan qabxii (draft) ta'uun kuufama, hinfayyamu.",
+  "@requestOfflineBanner": {
+    "description": "Phase 5: banner atop the ride request surface while the device verdict is offline; honestly distinguishes drafting from booking."
+  },
+  "draftQueuedTitle": "Qabxiin kuufame — hin fayyamne",
+  "@draftQueuedTitle": {
+    "description": "Phase 5: headline of the strip confirming a ride request was captured locally while offline."
+  },
+  "draftQueuedBody": "{count, plural, =1{Gaafanni sochii 1 bilbila kee irratti eeggachisa'eera. Nidus gahee miti — yoo walitti deebite ofumaan ergama; amma irra deebi'ii yaaluus ni danda'a.} other{Gaafannoon sochii {count} bilbila kee irratti eeggachisa'anii jiru. Nidus gahamanii miti — yoo walitti deebitan ofumaan ergamu; amma irra deebi'anii yaaluus ni danda'amu.}}",
+  "@draftQueuedBody": {
+    "description": "Phase 5: body copy of the offline-draft strip; pluralized, states truthfully that nothing was sent.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "draftRetryAction": "Amma erguudhaan yaali",
+  "@draftRetryAction": {
+    "description": "Phase 5: action button on the draft strip that attempts an immediate send (useful once back online)."
   }
 }

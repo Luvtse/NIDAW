@@ -1931,4 +1931,40 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **Try to reconnect now**
   String get trackingReconnectAction;
+
+  /// Phase 5: persistent banner on ride history when the settled connectivity verdict is offline; states that the list may be stale and how to refresh.
+  ///
+  /// In en, this message translates to:
+  /// **You're offline — showing your last loaded rides. Pull down to retry when you reconnect.**
+  String get historyOfflineBanner;
+
+  /// Phase 5: confirmation shown after a successful pull-to-refresh of ride history.
+  ///
+  /// In en, this message translates to:
+  /// **Ride history updated**
+  String get historyRefreshed;
+
+  /// Phase 5: banner atop the ride request surface while the device verdict is offline; honestly distinguishes drafting from booking.
+  ///
+  /// In en, this message translates to:
+  /// **You're offline — new ride requests are saved as drafts, not booked.**
+  String get requestOfflineBanner;
+
+  /// Phase 5: headline of the strip confirming a ride request was captured locally while offline.
+  ///
+  /// In en, this message translates to:
+  /// **Draft saved — not booked**
+  String get draftQueuedTitle;
+
+  /// Phase 5: body copy of the offline-draft strip; pluralized, states truthfully that nothing was sent.
+  ///
+  /// In en, this message translates to:
+  /// **{count, plural, =1{1 ride request is queued on your phone. Nothing reached Nidus yet — it will send automatically when you reconnect, or you can retry now.} other{{count} ride requests are queued on your phone. Nothing reached Nidus yet — they will send automatically when you reconnect, or you can retry now.}}**
+  String draftQueuedBody(int count);
+
+  /// Phase 5: action button on the draft strip that attempts an immediate send (useful once back online).
+  ///
+  /// In en, this message translates to:
+  /// **Try to send now**
+  String get draftRetryAction;
 }

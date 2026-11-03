@@ -542,7 +542,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String sosTileSubtitle(String number) {
-    return 'Lakkoofsa hatattamaa \$number bakka qabuun olkaa\'amtee waliin beeksisi';
+    return 'Lakkoofsa hatattamaa $number bakka qabuun olkaa\'amtee waliin beeksisi';
   }
 
   @override
@@ -553,12 +553,12 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String sosOverlayCountdownBody(String number, int seconds) {
-    return 'Bilbilli si\'a \$seconds\'tti lakkoofsa hatattamaa \$number bana…';
+    return 'Bilbilli si\'a $seconds\'tti lakkoofsa hatattamaa $number bana…';
   }
 
   @override
   String sosOverlayFallbackBody(String number) {
-    return 'Bilbilli yoo hin banne, tuqaa gadii fayyadami ykn kallattiin \$number bilbili.';
+    return 'Bilbilli yoo hin banne, tuqaa gadii fayyadami ykn kallattiin $number bilbili.';
   }
 
   @override
@@ -569,7 +569,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String sosOverlayRetryCall(String number) {
-    return '\$number bilbilaan irra deebi\'i';
+    return '$number bilbilaan irra deebi\'i';
   }
 
   @override
@@ -583,7 +583,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String sosOverlayCallDirectly(String number) {
-    return '\$number bilbila keetiin kallattiin bilbili.';
+    return '$number bilbila keetiin kallattiin bilbili.';
   }
 
   @override
@@ -600,7 +600,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String historyEmptyFiltered(String filter) {
-    return 'Imala \$filter\'aa hanga ammaa hin qabu';
+    return 'Imala $filter\'aa hanga ammaa hin qabu';
   }
 
   @override
@@ -627,7 +627,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String requestOptionEtaMinutes(int minutes) {
-    return (minutes == 0 ? 'Amma dhufaa jira' : '\$minutes daqiqaa fageenya');
+    return (minutes == 0 ? 'Amma dhufaa jira' : '$minutes daqiqaa fageenya');
   }
 
   @override
@@ -635,7 +635,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String requestOptionSeats(int count) {
-    return (count == 1 ? '1 teessoo' : '\$count teessoo');
+    return (count == 1 ? '1 teessoo' : '$count teessoo');
   }
 
   @override
@@ -658,7 +658,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String verifySelfieSubtitle(String driverName) {
-    return '\$driverName fuula dura keessan walu gahuu dursee selfie ergesera. Fuula agarsiisa isa waliin wal bira qabuuf tuqi.';
+    return '$driverName fuula dura keessan walu gahuu dursee selfie ergesera. Fuula agarsiisa isa waliin wal bira qabuuf tuqi.';
   }
 
   @override
@@ -699,7 +699,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String verifySheetNetworkError(String status) {
-    return 'Selfie banuu hin dandeenye (dogoggora network\$status). Irra deebi\'uuf tuqi.';
+    return 'Selfie banuu hin dandeenye (dogoggora network$status). Irra deebi\'uuf tuqi.';
   }
 
   @override
@@ -707,7 +707,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String verifyComparisonAppBarTitle(String firstName) {
-    return '\$firstName mirkaneessi';
+    return '$firstName mirkaneessi';
   }
 
   @override
@@ -724,7 +724,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String verifyExpiryNote(String expiry) {
-    return 'Selfiin wal qabxii kanaaf qofa kaafame · \$expiry haa barbaachisu';
+    return 'Selfiin wal qabxii kanaaf qofa kaafame · $expiry haa barbaachisu';
   }
 
   @override
@@ -744,7 +744,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String splitSendInvites(String amount) {
-    return 'Afeerramni ergi · \$amount';
+    return 'Afeerramni ergi · $amount';
   }
 
   @override
@@ -752,7 +752,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String splitSharesExceedFare(String fare) {
-    return 'Kutaan baala (\$fare) caaluu hin qabu.';
+    return 'Kutaan baala ($fare) caaluu hin qabu.';
   }
 
   @override
@@ -763,7 +763,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String splitNotYetSubtitle(String fare) {
-    return 'Baala \$fare — namni afeerra fudhachuu hanga hin jalatin kuusaa guutuu baallatta.';
+    return 'Baala $fare — namni afeerra fudhachuu hanga hin jalatin kuusaa guutuu baallatta.';
   }
 
   @override
@@ -786,7 +786,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String splitFieldShare(String currency) {
-    return 'Kutaa (\$currency)';
+    return 'Kutaa ($currency)';
   }
 
   @override
@@ -866,27 +866,27 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String promoOffPercent(String percent) {
-    return '%\$percent hir’inaa';
+    return '%$percent hir’inaa';
   }
 
   @override
   String promoMaxCap(String currency, String amount) {
-    return 'guddaatti \$currency \$amount';
+    return 'guddaatti $currency $amount';
   }
 
   @override
   String promoOffFixed(String currency, String amount) {
-    return '\$currency \$amount hir’inaa';
+    return '$currency $amount hir’inaa';
   }
 
   @override
   String promoMinFare(String currency, String amount) {
-    return 'kaffaltii xiqqaa \$currency \$amount';
+    return 'kaffaltii xiqqaa $currency $amount';
   }
 
   @override
   String promoUntil(String date) {
-    return 'hanga \$date';
+    return 'hanga $date';
   }
 
   /// Phase 4 accessibility & honest degradation: semantic label for the initials avatar on the tracking driver card. Shown when no real driver photo is available; replaces the former generic person-silhouette icon that faked identity.
@@ -1040,4 +1040,26 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get trackingReconnectAction => 'Amma irra deebi\'anii walqunnamsiisuuf yaali';
+  @override
+  String get historyOfflineBanner => 'Onlaayinii hin qabu — sochiiwwan duraanii siif agarsiifama jiru. Yoo walitti deebite gara gadi harkisuun irra deebi\'ii yaali.';
+
+  @override
+  String get historyRefreshed => 'Seenaan sochii haaraa ta\'eera';
+
+  @override
+  String get requestOfflineBanner => 'Onlaayinii hin qabu — gaafannoon sochii haaraan qabxii (draft) ta\'uun kuufama, hinfayyamu.';
+
+  @override
+  String get draftQueuedTitle => 'Qabxiin kuufame — hin fayyamne';
+
+
+  @override
+  String draftQueuedBody(int count) {
+    return (count == 1
+        ? 'Gaafanni sochii 1 bilbila kee irratti eeggachisa\'eera. Nidus gahee miti — yoo walitti deebite ofumaan ergama; amma irra deebi\'ii yaaluus ni danda\'a.'
+        : '$count gaafannoon sochii bilbila kee irratti eeggachisa\'anii jiru. Nidus gahamanii miti — yoo walitti deebitan ofumaan ergamu; amma irra deebi\'an yaaluus ni danda\'amu.');
+  }
+
+  @override
+  String get draftRetryAction => 'Amma erguudhaan yaali';
 }

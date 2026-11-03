@@ -553,12 +553,12 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String sosOverlayCountdownBody(String number, int seconds) {
-    return 'ስልክዎ በ\$seconds ሰከንድ ውስገ \$number የአደጋ ቁጥር ላይ ይደውላል…';
+    return 'ስልክዎ በ$seconds ሰከንድ ውስገ $number የአደጋ ቁጥር ላይ ይደውላል…';
   }
 
   @override
   String sosOverlayFallbackBody(String number) {
-    return 'ስልክዎ ካልተከፈተ፣ ከታች ያለውን ቁልፍ ይጠቀሙ ወይም በቀጥታ \$numberን ይደውሉ።';
+    return 'ስልክዎ ካልተከፈተ፣ ከታች ያለውን ቁልፍ ይጠቀሙ ወይም በቀጥታ $numberን ይደውሉ።';
   }
 
   @override
@@ -569,7 +569,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String sosOverlayRetryCall(String number) {
-    return '\$numberን መደወል እንደገና ሞክር';
+    return '$numberን መደወል እንደገና ሞክር';
   }
 
   @override
@@ -583,7 +583,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String sosOverlayCallDirectly(String number) {
-    return '\$numberን ከስልክዎ በቀጥታ ይደውሉ።';
+    return '$numberን ከስልክዎ በቀጥታ ይደውሉ።';
   }
 
   @override
@@ -600,7 +600,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String historyEmptyFiltered(String filter) {
-    return 'እስካሁን \$filter ጉዞ የለም';
+    return 'እስካሁን $filter ጉዞ የለም';
   }
 
   @override
@@ -627,7 +627,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String requestOptionEtaMinutes(int minutes) {
-    return (minutes == 0 ? 'አሁን እየመጣ ነው' : '\$minutes ደቂቃ ርቀት');
+    return (minutes == 0 ? 'አሁን እየመጣ ነው' : '$minutes ደቂቃ ርቀት');
   }
 
   @override
@@ -635,7 +635,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String requestOptionSeats(int count) {
-    return (count == 1 ? '1 ቦታ' : '\$count ቦታዎች');
+    return (count == 1 ? '1 ቦታ' : '$count ቦታዎች');
   }
 
   @override
@@ -658,7 +658,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String verifySelfieSubtitle(String driverName) {
-    return '\$driverName እርስዎን ከመውሰዱ በፊት ራስ-ሰር ላክቷል። ከመገለጫ ፎቶው ጋር ለማዛመድ ይንኩ።';
+    return '$driverName እርስዎን ከመውሰዱ በፊት ራስ-ሰር ላክቷል። ከመገለጫ ፎቶው ጋር ለማዛመድ ይንኩ።';
   }
 
   @override
@@ -699,7 +699,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String verifySheetNetworkError(String status) {
-    return 'ራስ-ሰሩን መጫን አልተቻለም (የአውታረ መረብ ስህተት\$status)። እንደገና ለመሞከር ይንኩ።';
+    return 'ራስ-ሰሩን መጫን አልተቻለም (የአውታረ መረብ ስህተት$status)። እንደገና ለመሞከር ይንኩ።';
   }
 
   @override
@@ -707,7 +707,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String verifyComparisonAppBarTitle(String firstName) {
-    return '\$firstNameን ያረጋግጡ';
+    return '$firstNameን ያረጋግጡ';
   }
 
   @override
@@ -724,7 +724,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String verifyExpiryNote(String expiry) {
-    return 'ራስ-ሰሩ ለዚህ ማነሻ ብቻ የተቀረጸ · ትክክለኛነቱ እስከ \$expiry';
+    return 'ራስ-ሰሩ ለዚህ ማነሻ ብቻ የተቀረጸ · ትክክለኛነቱ እስከ $expiry';
   }
 
   @override
@@ -744,7 +744,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String splitSendInvites(String amount) {
-    return 'መልእክቶችን ይላኩ · \$amount';
+    return 'መልእክቶችን ይላኩ · $amount';
   }
 
   @override
@@ -752,7 +752,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String splitSharesExceedFare(String fare) {
-    return 'ድርሻዎች ከክፍያው (\$fare) ማነስ አለባቸው።';
+    return 'ድርሻዎች ከክፍያው ($fare) ማነስ አለባቸው።';
   }
 
   @override
@@ -763,7 +763,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String splitNotYetSubtitle(String fare) {
-    return 'ክፍያ \$fare — ማንኛውም ሰው ከተቀበለ ድረስ ሙሉውን መጠን እየከፈሉ ነው።';
+    return 'ክፍያ $fare — ማንኛውም ሰው ከተቀበለ ድረስ ሙሉውን መጠን እየከፈሉ ነው።';
   }
 
   @override
@@ -786,7 +786,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String splitFieldShare(String currency) {
-    return 'ድርሻ (\$currency)';
+    return 'ድርሻ ($currency)';
   }
 
   @override
@@ -1040,4 +1040,26 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get trackingReconnectAction => 'አሁን እንደገና ለማገናኘት ይሞክሩ';
+  @override
+  String get historyOfflineBanner => 'በመስመር ላይ አይደሉም — የቀሩዎትን ጉዞዎች እያሳነው ነው። ሲገናኙ ወደ ታች በመጎተት ደግመው ይሞክሩ።';
+
+  @override
+  String get historyRefreshed => 'የጉዞ ታሪክ ተዘምኗል';
+
+  @override
+  String get requestOfflineBanner => 'በመስመር ላይ አይደሉም — አዳዲስ የጉዞ ጥያቄዎች እንደ ክድት ይቀመጣሉ እንጂ አይመደቡም።';
+
+  @override
+  String get draftQueuedTitle => 'ክድት ተቀምጧል — አልተመደበም';
+
+
+  @override
+  String draftQueuedBody(int count) {
+    return (count == 1
+        ? '1 የጉዞ ጥያቄ በስልክዎ ላይ ተቀምጧል። ለNidus አልደረሰም — ሲገናኙ በራስ-ሰር ይላካል፤ አሁንም መልሰው ሊሞክሩ ይችላሉ።'
+        : '$count የጉዞ ጥያቄዎች በስልክዎ ላይ ተቀምጠዋል። ለNidus አልደረሱም — ሲገናኙ በራስ-ሰር ይላካሉ፤ አሁንም መልሰው ሊሞክሩ ይችላሉ።');
+  }
+
+  @override
+  String get draftRetryAction => 'አኝቲ ምክ አወልና ይሟልቢቅራ';
 }
