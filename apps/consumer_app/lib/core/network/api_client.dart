@@ -437,8 +437,15 @@ class ApiClient {
 
   String? _extractErrorMessage(dynamic data) {
     if (data is Map<String, dynamic>) {
+      final error = data['error'];
+      // Auth module shape: {"error": {"code": ..., "message": ...}}
+      if (error is Map<String, dynamic>) {
+        return error['message'] as String? ??
+            data['message'] as String? ??
+            (data['errors'] as Map<String, dynamic>?)?.values.first as String?;
+      }
       return data['message'] as String? ??
-          data['error'] as String? ??
+          error as String? ??
           (data['errors'] as Map<String, dynamic>?)?.values.first as String?;
     }
     if (data is String) return data;
@@ -447,6 +454,12 @@ class ApiClient {
 
   String? _extractErrorCode(dynamic data) {
     if (data is Map<String, dynamic>) {
+      final error = data['error'];
+      if (error is Map<String, dynamic>) {
+        return error['code'] as String? ??
+            data['code'] as String? ??
+            data['error_code'] as String?;
+      }
       return data['code'] as String? ?? data['error_code'] as String?;
     }
     return null;
