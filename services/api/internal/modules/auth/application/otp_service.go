@@ -87,7 +87,7 @@ func (c OTPConfig) withDefaults() OTPConfig {
 	if c.TTL <= 0 {
 		c.TTL = 5 * time.Minute
 	}
-	if c.ResendCooldown < 0 {
+	if c.ResendCooldown == 0 {
 		c.ResendCooldown = 60 * time.Second
 	}
 	if c.MaxAttempts <= 0 {
@@ -170,10 +170,10 @@ func NormalizePhone(raw string) (string, bool) {
 		// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
 		// zero between the country code and the subscriber number. Only one
 		// zero is stripped; genuine numbers never start with 0 after '+'.
-		if len(rest) > 11 && rest[0] == '0' {
-			rest = rest[1:]
-		}
 		digits := rest
+		if len(digits) >= 9 && digits[0] == '0' {
+			digits = digits[1:]
+		}
 		if len(digits) < 8 || len(digits) > 15 {
 			return "", false
 		}
@@ -229,6 +229,29 @@ func (s *OTPService) reserveQuota(ctx context.Context, key string) (int64, error
 	return s.rdb.Eval(ctx, script, []string{key}, int(time.Hour.Seconds())).Int64()
 }
 
+// errCooldownActive is the internal signal from startCooldown that the
+// resend window for this identity is still open.
+var errCooldownActive = errors.New("otp cooldown gate held")
+
+// startCooldown atomically takes the resend gate for a challenge key using
+// SET NX PX with millisecond precision. It returns errCooldownActive when an
+// earlier send happened less than ResendCooldown ago. Because the gate's TTL
+// equals exactly the cooldown duration, "gate present" and "cooldown active"
+// are the same condition — no clock-skew or remaining-TTL heuristics needed.
+func (s *OTPService) startCooldown(ctx context.Context, key string) error {
+	const script = `if tonumber(ARGV[2]) <= 0 then return 'OK' end return redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2])`
+	res, err := s.rdb.Eval(ctx, script, []string{otpCooldownKey(key)},
+		time.Now().UTC().Format(time.RFC3339Nano),
+		s.cfg.ResendCooldown.Milliseconds()).Result()
+	if err != nil {
+		return err
+	}
+	if res == nil || res == redis.Nil {
+		return errCooldownActive
+	}
+	return nil
+}
+
 // Request issues (or resends) a challenge for phone+account+operation.
 // Enforcement order: availability → parameter validity → burn state →
 // cooldown → hourly quota (per identity and per source IP) → generation →
@@ -249,11 +272,15 @@ func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType
 		return nil, ErrOTPMaxAttempts
 	}
 	// Cooldown between sends (prevents SMS bombing of one identity). The
-	// key spans the challenge window and is deleted on successful Verify,
-	// so a consumed code never blocks requesting the next one; while a
-	// challenge is outstanding, only ResendCooldown seconds must elapse.
-	if ttl, terr := s.rdb.TTL(ctx, otpCooldownKey(key)).Result(); terr == nil && ttl > 0 && ttl < s.cfg.ResendCooldown {
-		return nil, ErrOTPCooldown
+	// gate stores the send timestamp and lives exactly ResendCooldown
+	// seconds, set atomically via SET NX PX in Lua so concurrent requests
+	// cannot both pass. A successful Verify deletes it, so a consumed
+	// challenge never delays requesting the next one.
+	if err := s.startCooldown(ctx, key); err != nil {
+		if errors.Is(err, errCooldownActive) {
+			return nil, ErrOTPCooldown
+		}
+		return nil, err
 	}
 	// Per-identity hourly quota.
 	hourKey := otpHourKey(key)
@@ -286,15 +313,11 @@ func (s *OTPService) Request(ctx context.Context, phone string, acct AccountType
 	if err := s.rdb.Set(ctx, key, s.hashCode(code), ttl).Err(); err != nil {
 		return nil, err
 	}
-	// Reset attempt counter for the fresh challenge.
+	// Reset attempt counter for the fresh challenge. The cooldown gate was
+	// already taken atomically by startCooldown above (SET NX PX, exactly
+	// ResendCooldown seconds); Verify deletes it on success so a consumed
+	// challenge never delays requesting the next one.
 	_ = s.rdb.Del(ctx, otpAttemptsKey(key)).Err()
-	// Start the resend cooldown. The key lives for the whole challenge TTL;
-	// Verify deletes it on success so a fresh challenge can be requested
-	// immediately after one is consumed, while ResendCooldown governs the
-	// minimum gap between sends to one identity.
-	if err := s.rdb.Set(ctx, otpCooldownKey(key), "1", ttl).Err(); err != nil {
-		return nil, err
-	}
 
 	if err := s.sender.SendOTP(ctx, phone, code); err != nil {
 		_ = s.rdb.Del(ctx, key, otpCooldownKey(key)).Err()
