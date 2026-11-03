@@ -19,6 +19,16 @@ BEGIN;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_complete BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP WITH TIME ZONE;
 
+-- Rider-activation gating set (data-driven): documents flagged here are the
+-- agreements POST /api/v1/auth/onboarding/complete requires before flipping
+-- users.onboarding_complete. Flagging lives in legal_documents so operators
+-- can change the required set without a code deploy.
+ALTER TABLE legal_documents ADD COLUMN IF NOT EXISTS requires_activation BOOLEAN NOT NULL DEFAULT false;
+
+UPDATE legal_documents SET requires_activation = true
+WHERE is_active = true
+  AND document_type IN ('terms_of_service', 'privacy_policy');
+
 -- Legacy email/password accounts: the register endpoint issued them a live
 -- session immediately; treat them as activated so the rider flow never asks
 -- them to redo consent that predates this column. Phone-OTP accounts start
@@ -36,5 +46,6 @@ ON users(id) WHERE onboarding_complete = false;
 
 COMMENT ON COLUMN users.onboarding_complete IS 'True once the account accepted required legal agreements (rider activation); optional profile fields may still be empty.';
 COMMENT ON COLUMN users.activated_at IS 'When the account completed activation (consent acceptance); NULL until then.';
+COMMENT ON COLUMN legal_documents.requires_activation IS 'True when accepting this active document is a prerequisite for rider/driver account activation (auth onboarding gate).';
 
 COMMIT;

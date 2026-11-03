@@ -128,6 +128,25 @@ func NewOTPService(rdb *redis.Client, sender SMSSender, cfg OTPConfig) *OTPServi
 // Available reports whether the service can process challenges at all.
 func (s *OTPService) Available() bool { return s != nil && s.rdb != nil && s.sender != nil }
 
+// Client returns the raw Redis client so sibling flows in this module (e.g.
+// onboarding consent tickets) share one ephemeral store without opening a
+// second connection pool.
+func (s *OTPService) Client() *redis.Client {
+	if s == nil {
+		return nil
+	}
+	return s.rdb
+}
+
+// HMACSecret returns the configured challenge-digest secret, used by the
+// HTTP layer to derive ticket keys without duplicating configuration wiring.
+func (s *OTPService) HMACSecret() string {
+	if s == nil {
+		return ""
+	}
+	return s.cfg.HMACSecret
+}
+
 // key derivation ---------------------------------------------------------------
 // All keys embed the triple (phone, account_type, operation) so challenges are
 // cryptographically scoped to their intended use.
