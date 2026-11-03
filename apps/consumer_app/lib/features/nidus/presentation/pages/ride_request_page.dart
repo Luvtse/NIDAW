@@ -61,6 +61,25 @@ class _RideRequestPageState extends State<RideRequestPage>
   int _pickupMutationSeq = 0;
   bool _requestInFlight = false;
 
+  /// Phase 5 (connectivity honesty): mirrors the bloc's settled offline
+  /// verdict via [RideBloc.offlineChanges] — the same pattern the tracking
+  /// page uses for its reconnecting banner. Null means "no verdict yet":
+  /// the offline strip NEVER renders on a guess (honest-null rule).
+  bool? _isOffline;
+  StreamSubscription<bool>? _offlineSub;
+
+  /// Phase 5 (queued/draft ride requests): the most recent RequestRide as
+  /// dispatched from this surface. When the bloc settles the tap into
+  /// [RideDraftQueued] (offline verdict), the draft strip's "Try to send
+  /// now" re-dispatches these exact retained args — the rider's selections
+  /// (type, payment rail, promo, schedule, stops) survive the queue with
+  /// nothing to re-enter.
+  RequestRide? _lastRequestArgs;
+
+  /// Draft-capture count from the latest [RideDraftQueued], or null when no
+  /// draft strip is showing. Drives the persistent queued-drafts surface.
+  int? _draftCount;
+
   LocationFieldValue _pickup = const LocationFieldValue.empty();
   LocationFieldValue _dropoff = const LocationFieldValue.empty();
 
@@ -118,6 +137,15 @@ class _RideRequestPageState extends State<RideRequestPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Phase 5 (connectivity honesty): seed + subscribe to the bloc's settled
+    // offline verdict, mirroring the tracking page. The request surface then
+    // tells the truth about what a Request tap will do BEFORE the rider taps
+    // ("saved as drafts, not booked") instead of only after the fact.
+    final bloc = context.read<RideBloc>();
+    _isOffline = bloc.currentIsOffline;
+    _offlineSub = bloc.offlineChanges.listen((offline) {
+      if (mounted) setState(() => _isOffline = offline);
+    });
     // Paint an instant pin from the last-known position before the first
     // fresh fix arrives (§1.2 requirement).
     _seedFromLastKnown();
@@ -127,6 +155,8 @@ class _RideRequestPageState extends State<RideRequestPage>
   @override
   void dispose() {
     _reverseDebounce?.cancel();
+    // Phase 5: drop the connectivity mirror with the page — no leaked sub.
+    _offlineSub?.cancel();
     // §4.2: never leak the voice stream or leave the mic hot after the page
     // is gone (e.g. navigation to tracking right after a booking command).
     _voiceSub?.cancel();
@@ -435,6 +465,38 @@ class _RideRequestPageState extends State<RideRequestPage>
                   left: 20,
                   right: 20,
                   child: _GpsUnavailableBanner(onRetry: _acquirePickup),
+                ),
+              // Phase 5 (connectivity honesty): offline strip in the banner
+              // slot under the GPS row. Renders ONLY on a settled offline
+              // verdict — null ("no sample yet") and true-online both render
+              // nothing (honest-null rule, same discipline as the tracking
+              // reconnecting banner). Tells the rider up front that a tap on
+              // Request becomes a local draft, not a booking.
+              if (_isOffline == true)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top +
+                      (_gpsUnavailableBanner ? 158 : 76),
+                  left: 20,
+                  right: 20,
+                  child: _OfflineDraftBanner(),
+                ),
+              // Phase 5 (queued/draft handling): persistent surface after the
+              // bloc captured a request as a draft. NOT a snackbar — queued
+              // drafts are a durable outcome; it stays until acknowledged or
+              // re-sent via "Try to send now".
+              if (_draftCount != null)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top +
+                      (_gpsUnavailableBanner ? 158 : 76) +
+                      (_isOffline == true ? 64 : 0),
+                  left: 20,
+                  right: 20,
+                  child: _DraftQueuedBanner(
+                    count: _draftCount!,
+                    canRetry: _lastRequestArgs != null,
+                    onRetry: _retryDraftNow,
+                    onDismiss: () => setState(() => _draftCount = null),
+                  ),
                 ),
               Positioned(
                 right: 20,
@@ -1232,28 +1294,31 @@ class _RideRequestPageState extends State<RideRequestPage>
 
   void _requestRide() {
     if (!_canRequest || _requestInFlight) return;
+    final request = RequestRide(
+      pickupLat: _pickup.lat!,
+      pickupLng: _pickup.lng!,
+      dropoffLat: _dropoff.lat!,
+      dropoffLng: _dropoff.lng!,
+      pickupAddress: _pickup.display,
+      dropoffAddress: _dropoff.display,
+      rideType: _selectedRideType,
+      paymentMethodId: _selectedPaymentMethodId,
+      // §3.1 / §3.2 / §3.6: the registry rail type, the validated promo
+      // code and the scheduled pickup time now travel with the request.
+      // Each is null unless genuinely chosen — the backend resolves
+      // defaults rather than the client fabricating them.
+      paymentMethodType: _selectedPaymentMethodType,
+      promoCode: _promoCode,
+      scheduledAt: _scheduledAt,
+      // §3.5: stops travel with the request; empty list sends no key.
+      stops: List<RideStop>.unmodifiable(_stops),
+    );
+    // Phase 5: retain the exact args so the queued-draft strip's "Try to
+    // send now" re-dispatches this request verbatim (and so a draft capture
+    // never leaves the rider wondering what would be sent).
+    _lastRequestArgs = request;
     setState(() => _requestInFlight = true);
-    context.read<RideBloc>().add(
-          RequestRide(
-            pickupLat: _pickup.lat!,
-            pickupLng: _pickup.lng!,
-            dropoffLat: _dropoff.lat!,
-            dropoffLng: _dropoff.lng!,
-            pickupAddress: _pickup.display,
-            dropoffAddress: _dropoff.display,
-            rideType: _selectedRideType,
-            paymentMethodId: _selectedPaymentMethodId,
-            // §3.1 / §3.2 / §3.6: the registry rail type, the validated promo
-            // code and the scheduled pickup time now travel with the request.
-            // Each is null unless genuinely chosen — the backend resolves
-            // defaults rather than the client fabricating them.
-            paymentMethodType: _selectedPaymentMethodType,
-            promoCode: _promoCode,
-            scheduledAt: _scheduledAt,
-            // §3.5: stops travel with the request; empty list sends no key.
-            stops: List<RideStop>.unmodifiable(_stops),
-          ),
-        );
+    context.read<RideBloc>().add(request);
   }
 
   // ==========================================================================
@@ -1620,7 +1685,25 @@ class _RideRequestPageState extends State<RideRequestPage>
 
   void _handleRideState(BuildContext context, RideState state) {
     if (state is RideRequested) {
+      // A successful send — online retry of a draft that went through, or a
+      // plain booking. The queued-draft strip must not outlive the ride it
+      // was warning about; clear it before navigating so a later return to
+      // this surface never re-shows a stale "not booked" claim.
+      _draftCount = null;
       context.go('/nidus/tracking/${state.rideId}');
+      return;
+    }
+    // Phase 5 (offline start): the bloc captured the tap as a local draft
+    // instead of firing a doomed network call. Clear the in-flight flag —
+    // nothing is in flight, and leaving it set would freeze the footer
+    // button on a spinner for a request that will never resolve over the
+    // wire. The persistent _DraftQueuedBanner then tells the rider exactly
+    // what happened ("saved — not booked") with a reachable retry.
+    if (state is RideDraftQueued) {
+      setState(() {
+        _requestInFlight = false;
+        _draftCount = state.draftCount;
+      });
       return;
     }
     // §2.6 reconnect: the carousel fetch settles on either terminal option
@@ -1645,6 +1728,22 @@ class _RideRequestPageState extends State<RideRequestPage>
             state is PaymentFailed)) {
       setState(() => _requestInFlight = false);
     }
+  }
+
+  /// Phase 5: "Try to send now" from the queued-draft strip. Re-dispatches
+  /// the retained [RequestRide] args verbatim. When connectivity has settled
+  /// back to online the bloc's [_onRequestRide] runs the real network path;
+  /// while still offline the same honest draft-capture guard re-queues it —
+  /// the action can never silently pretend a send happened. Disabled when
+  /// this visit never dispatched a request (args unknown).
+  void _retryDraftNow() {
+    final args = _lastRequestArgs;
+    if (args == null) return;
+    setState(() {
+      _requestInFlight = true;
+      _draftCount = null;
+    });
+    context.read<RideBloc>().add(args);
   }
 }
 
@@ -1817,6 +1916,134 @@ class _GpsUnavailableBanner extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Phase 5 (connectivity honesty): persistent offline strip on the request
+/// surface. Renders ONLY when the bloc's settled verdict says offline — an
+/// unset/null verdict never triggers it (honest-null rule), so the copy is
+/// never shown as a guess. Explains what a Request tap will actually do:
+/// save a local draft, not book a ride.
+class _OfflineDraftBanner extends StatelessWidget {
+  const _OfflineDraftBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Material(
+      color: AppColors.warning,
+      borderRadius: BorderRadius.circular(10),
+      child: Semantics(
+        liveRegion: true,
+        label: l10n.requestOfflineBanner,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.wifi_off,
+                  color: AppColors.textOnDark, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.requestOfflineBanner,
+                  style: const TextStyle(
+                      color: AppColors.textOnDark, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Phase 5 (queued/draft handling): durable surface after the bloc captured
+/// a ride request as a local draft. Deliberately NOT a snackbar — "saved on
+/// your phone, nothing reached Nidus" is exactly the kind of outcome that
+/// must persist until acknowledged (roadmap Phase 6 convention applied early
+/// here). Two honest actions: re-dispatch the retained request ("Try to send
+/// now" — still offline, it simply re-queues; online, it goes through), or
+/// dismiss the acknowledgement (the draft itself stays queued and syncs on
+/// reconnect either way — dismissing hides the message, not the data).
+class _DraftQueuedBanner extends StatelessWidget {
+  final int count;
+  final bool canRetry;
+  final VoidCallback onRetry;
+  final VoidCallback onDismiss;
+
+  const _DraftQueuedBanner({
+    required this.count,
+    required this.canRetry,
+    required this.onRetry,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Material(
+      color: AppColors.surface,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      child: Semantics(
+        liveRegion: true,
+        label: '${l10n.draftQueuedTitle}. ${l10n.draftQueuedBody(count)}',
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.outbox, size: 20, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.draftQueuedTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.draftQueuedBody(count),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 4,
+                        children: [
+                          TextButton(
+                            // Honest affordance: without retained args this
+                            // visit cannot re-send — no dead button
+                            // (Global Rule 4/6).
+                            onPressed: canRetry ? onRetry : null,
+                            child: Text(l10n.draftRetryAction),
+                          ),
+                          TextButton(
+                            onPressed: onDismiss,
+                            child: Text(l10n.trackingErrorDismiss),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
