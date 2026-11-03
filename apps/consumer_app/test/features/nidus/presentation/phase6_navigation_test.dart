@@ -28,6 +28,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nidaw_app/core/config/feature_flag_service.dart';
 import 'package:nidaw_app/core/flags/ar_navigation_gate.dart';
 import 'package:nidaw_app/core/router/app_router.dart';
@@ -35,7 +36,12 @@ import 'package:nidaw_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:nidaw_app/features/auth/domain/entities/user.dart';
 import 'package:nidaw_app/features/nidus/data/repositories/chat_repository.dart';
 import 'package:nidaw_app/features/nidus/data/repositories/ride_repository.dart';
+import 'package:nidaw_app/features/nidus/data/repositories/safety_repository.dart';
+import 'package:nidaw_app/features/nidus/domain/usecases/get_ride_status_usecase.dart';
+import 'package:nidaw_app/features/nidus/domain/usecases/request_ride_usecase.dart';
+import 'package:nidaw_app/features/nidus/presentation/bloc/ride_bloc.dart';
 import 'package:nidaw_app/features/nidus/presentation/pages/chat_page.dart';
+import 'package:nidaw_app/features/nidus/presentation/pages/safety_toolkit_page.dart';
 import 'package:nidaw_app/l10n/generated/app_localizations.dart';
 import 'package:nidaw_app/l10n/l10n.dart' show AppLocalizationsX;
 
@@ -378,8 +384,12 @@ void main() {
       // showDialog are intentional modal surfaces — only the raw Navigator
       // push API and MaterialPageRoute are banned here (context.push /
       // context.pushNamed are go_router's own methods and stay).
-      expect(RegExp(r'Navigator\s*(\.\w+)?\s*\.\s*push').hasMatch(src),
-          isFalse,
+      // `Navigator.pop` (dialog dismiss, leave-tracking confirmation, the
+      // Phase-1 explicit-ejection path) stays legitimate — only PUSH API
+      // sites are banned. Strip pops first so a false negative here can
+      // never mask a real regression.
+      final pushOnly = src.replaceAll('Navigator.of(context).pop()', '');
+      expect(RegExp(r'Navigator(\.\w+)*\.push').hasMatch(pushOnly), isFalse,
           reason: 'Phase 6: all tracking navigation must be GoRouter');
       expect(RegExp(r'MaterialPageRoute\(').hasMatch(src), isFalse);
       expect(src.contains("context.push('/nidus/chat/"), isTrue);
