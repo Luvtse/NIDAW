@@ -8,6 +8,7 @@ import (
 	"time"
 
 	authapp "nidaw-backend/internal/modules/auth/application"
+	legalsvc "nidaw-backend/internal/modules/legal/application/services"
 	"nidaw-backend/internal/shared/auth"
 	"nidaw-backend/internal/shared/database"
 
@@ -24,12 +25,14 @@ import (
 
 // AuthHandler handles all authentication-related HTTP requests
 type AuthHandler struct {
-	db          *database.Postgres
-	authService *auth.Service
-	logger      *zap.Logger
-	otpService  *authapp.OTPService
-	redis       *redis.Client
-	otpCfg      authapp.OTPConfig
+	db             *database.Postgres
+	authService    *auth.Service
+	logger         *zap.Logger
+	otpService     *authapp.OTPService
+	redis          *redis.Client
+	otpCfg         authapp.OTPConfig
+	activation     *authapp.ActivationService
+	consentService *legalsvc.ConsentService
 }
 
 // NewAuthHandler creates a new auth handler

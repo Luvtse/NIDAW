@@ -214,11 +214,20 @@ func main() {
 		HMACSecret:         os.Getenv("OTP_HMAC_SECRET"),
 	}
 
+	// Legal/consent service is shared by the legal router and rider onboarding
+	// (Phase 3), so it is constructed before the auth mount.
+	consentService := legalsvc.NewConsentService(db)
+
 	// Mount module routers
-	r.Mount("/", authhttp.NewRouter(db, authService, logger, otpSender, redisCache.RawClient(), otpCfg))
+	r.Mount("/", authhttp.NewRouterWithOnboarding(
+		db, authService, logger, otpSender, redisCache.RawClient(), otpCfg,
+		authapp.NewActivationService(db).WithTx(authapp.NewPostgresTxBeginner(
+			func(ctx context.Context) (authapp.RawTx, error) { return db.Begin(ctx) },
+		)),
+		consentService,
+	))
 
 	// Legal/consent module (Phase B/B2: admin-gated document management)
-	consentService := legalsvc.NewConsentService(db)
 	legalhttp.RegisterConsentRoutes(r,
 		legalhttp.NewConsentHandler(consentService),
 		legalhttp.NewAdminHandler(db),
