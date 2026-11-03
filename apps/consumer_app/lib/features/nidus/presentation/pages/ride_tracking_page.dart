@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive/hive.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/config/feature_flag_service.dart';
@@ -827,6 +826,20 @@ class _RideTrackingPageState extends State<RideTrackingPage>
                   child: _buildActiveErrorBanner(context),
                 ),
 
+              // Phase 6 (error-surface consistency): durable failures raised
+              // by page-local flows (destination change, price extension)
+              // persist until acknowledged. Stacked directly above the
+              // Phase-1 error banner so at most one message owns each band;
+              // both are live-region announcements for screen readers.
+              if (_durableBanner != null)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(context).size.height * 0.32 +
+                      (_activeErrorBanner != null ? 190 : 0),
+                  child: _buildDurableBanner(context),
+                ),
+
               // Phase 5 (connectivity honesty): persistent "reconnecting…"
               // surface while a live ride is showing and either the device
               // verdict says offline or the ride socket dropped. Rendered
@@ -932,6 +945,92 @@ class _RideTrackingPageState extends State<RideTrackingPage>
   }
 
   // ─── Phase 1: persistent ride-error banner ──────────────────────────────
+
+  /// Builds the persistent failure surface for page-local flows (Phase 6).
+  /// Mirrors the Phase-1 error-banner anatomy — error icon, localized
+  /// title/body, raw server text demoted to a detail line, live-region
+  /// semantics — but adds an explicit dismiss affordance because these
+  /// outcomes never block the map underneath. The action button re-runs the
+  /// failed flow and clears the banner first, so a second failure simply
+  /// re-parks a fresh banner rather than stacking duplicates.
+  Widget _buildDurableBanner(BuildContext context) {
+    final banner = _durableBanner!;
+    final l10n = context.l10n;
+
+    return Material(
+      color: AppColors.surface,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(16),
+      child: Semantics(
+        liveRegion: true,
+        label: '${banner.title}. ${banner.body}',
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: AppColors.error, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      banner.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.durableBannerDismissTooltip,
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => setState(() => _durableBanner = null),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                banner.body,
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
+              if (banner.detail != null && banner.detail!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  banner.detail!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+              if (banner.actionLabel != null && banner.onAction != null) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textOnDark,
+                    ),
+                    onPressed: () {
+                      final action = banner.onAction;
+                      setState(() => _durableBanner = null);
+                      action?.call();
+                    },
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text(banner.actionLabel!),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   /// Builds the durable error surface parked by the listener. Two honest
   /// variants:
@@ -1189,16 +1288,18 @@ class _RideTrackingPageState extends State<RideTrackingPage>
 
   /// Runtime gate mirroring every other Phase-3 surface: flag service
   /// missing or flag off → false (kill-switch restores the old pop-back).
+  ///
+  /// Phase 6: synchronous by necessity — this is consulted inside a bloc
+  /// listener during state emission, so it cannot await. It deliberately
+  /// does NOT bucket by install id: `price_extension` gates a recovery
+  /// affordance (a retry sheet), not an entry point with router-side twin
+  /// logic, so there is nothing to desynchronize against. The rollout-bucket
+  /// path stays reserved for ArNavigationGate.resolve(). When the cached
+  /// install id happens to exist we pass it along; otherwise null means
+  /// "evaluate unbucketed", never "guess".
   bool _priceExtensionEnabled() {
     try {
-      String? deviceId;
-      try {
-        deviceId = Hive.box('settings').get('install_id') as String?;
-      } catch (_) {
-        deviceId = null;
-      }
-      return getIt<FeatureFlagService>().isEnabled('price_extension',
-          deviceId: deviceId);
+      return getIt<FeatureFlagService>().isEnabled('price_extension');
     } catch (_) {
       return false;
     }
@@ -1321,12 +1422,19 @@ class _RideTrackingPageState extends State<RideTrackingPage>
       return;
     }
 
-    // Failure (or exception): never claim a price. Keep the sheet open so
-    // the rider can retry; the plan mandates this exact copy.
-    messenger.showSnackBar(const SnackBar(
-      content: Text('Could not update the price right now — '
-          'new price will be confirmed on retry.'),
-    ));
+    // Failure (or exception): never claim a price. Phase 6: this is a
+    // durable, money-relevant outcome ("your fare was NOT raised"), so it
+    // lands in the persistent banner with an explicit Retry instead of a
+    // timer-bound snackbar the rider can miss. The sheet stays open too —
+    // both surfaces speak the same localized copy. `mounted` was verified
+    // above, so context.l10n is safe here.
+    final l10n = context.l10n;
+    _showDurableBanner(
+      title: l10n.priceExtendFailedTitle,
+      body: l10n.priceExtendFailedBody,
+      actionLabel: l10n.commonRetry,
+      onAction: () => _applyPriceExtension(rideId, multiplier),
+    );
   }
 
 
@@ -1461,24 +1569,25 @@ class _RideTrackingPageState extends State<RideTrackingPage>
         default:
           // Everything else (network, 5xx, malformed response): honest
           // retry affordance, never a silent success or a locally-estimated
-          // fare.
+          // fare. Phase 6: localized copy — the dialog stays (it is an
+          // explicit stay-or-retry decision, not a timer surface), but its
+          // strings now come from ARB like every other durable outcome.
+          final l10n = context.l10n;
           final retry = await showDialog<bool>(
             context: context,
             builder: (dialogCtx) => AlertDialog(
-              title: const Text('Couldn\'t update destination'),
+              title: Text(l10n.destUpdateFailedTitle),
               content: Text(
-                result.error ??
-                    'The server did not accept the change. Your current '
-                        'destination is unchanged.',
+                result.error ?? l10n.destUpdateFailedBody,
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogCtx).pop(false),
-                  child: const Text('Keep current destination'),
+                  child: Text(l10n.destUpdateKeepAction),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogCtx).pop(true),
-                  child: const Text('Retry'),
+                  child: Text(l10n.commonRetry),
                 ),
               ],
             ),
@@ -1490,16 +1599,17 @@ class _RideTrackingPageState extends State<RideTrackingPage>
     } catch (e) {
       // Defensive: the repository contract says it never throws, but a
       // serialization bug must not strand the button in "busy" state.
+      // Phase 6: durable outcome ("your destination was NOT changed") →
+      // persistent banner with Retry, not a timer-bound snackbar.
       if (!mounted) return;
       setState(() => _changeDestinationBusy = false);
       debugPrint('Unexpected changeDestination throw: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not reach the server. Your destination was not changed.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+      final l10n = context.l10n;
+      _showDurableBanner(
+        title: l10n.destUpdateFailedTitle,
+        body: l10n.destUpdateUnreachableBody,
+        actionLabel: l10n.commonRetry,
+        onAction: () => _submitChangeDestination(address, suggestion.location),
       );
     }
   }
@@ -1532,23 +1642,30 @@ class _RideTrackingPageState extends State<RideTrackingPage>
           ),
         );
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              result.error ?? 'Destination update failed. Try again later.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
+        // Phase 6: retry-path failure is durable ("your destination was
+        // still NOT changed") — persistent banner with another Retry; the
+        // raw server error is demoted to the detail line per Phase-1 copy
+        // rules.
+        final l10n = context.l10n;
+        _showDurableBanner(
+          title: l10n.destUpdateFailedTitle,
+          body: l10n.destUpdateFailedBody,
+          detail: result.error,
+          actionLabel: l10n.commonRetry,
+          onAction: () => _submitChangeDestination(address, location),
         );
       }
     } catch (_) {
+      // Phase 6: "Still unreachable" was the audit's headline example of a
+      // durable outcome evaporating with a snackbar timer. Banner instead.
       if (!mounted) return;
       setState(() => _changeDestinationBusy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Still unreachable. Your destination was not changed.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      final l10n = context.l10n;
+      _showDurableBanner(
+        title: l10n.destUpdateFailedTitle,
+        body: l10n.destUpdateUnreachableBody,
+        actionLabel: l10n.commonRetry,
+        onAction: () => _submitChangeDestination(address, location),
       );
     }
   }
@@ -1811,25 +1928,13 @@ class _ArNavigationButtonState extends State<_ArNavigationButton> {
     _flagFuture = _resolveFlag();
   }
 
-  Future<bool> _resolveFlag() async {
-    try {
-      final flags = getIt<FeatureFlagService>();
-      // Same 'settings' box/key as app_router._resolveInstallId so UI gate
-      // and router gate bucket identically. Read directly here to avoid
-      // duplicating the id-generation path in two files.
-      String? deviceId;
-      try {
-        deviceId = Hive.box('settings').get('install_id') as String?;
-      } catch (_) {
-        deviceId = null;
-      }
-      return flags.isEnabled('ar_navigation', deviceId: deviceId);
-    } catch (_) {
-      // Flag service unavailable → conservative false: no button, no dead
-      // end (kill-switch semantics).
-      return false;
-    }
-  }
+  Future<bool> _resolveFlag() => ArNavigationGate.resolve();
+  // Phase 6: the body that used to live here re-read the Hive 'settings'
+  // box inline and skipped the compile switch — a hand-copied twin of the
+  // router's redirect. Both call sites now resolve through
+  // ArNavigationGate.resolve(), so button visibility and route guard can no
+  // longer desynchronize. Fail-closed semantics preserved (gate returns
+  // false when GetIt/flag service/Hive are unavailable).
 
   @override
   Widget build(BuildContext context) {

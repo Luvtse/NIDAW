@@ -17,16 +17,11 @@ class ReceiptDetailPage extends StatelessWidget {
 
   const ReceiptDetailPage({super.key, required this.ride});
 
-  static Future<void> open(
-    BuildContext context, {
-    required Ride ride,
-  }) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ReceiptDetailPage(ride: ride),
-      ),
-    );
-  }
+  // Phase 6: the old `static Future<void> open(...)` raw Navigator.push is
+  // deleted. Entry goes through RouteNames.rideReceipt (/nidus/receipt/
+  // :rideId), which fast-paths a preloaded ride from `extra` and otherwise
+  // loads via RideRepository — receipt deep-links no longer assume a live
+  // bloc or an in-memory Ride.
 
   String _formatMoney(double amount) =>
       '${ride.currency} ${amount.toStringAsFixed(2)}';
