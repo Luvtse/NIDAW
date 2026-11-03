@@ -191,14 +191,21 @@ func NormalizePhone(raw string) (string, bool) {
 		}
 		// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
 		// zero between the country code and the subscriber number. No valid
-		// ITU country code starts with 0, so when digits[0] is '0' the first
-		// one-to-three digits are treated as the country code; strip the zero
-		// only if the remainder still parses as CC + >=7 subscriber digits.
+		// ITU country code starts with 0, so when digits[0] is '0' the country
+		// code is the one-to-three digits immediately after it; strip the zero
+		// only if that prefix is a recognised country code and the remainder
+		// still parses as CC + >=7 subscriber digits.
 		digits := rest
 		if len(digits) >= 9 && digits[0] == '0' {
 			stripped := digits[1:]
-			if ccLen, ok := legacyCountryCodeLen(stripped); ok && len(stripped) >= ccLen+7 {
-				digits = stripped
+			for ccLen := 1; ccLen <= 3 && ccLen < len(stripped); ccLen++ {
+				if _, ok := knownCountryCode(stripped[:ccLen]); !ok {
+					continue
+				}
+				if len(stripped) >= ccLen+7 {
+					digits = stripped
+				}
+				break
 			}
 		}
 		if len(digits) < 8 || len(digits) > 15 {
@@ -223,58 +230,67 @@ func allDigits(s string) bool {
 	return len(s) > 0
 }
 
-// legacyCountryCodeLen returns the length (1-3) of the leading country code
-// in a digit string, using the ITU zone prefixes present in E.164 numbering
-// for the regions NIDAW serves plus the common one/two-digit codes. It is
-// only used to validate the shape of "+CC0N..." trunk artifacts; ok=false
-// means the digits do not begin with any recognised country code and the
-// zero should NOT be stripped.
-func legacyCountryCodeLen(digits string) (int, bool) {
-	oneDigit := map[byte]bool{'1': true, '7': true}
-	twoDigitPrefixes := []string{
-		"20", "27", "30", "31", "32", "33", "34", "36", "39", "40", "41",
-		"43", "44", "45", "46", "47", "48", "49", "51", "52", "53", "54",
-		"55", "56", "57", "58", "60", "61", "62", "63", "64", "65", "66",
-		"81", "82", "84", "86", "90", "91", "92", "93", "94", "95", "98",
-	}
-	threeDigitPrefixes := []string{
-		"213", "216", "218", "220", "221", "222", "223", "224", "225",
-		"226", "227", "228", "229", "230", "231", "232", "233", "234",
-		"235", "236", "237", "238", "239", "240", "241", "242", "243",
-		"244", "245", "246", "247", "248", "249", "250", "251", "252",
-		"253", "254", "255", "256", "257", "258", "260", "261", "262",
-		"263", "264", "265", "266", "267", "268", "269", "290", "291",
-		"297", "298", "299", "350", "351", "352", "353", "354", "355",
-		"356", "357", "358", "359", "370", "371", "372", "373", "374",
-		"375", "376", "377", "378", "380", "381", "382", "383", "385",
-		"386", "387", "389", "420", "421", "423", "500", "501", "502",
-		"503", "504", "505", "506", "507", "508", "509", "590", "591",
-		"592", "593", "594", "595", "596", "597", "598", "599", "670",
-		"672", "673", "674", "675", "676", "677", "678", "679", "680",
-		"681", "682", "683", "685", "686", "687", "688", "689", "690",
-		"691", "692", "800", "808", "850", "852", "853", "855", "856",
-		"880", "886", "960", "961", "962", "963", "964", "965", "966",
-		"967", "968", "970", "971", "972", "973", "974", "975", "976",
-		"977", "992", "993", "994", "995", "996", "998",
-	}
-	if len(digits) >= 1 && oneDigit[digits[0]] {
-		return 1, true
-	}
-	if len(digits) >= 3 {
-		for _, p := range threeDigitPrefixes {
-			if digits[:3] == p {
-				return 3, true
-			}
+// knownCountryCode reports whether the given digit prefix is a recognised
+// ITU country code used by NIDAW markets plus the common one/two/three-digit
+// codes seen in E.164 traffic. It backs the "+CC0N..." trunk-artifact repair
+// in NormalizePhone: an unrecognised prefix means the zero must NOT be
+// stripped.
+func knownCountryCode(cc string) (struct{}, bool) {
+	switch len(cc) {
+	case 1:
+		if cc == "1" || cc == "7" {
+			return struct{}{}, true
+		}
+	case 2:
+		if _, ok := twoDigitCountryCodes[cc]; ok {
+			return struct{}{}, true
+		}
+	case 3:
+		if _, ok := threeDigitCountryCodes[cc]; ok {
+			return struct{}{}, true
 		}
 	}
-	if len(digits) >= 2 {
-		for _, p := range twoDigitPrefixes {
-			if digits[:2] == p {
-				return 2, true
-			}
-		}
-	}
-	return 0, false
+	return struct{}{}, false
+}
+
+var twoDigitCountryCodes = map[string]struct{}{
+	"20": {}, "27": {}, "30": {}, "31": {}, "32": {}, "33": {}, "34": {},
+	"36": {}, "39": {}, "40": {}, "41": {}, "43": {}, "44": {}, "45": {},
+	"46": {}, "47": {}, "48": {}, "49": {}, "51": {}, "52": {}, "53": {},
+	"54": {}, "55": {}, "56": {}, "57": {}, "58": {}, "60": {}, "61": {},
+	"62": {}, "63": {}, "64": {}, "65": {}, "66": {}, "81": {}, "82": {},
+	"84": {}, "86": {}, "90": {}, "91": {}, "92": {}, "93": {}, "94": {},
+	"95": {}, "98": {},
+}
+
+var threeDigitCountryCodes = map[string]struct{}{
+	"213": {}, "216": {}, "218": {}, "220": {}, "221": {}, "222": {},
+	"223": {}, "224": {}, "225": {}, "226": {}, "227": {}, "228": {},
+	"229": {}, "230": {}, "231": {}, "232": {}, "233": {}, "234": {},
+	"235": {}, "236": {}, "237": {}, "238": {}, "239": {}, "240": {},
+	"241": {}, "242": {}, "243": {}, "244": {}, "245": {}, "246": {},
+	"247": {}, "248": {}, "249": {}, "250": {}, "251": {}, "252": {},
+	"253": {}, "254": {}, "255": {}, "256": {}, "257": {}, "258": {},
+	"260": {}, "261": {}, "262": {}, "263": {}, "264": {}, "265": {},
+	"266": {}, "267": {}, "268": {}, "269": {}, "290": {}, "291": {},
+	"297": {}, "298": {}, "299": {}, "350": {}, "351": {}, "352": {},
+	"353": {}, "354": {}, "355": {}, "356": {}, "357": {}, "358": {},
+	"359": {}, "370": {}, "371": {}, "372": {}, "373": {}, "374": {},
+	"375": {}, "376": {}, "377": {}, "378": {}, "380": {}, "381": {},
+	"382": {}, "383": {}, "385": {}, "386": {}, "387": {}, "389": {},
+	"420": {}, "421": {}, "423": {}, "500": {}, "501": {}, "502": {},
+	"503": {}, "504": {}, "505": {}, "506": {}, "507": {}, "508": {},
+	"509": {}, "590": {}, "591": {}, "592": {}, "593": {}, "594": {},
+	"595": {}, "596": {}, "597": {}, "598": {}, "599": {}, "670": {},
+	"672": {}, "673": {}, "674": {}, "675": {}, "676": {}, "677": {},
+	"678": {}, "679": {}, "680": {}, "681": {}, "682": {}, "683": {},
+	"685": {}, "686": {}, "687": {}, "688": {}, "689": {}, "690": {},
+	"691": {}, "692": {}, "800": {}, "808": {}, "850": {}, "852": {},
+	"853": {}, "855": {}, "856": {}, "880": {}, "886": {}, "960": {},
+	"961": {}, "962": {}, "963": {}, "964": {}, "965": {}, "966": {},
+	"967": {}, "968": {}, "970": {}, "971": {}, "972": {}, "973": {},
+	"974": {}, "975": {}, "976": {}, "977": {}, "992": {}, "993": {},
+	"994": {}, "995": {}, "996": {}, "998": {},
 }
 
 // generateCode returns a cryptographically random digit string of CodeLength.
@@ -326,16 +342,13 @@ func (s *OTPService) startCooldown(ctx context.Context, key string) error {
 	const script = `if tonumber(ARGV[2]) <= 0 then return 'OK' end return redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2])`
 	res, err := s.rdb.Eval(ctx, script, []string{otpCooldownKey(key)},
 		time.Now().UTC().Format(time.RFC3339Nano),
-		s.cfg.ResendCooldown.Milliseconds()).Result()
-	if errors.Is(err, redis.Nil) {
+		s.cfg.ResendCooldown.Milliseconds()).Text()
+	if errors.Is(err, redis.Nil) || (err == nil && res == "") {
 		// SET NX returned no reply because the gate is still held.
 		return errCooldownActive
 	}
 	if err != nil {
 		return err
-	}
-	if res == nil {
-		return errCooldownActive
 	}
 	return nil
 }
