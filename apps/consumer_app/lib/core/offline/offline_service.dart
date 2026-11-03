@@ -26,9 +26,23 @@ class OfflineServiceNotReadyException implements Exception {
   String toString() => 'OfflineServiceNotReadyException($message)';
 }
 
+/// Signature for replaying one queued offline operation over the network.
+///
+/// The service stays transport-agnostic: DI injects a sender that posts the
+/// stored payload through ApiClient. Throwing signals "not delivered" — the
+/// op then keeps its retry count and stays in the queue for the next
+/// reconnect, so nothing is ever silently dropped.
+typedef PendingOperationSender = Future<void> Function(
+    Map<String, dynamic> operation);
+
 class OfflineService {
   static const String _kPendingOperationsBox = 'pending_operations';
   static const String _kCachedDataBox = 'cached_data';
+
+  /// Pluggable network sender used by [syncPendingOperations]. Set by the DI
+  /// wiring (Phase 5) so queued ride drafts genuinely POST on reconnect
+  /// instead of only being logged. Null → legacy log-only behavior.
+  PendingOperationSender? operationSender;
 
   /// Cache key under which the last successful ride summary projection is
   /// stored. The home shell may render it with a "last known" freshness
@@ -183,13 +197,24 @@ class OfflineService {
   }
 
   Future<void> _executeOperation(Map<String, dynamic> operation) async {
-    // This would integrate with your ApiClient
-    // For now, just a placeholder
     final endpoint = operation['endpoint'] as String;
     final method = operation['method'] as String;
 
-    // TODO: Call actual API
-    print('Executing offline operation: $method $endpoint');
+    // Phase 5: when DI has injected a real sender (ApiClient-backed), the
+    // queued payload is genuinely replayed over the network and a throw
+    // keeps the op in the queue. Without a sender we must NOT pretend the
+    // op executed — log honestly and leave it queued by returning an error
+    // signal through the exception path only if a sender exists; otherwise
+    // keep the legacy debug log so no data is claimed delivered.
+    final sender = operationSender;
+    if (sender == null) {
+      debugPrint(
+          '[offline] no sender wired — keeping operation queued: '
+          '$method $endpoint');
+      throw const OfflineServiceNotReadyException(
+          'no pending-operation sender wired');
+    }
+    await sender(operation);
   }
 
   int get pendingOperationCount =>

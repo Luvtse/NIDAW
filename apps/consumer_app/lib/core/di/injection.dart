@@ -238,6 +238,20 @@ void _registerCoreServices() {
   // Offline Service
   getIt.registerLazySingleton<OfflineService>(() => OfflineService());
 
+  // Phase 5 (connectivity & state-honesty): queued offline operations are
+  // genuinely replayed through ApiClient on reconnect instead of only being
+  // logged. A non-2xx status throws so syncPendingOperations keeps the op
+  // queued with its retry count — nothing is silently dropped.
+  getIt<OfflineService>().operationSender = (operation) async {
+    final endpoint = operation['endpoint'] as String;
+    final data = Map<String, dynamic>.from(operation['data'] as Map);
+    final response = await getIt<ApiClient>().post<dynamic>(endpoint, data: data);
+    final status = response.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      throw Exception('offline replay failed: HTTP $status for $endpoint');
+    }
+  };
+
   // Token Storage (using Hive)
   getIt.registerLazySingleton<TokenStorage>(() => HiveTokenStorage());
 }
@@ -434,6 +448,19 @@ void _registerBlocs() {
       // config/feature-flags/flags.json). Injecting the loaded service lets
       // the bloc check it per position sample without reaching for getIt.
       featureFlags: getIt<FeatureFlagService>(),
+      // Phase 5 (connectivity & state-honesty UX): feed the bloc the settled
+      // offline verdict and the live connectivity stream from OfflineService
+      // (initialized by the startup coordinator before any Nidus surface
+      // builds). Null-safe on the bloc side: an unsettled verdict renders no
+      // banner rather than guessing. Also inject the service so draft ride
+      // requests captured offline persist to the pending box and replay via
+      // the ApiClient sender wired above.
+      connectivityStream: getIt<OfflineService>().connectivityStream,
+      initialConnectivity: () {
+        final svc = getIt<OfflineService>();
+        return svc.isReady ? svc.isOnline : null;
+      },
+      offlineService: getIt<OfflineService>(),
     ),
   );
 
