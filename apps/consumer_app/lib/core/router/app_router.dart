@@ -37,8 +37,11 @@ import '../../features/profile/presentation/pages/consent_management_page.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/nidus/presentation/pages/ar_navigation_page.dart';
+import '../../features/nidus/data/repositories/ride_repository.dart'
+    show Ride, RideRepository;
 import '../../features/nidus/presentation/pages/chat_page.dart';
 import '../../features/nidus/presentation/pages/receipt_detail_page.dart';
+import '../../l10n/l10n.dart';
 import '../config/feature_flag_service.dart';
 import '../flags/ar_navigation_gate.dart';
 import '../startup/app_startup_coordinator.dart' show hasStartupCoordinator;
@@ -287,12 +290,54 @@ class AppRouter {
             name: RouteNames.rideHistory,
             builder: (context, state) => const RideHistoryPage(),
           ),
+          // Phase 6 (nav consistency): the toolkit is pushed from tracking
+          // via context.pushNamed so it shares the live RideBloc instead of
+          // a fresh one — SafetyToolkitPage operates on the trip in progress
+          // (SOS, live location share); a bloc that knows nothing about the
+          // ride would render dead actions. The route still works as a deep
+          // link: without `extra` we fall back to a freshly created bloc
+          // (the page itself degrades honestly when no ride is loaded).
           GoRoute(
             path: '/nidus/safety',
             name: RouteNames.safetyToolkit,
-            builder: (context, state) => BlocProvider(
-              create: (_) => _rideBlocFactory(),
-              child: const SafetyToolkitPage(),
+            builder: (context, state) {
+              final sharedBloc = state.extra;
+              if (sharedBloc is RideBloc) {
+                return BlocProvider.value(
+                  value: sharedBloc,
+                  child: const SafetyToolkitPage(),
+                );
+              }
+              return BlocProvider(
+                create: (_) => _rideBlocFactory(),
+                child: const SafetyToolkitPage(),
+              );
+            },
+          ),
+
+          // ==================================================================
+          // PHASE 6 (nav consistency): chat & receipt were long pushed as
+          // raw MaterialPageRoutes from the tracking page — invisible to
+          // deep links, flag gates and web URL sync. They are first-class
+          // GoRouter routes now.
+          // ==================================================================
+          GoRoute(
+            path: ChatPage.pathTemplate, // '/nidus/chat/:rideId'
+            name: RouteNames.rideChat,
+            builder: (context, state) => ChatPage(
+              rideId: state.pathParameters['rideId']!,
+            ),
+          ),
+          // Receipt deep-links must NOT assume a live bloc: the ride entity
+          // arrives either via `extra` (fast path from tracking, which holds
+          // the completed Ride in hand) or by loading GET /rides/{id}
+          // through the repository (cold deep link / web URL).
+          GoRoute(
+            path: '/nidus/receipt/:rideId',
+            name: RouteNames.rideReceipt,
+            builder: (context, state) => _ReceiptRoute(
+              rideId: state.pathParameters['rideId']!,
+              preloadedRide: state.extra is Ride ? state.extra as Ride : null,
             ),
           ),
           GoRoute(
