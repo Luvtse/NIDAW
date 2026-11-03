@@ -32,8 +32,10 @@ import 'package:nidaw_app/core/config/feature_flag_service.dart';
 import 'package:nidaw_app/core/flags/ar_navigation_gate.dart';
 import 'package:nidaw_app/core/router/app_router.dart';
 import 'package:nidaw_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:nidaw_app/features/auth/domain/entities/user.dart';
 import 'package:nidaw_app/features/nidus/data/repositories/chat_repository.dart';
 import 'package:nidaw_app/features/nidus/data/repositories/ride_repository.dart';
+import 'package:nidaw_app/features/nidus/presentation/pages/chat_page.dart';
 import 'package:nidaw_app/l10n/generated/app_localizations.dart';
 import 'package:nidaw_app/l10n/l10n.dart' show AppLocalizationsX;
 
@@ -63,26 +65,42 @@ class FakePhase6Repository implements RideRepository {
 
 /// ChatPage pulls ChatRepository + AuthRepository from GetIt in initState.
 /// These two stubs keep the real page alive under test without a network:
-/// empty history, no WS listener, no participant — enough to prove the
-/// ROUTE hands the right rideId to the widget.
+/// empty history, no WS listener, canned catalog honestly unavailable (the
+/// page hides chips then — never fabricates them), no participant — enough to
+/// prove the ROUTE hands the right rideId to the widget.
+///
+/// ChatRepository is a concrete class with final private fields and a
+/// required super constructor, so `extends` + override is impossible and
+/// `implements` is the only faithful shape. Its public surface is replicated
+/// exactly here (history takes non-nullable `String cursor = ''` + `limit`,
+/// canned takes non-nullable `locale`, listen uses the production
+/// ChatIncomingHandler typedef); anything unimplemented falls through
+/// noSuchMethod like the Phase-5 fakes.
 class FakePhase6ChatRepository implements ChatRepository {
   String? listenedRideId;
+  bool stopped = false;
 
   @override
-  Future<ChatHistoryPage> history(String rideId, {String? cursor}) async =>
-      const ChatHistoryPage(messages: [], hasMore: false, nextCursor: null);
+  Future<ChatHistoryPage> history(
+    String rideId, {
+    String cursor = '',
+    int limit = 50,
+  }) async =>
+      const ChatHistoryPage(messages: [], nextCursor: '');
 
   @override
-  Future<CannedCatalog> canned({String? locale}) async =>
-      throw ChatUnavailableException();
+  Future<CannedCatalog> canned({String locale = 'en'}) async =>
+      throw const ChatUnavailableException('offline in test');
 
   @override
-  void listen(String rideId, void Function(ChatMessage) onMessage) {
-    listenedRideId = rideId;
+  void listen(String rideId, ChatIncomingHandler onMessage) {
+    listenedRideId = rideId; // no-op: no WS in tests
   }
 
   @override
-  void stopListening() {}
+  void stopListening() {
+    stopped = true; // no-op: no WS in tests
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -92,7 +110,7 @@ class FakePhase6ChatRepository implements ChatRepository {
 
 class FakePhase6AuthRepository implements AuthRepository {
   @override
-  Future<dynamic> getCurrentUser() async => null;
+  Future<User?> getCurrentUser() async => null;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -235,6 +253,11 @@ void main() {
     testWidgets('deep link /nidus/chat/r1 builds ChatPage with rideId r1',
         (tester) async {
       final repo = FakePhase6Repository();
+      // ChatPage resolves ChatRepository + AuthRepository from GetIt in
+      // initState — register the stubs BEFORE pumping so the real page
+      // survives its load cycle (empty history, unavailable canned catalog).
+      getIt.registerSingleton<ChatRepository>(FakePhase6ChatRepository());
+      getIt.registerSingleton<AuthRepository>(FakePhase6AuthRepository());
       final router = _buildPhase6Routes(repo);
       await tester.pumpWidget(_wrap(router));
       router.go('/nidus/chat/r1');
