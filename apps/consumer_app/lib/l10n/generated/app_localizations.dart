@@ -1967,4 +1967,58 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   /// In en, this message translates to:
   /// **Try to send now**
   String get draftRetryAction;
+
+  /// Phase 6: headline shown when a receipt deep-link could not fetch the ride from the server.
+  ///
+  /// In en, this message translates to:
+  /// **Couldn't load this receipt**
+  String get receiptLoadFailedTitle;
+
+  /// Phase 6: honest body copy for the receipt load-failure state; never shows a fake empty receipt.
+  ///
+  /// In en, this message translates to:
+  /// **We couldn't find this receipt. Check your connection and try again — if the ride is very old it may no longer be available.**
+  String get receiptLoadFailedBody;
+
+  /// Phase 6: headline of the persistent banner shown when applying a price extension did not succeed.
+  ///
+  /// In en, this message translates to:
+  /// **Price extension failed**
+  String get priceExtendFailedTitle;
+
+  /// Phase 6: body copy of the price-extension failure banner; states truthfully that nothing reached the driver.
+  ///
+  /// In en, this message translates to:
+  /// **Your offer wasn't sent. The driver hasn't seen it yet — you can retry, or keep waiting at the original fare.**
+  String get priceExtendFailedBody;
+
+  /// Phase 6: headline shown when a mid-ride destination change could not be confirmed with the server.
+  ///
+  /// In en, this message translates to:
+  /// **Destination update failed**
+  String get destUpdateFailedTitle;
+
+  /// Phase 6: default body for the destination-change failure dialog/banner when the server gives no specific reason.
+  ///
+  /// In en, this message translates to:
+  /// **We couldn't confirm the new destination with the driver. Your trip continues with the original destination until this succeeds.**
+  String get destUpdateFailedBody;
+
+  /// Phase 6: body copy when repeated destination-change attempts fail due to connectivity; demotes raw server text to detail.
+  ///
+  /// In en, this message translates to:
+  /// **Still unreachable — we can't reach Nidus right now to confirm the new destination. We'll keep the original destination; retry when your connection improves.**
+  String get destUpdateUnreachableBody;
+
+  /// Phase 6: explicit user action on the destination-change failure dialog meaning 'do not retry, continue with the original destination'.
+  ///
+  /// In en, this message translates to:
+  /// **Keep original**
+  String get destUpdateKeepAction;
+
+  /// Phase 6: tooltip/semantics label for the close button on persistent outcome banners in ride tracking.
+  ///
+  /// In en, this message translates to:
+  /// **Dismiss message**
+  String get durableBannerDismissTooltip;
 }

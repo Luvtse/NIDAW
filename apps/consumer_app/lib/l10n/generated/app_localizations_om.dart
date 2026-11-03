@@ -1062,4 +1062,31 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get draftRetryAction => 'Amma erguudhaan yaali';
+
+  @override
+  String get receiptLoadFailedTitle => 'Ragaa kaffaltii kana fe\'uun hin danda\'amne';
+
+  @override
+  String get receiptLoadFailedBody => 'Ragaan kaffaltii kana hin argamne. Walqunnamsiisa kee mirkaneessi itti deebi\'a yaali — sochiin baay\'ee durii ta\'e, badii argamu dhabuu danda\'a.';
+
+  @override
+  String get priceExtendFailedTitle => 'Dabalatni gatii milkaa\'e hin jiru';
+
+  @override
+  String get priceExtendFailedBody => 'Dhiyaanni kee hin ergamne. Pilootaan amma hin tuffanne — itti deebitee yaaluudhaaf yookaan gatii jalqabaatiin eeggachuudhaaf filadhu.';
+
+  @override
+  String get destUpdateFailedTitle => 'Haaromsuuni bakka gamaggamuu milkaa\'e hin jiru';
+
+  @override
+  String get destUpdateFailedBody => 'Bakka haaraa gamaggamuu waliin piloottaa mirkaneessuun hin danda\'amne. Sochiin kee bakka gamaggamuu duraatiin itti fufa hanga kun milkaa\'uutti.';
+
+  @override
+  String get destUpdateUnreachableBody => 'Ammas ga\'aa miti — Nidusitti haaraa bakka gamaggamuu mirkaneessuuf ga\'uun hin danda\'amne. Bakka gamaggamuu duraatti qabanna; walqunnamsiisni kee fooyya\'ee itti deebi\'a yaali.';
+
+  @override
+  String get destUpdateKeepAction => 'Kan duraattii qabi';
+
+  @override
+  String get durableBannerDismissTooltip => 'Ergaa cerri';
 }

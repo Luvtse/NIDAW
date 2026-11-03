@@ -1062,4 +1062,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get draftRetryAction => 'Try to send now';
+
+  @override
+  String get receiptLoadFailedTitle => 'Couldn\'t load this receipt';
+
+  @override
+  String get receiptLoadFailedBody => 'We couldn\'t find this receipt. Check your connection and try again — if the ride is very old it may no longer be available.';
+
+  @override
+  String get priceExtendFailedTitle => 'Price extension failed';
+
+  @override
+  String get priceExtendFailedBody => 'Your offer wasn\'t sent. The driver hasn\'t seen it yet — you can retry, or keep waiting at the original fare.';
+
+  @override
+  String get destUpdateFailedTitle => 'Destination update failed';
+
+  @override
+  String get destUpdateFailedBody => 'We couldn\'t confirm the new destination with the driver. Your trip continues with the original destination until this succeeds.';
+
+  @override
+  String get destUpdateUnreachableBody => 'Still unreachable — we can\'t reach Nidus right now to confirm the new destination. We\'ll keep the original destination; retry when your connection improves.';
+
+  @override
+  String get destUpdateKeepAction => 'Keep original';
+
+  @override
+  String get durableBannerDismissTooltip => 'Dismiss message';
 }

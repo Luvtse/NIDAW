@@ -1062,4 +1062,31 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get draftRetryAction => 'አኝቲ ምክ አወልና ይሟልቢቅራ';
+
+  @override
+  String get receiptLoadFailedTitle => 'ይህን የደረሰኝ ንብርብር መጫን አልተቻለም';
+
+  @override
+  String get receiptLoadFailedBody => 'ይህን የደረሰኝ ማግኘት አልተቻለም። ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ — ጉዞው በጣም ካረዘ ተገኚ ላይሆን ይችላል።';
+
+  @override
+  String get priceExtendFailedTitle => 'የዋጋ ማራመድ አልተሳካም';
+
+  @override
+  String get priceExtendFailedBody => 'ቅናሽዎ አልተላከም። ሾፌሩ ገና አልተነካውም — እንደገና ሊሞክሩ ወይም በዋናው ዋጋ መጠበቅ ይችላሉ።';
+
+  @override
+  String get destUpdateFailedTitle => 'የመድረሻ ቦታ ማዘመን አልተሳካም';
+
+  @override
+  String get destUpdateFailedBody => 'አዲሱን መድረሻ ቦታ ከሾፌሩ ጋር ማረጋገጥ አልተቻለም። ይህ እስኪሳካ ጉዞዎ በዋናው መድረሻ ቀጥሏል።';
+
+  @override
+  String get destUpdateUnreachableBody => 'እስካሁን አይደረሱም — አዲሱን መድረሻ ቦታ ለማረጋገጅ ኒዱስን መድረስ አልተቻለም። ዋናውን መድረሻ ቦታ እንይዛለት፤ ግንኙነትዎ ሲሻሻል እንደገና ይሞክሩ።';
+
+  @override
+  String get destUpdateKeepAction => 'ዋናውን ይጠብቁ';
+
+  @override
+  String get durableBannerDismissTooltip => 'መልዕክት ዝጋ';
 }
