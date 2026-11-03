@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../../domain/entities/onboarding_status.dart';
 import '../../domain/entities/user.dart';
+import '../../../../core/network/api_client.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 
@@ -62,9 +64,55 @@ class LogoutRequested extends AuthEvent {
   const LogoutRequested();
 }
 
+/// Phone+OTP sign-in for an existing rider: verify a code sent with
+/// operation=login and open the session.
+class OtpLoginRequested extends AuthEvent {
+  final String phone;
+  final String code;
+
+  const OtpLoginRequested({required this.phone, required this.code});
+
+  @override
+  List<Object?> get props => [phone, code];
+}
+
+/// Complete phone-first registration: spend the otp/verify(register) ticket
+/// on register-phone (all profile fields optional).
+class PhoneRegistrationRequested extends AuthEvent {
+  final String verificationTicket;
+  final String? fullName;
+  final String? email;
+  final String? password;
+
+  const PhoneRegistrationRequested({
+    required this.verificationTicket,
+    this.fullName,
+    this.email,
+    this.password,
+  });
+
+  @override
+  List<Object?> get props => [verificationTicket, fullName, email, password];
+}
+
 /// Mark onboarding as complete (after legal consent)
 class OnboardingCompleted extends AuthEvent {
   const OnboardingCompleted();
+}
+
+/// Activate the account with the OTP-bound consent ticket and the accepted
+/// agreement set.
+class OnboardingActivationRequested extends AuthEvent {
+  final String consentTicket;
+  final List<String> agreements;
+
+  const OnboardingActivationRequested({
+    required this.consentTicket,
+    required this.agreements,
+  });
+
+  @override
+  List<Object?> get props => [consentTicket, agreements];
 }
 
 /// Refresh the access token using refresh token
@@ -182,8 +230,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
+    on<OtpLoginRequested>(_onOtpLoginRequested);
+    on<PhoneRegistrationRequested>(_onPhoneRegistrationRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<OnboardingCompleted>(_onOnboardingCompleted);
+    on<OnboardingActivationRequested>(_onOnboardingActivationRequested);
     on<TokenRefreshRequested>(_onTokenRefreshRequested);
     on<ProfileUpdated>(_onProfileUpdated);
 
@@ -325,6 +376,98 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onOtpLoginRequested(
+    OtpLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    try {
+      final result = await _authRepository.verifyOtp(
+        phone: event.phone,
+        code: event.code,
+        operation: 'login',
+      );
+
+      if (result.isFailure) {
+        emit(AuthError(
+          message: result.error ?? 'Verification failed',
+          errorCode: result.errorCode,
+        ));
+        return;
+      }
+
+      // Server returned a registration ticket instead of a session: the
+      // number is not registered yet. The UI must route to account creation.
+      if (result.auth == null) {
+        emit(AuthError(
+          message: 'This phone is not registered yet. Create an account first.',
+          errorCode: 'PHONE_NOT_REGISTERED',
+        ));
+        return;
+      }
+
+      final auth = result.auth!;
+      if (auth.isFailure) {
+        emit(AuthError(
+          message: auth.error ?? 'Sign-in failed',
+          errorCode: auth.errorCode,
+        ));
+        return;
+      }
+
+      final user = auth.user!;
+      final onboardingComplete = await _authRepository.isOnboardingComplete();
+      final expiresAt = await _authRepository.getTokenExpiration();
+      await onAuthenticated?.call();
+
+      emit(AuthAuthenticated(
+        user: user,
+        onboardingComplete: onboardingComplete,
+        tokenExpiresAt: expiresAt ?? DateTime.now().add(const Duration(hours: 1)),
+      ));
+    } catch (e) {
+      emit(AuthError(message: e.toString(), errorCode: 'OTP_LOGIN_FAILED'));
+    }
+  }
+
+  Future<void> _onPhoneRegistrationRequested(
+    PhoneRegistrationRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    try {
+      final result = await _authRepository.registerPhone(
+        verificationTicket: event.verificationTicket,
+        fullName: event.fullName,
+        email: event.email,
+        password: event.password,
+      );
+
+      if (result.isFailure) {
+        emit(AuthError(
+          message: result.error ?? 'Registration failed',
+          errorCode: result.errorCode,
+        ));
+        return;
+      }
+
+      final user = result.user!;
+      await onAuthenticated?.call();
+
+      // New riders land on the consent screen; activation needs OTP-proofed
+      // agreement acceptance before the app unlocks.
+      emit(AuthAuthenticated(
+        user: user,
+        onboardingComplete: false,
+        tokenExpiresAt: DateTime.now().add(const Duration(hours: 1)),
+      ));
+    } catch (e) {
+      emit(AuthError(message: e.toString(), errorCode: 'REGISTER_FAILED'));
+    }
+  }
+
   Future<void> _onLogoutRequested(
     LogoutRequested event,
     Emitter<AuthState> emit,
@@ -357,6 +500,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(currentState.copyWith(onboardingComplete: true));
     } catch (e) {
       debugPrint('Failed to mark onboarding complete: $e');
+    }
+  }
+
+  Future<void> _onOnboardingActivationRequested(
+    OnboardingActivationRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! AuthAuthenticated) {
+      return;
+    }
+
+    try {
+      final status = await _authRepository.completeOnboarding(
+        consentTicket: event.consentTicket,
+        agreements: event.agreements,
+      );
+      if (status.complete) {
+        emit(currentState.copyWith(onboardingComplete: true));
+      }
+      // Incomplete (server 412): the consent page re-renders from the fresh
+      // checklist; state stays authenticated-but-gated.
+    } on ApiException catch (e) {
+      emit(AuthError(message: e.message, errorCode: e.errorCode));
+    } catch (e) {
+      emit(AuthError(message: e.toString(), errorCode: 'ONBOARDING_FAILED'));
     }
   }
 
