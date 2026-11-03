@@ -920,5 +920,41 @@
   "draftRetryAction": "Amma erguudhaan yaali",
   "@draftRetryAction": {
     "description": "Phase 5: action button on the draft strip that attempts an immediate send (useful once back online)."
+  },
+  "receiptLoadFailedTitle": "Ragaa kaffaltii kana fe'uun hin danda'amne",
+  "@receiptLoadFailedTitle": {
+    "description": "Phase 6: headline shown when a receipt deep-link could not fetch the ride from the server."
+  },
+  "receiptLoadFailedBody": "Ragaan kaffaltii kana hin argamne. Walqunnamsiisa kee mirkaneessi itti deebi'a yaali — sochiin baay'ee durii ta'e, badii argamu dhabuu danda'a.",
+  "@receiptLoadFailedBody": {
+    "description": "Phase 6: honest body copy for the receipt load-failure state; never shows a fake empty receipt."
+  },
+  "priceExtendFailedTitle": "Dabalatni gatii milkaa'e hin jiru",
+  "@priceExtendFailedTitle": {
+    "description": "Phase 6: headline of the persistent banner shown when applying a price extension did not succeed."
+  },
+  "priceExtendFailedBody": "Dhiyaanni kee hin ergamne. Pilootaan amma hin tuffanne — itti deebitee yaaluudhaaf yookaan gatii jalqabaatiin eeggachuudhaaf filadhu.",
+  "@priceExtendFailedBody": {
+    "description": "Phase 6: body copy of the price-extension failure banner; states truthfully that nothing reached the driver."
+  },
+  "destUpdateFailedTitle": "Haaromsuuni bakka gamaggamuu milkaa'e hin jiru",
+  "@destUpdateFailedTitle": {
+    "description": "Phase 6: headline shown when a mid-ride destination change could not be confirmed with the server."
+  },
+  "destUpdateFailedBody": "Bakka haaraa gamaggamuu waliin piloottaa mirkaneessuun hin danda'amne. Sochiin kee bakka gamaggamuu duraatiin itti fufa hanga kun milkaa'uutti.",
+  "@destUpdateFailedBody": {
+    "description": "Phase 6: default body for the destination-change failure dialog/banner when the server gives no specific reason."
+  },
+  "destUpdateUnreachableBody": "Ammas ga'aa miti — Nidusitti haaraa bakka gamaggamuu mirkaneessuuf ga'uun hin danda'amne. Bakka gamaggamuu duraatti qabanna; walqunnamsiisni kee fooyya'ee itti deebi'a yaali.",
+  "@destUpdateUnreachableBody": {
+    "description": "Phase 6: body copy when repeated destination-change attempts fail due to connectivity; demotes raw server text to detail."
+  },
+  "destUpdateKeepAction": "Kan duraattii qabi",
+  "@destUpdateKeepAction": {
+    "description": "Phase 6: explicit user action on the destination-change failure dialog meaning 'do not retry, continue with the original destination'."
+  },
+  "durableBannerDismissTooltip": "Ergaa cerri",
+  "@durableBannerDismissTooltip": {
+    "description": "Phase 6: tooltip/semantics label for the close button on persistent outcome banners in ride tracking."
   }
 }

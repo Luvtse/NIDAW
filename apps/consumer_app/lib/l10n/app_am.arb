@@ -920,5 +920,41 @@
   "draftRetryAction": "አሁን ለመላክ ይሞክሩ",
   "@draftRetryAction": {
     "description": "Phase 5: action button on the draft strip that attempts an immediate send (useful once back online)."
+  },
+  "receiptLoadFailedTitle": "ይህን የደረሰኝ ንብርብር መጫን አልተቻለም",
+  "@receiptLoadFailedTitle": {
+    "description": "Phase 6: headline shown when a receipt deep-link could not fetch the ride from the server."
+  },
+  "receiptLoadFailedBody": "ይህን የደረሰኝ ማግኘት አልተቻለም። ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ — ጉዞው በጣም ካረዘ ተገኚ ላይሆን ይችላል።",
+  "@receiptLoadFailedBody": {
+    "description": "Phase 6: honest body copy for the receipt load-failure state; never shows a fake empty receipt."
+  },
+  "priceExtendFailedTitle": "የዋጋ ማራመድ አልተሳካም",
+  "@priceExtendFailedTitle": {
+    "description": "Phase 6: headline of the persistent banner shown when applying a price extension did not succeed."
+  },
+  "priceExtendFailedBody": "ቅናሽዎ አልተላከም። ሾፌሩ ገና አልተነካውም — እንደገና ሊሞክሩ ወይም በዋናው ዋጋ መጠበቅ ይችላሉ።",
+  "@priceExtendFailedBody": {
+    "description": "Phase 6: body copy of the price-extension failure banner; states truthfully that nothing reached the driver."
+  },
+  "destUpdateFailedTitle": "የመድረሻ ቦታ ማዘመን አልተሳካም",
+  "@destUpdateFailedTitle": {
+    "description": "Phase 6: headline shown when a mid-ride destination change could not be confirmed with the server."
+  },
+  "destUpdateFailedBody": "አዲሱን መድረሻ ቦታ ከሾፌሩ ጋር ማረጋገጥ አልተቻለም። ይህ እስኪሳካ ጉዞዎ በዋናው መድረሻ ቀጥሏል።",
+  "@destUpdateFailedBody": {
+    "description": "Phase 6: default body for the destination-change failure dialog/banner when the server gives no specific reason."
+  },
+  "destUpdateUnreachableBody": "እስካሁን አይደረሱም — አዲሱን መድረሻ ቦታ ለማረጋገጅ ኒዱስን መድረስ አልተቻለም። ዋናውን መድረሻ ቦታ እንይዛለት፤ ግንኙነትዎ ሲሻሻል እንደገና ይሞክሩ።",
+  "@destUpdateUnreachableBody": {
+    "description": "Phase 6: body copy when repeated destination-change attempts fail due to connectivity; demotes raw server text to detail."
+  },
+  "destUpdateKeepAction": "ዋናውን ይጠብቁ",
+  "@destUpdateKeepAction": {
+    "description": "Phase 6: explicit user action on the destination-change failure dialog meaning 'do not retry, continue with the original destination'."
+  },
+  "durableBannerDismissTooltip": "መልዕክት ዝጋ",
+  "@durableBannerDismissTooltip": {
+    "description": "Phase 6: tooltip/semantics label for the close button on persistent outcome banners in ride tracking."
   }
 }
