@@ -21,14 +21,10 @@ class SafetyToolkitPage extends StatelessWidget {
 
   const SafetyToolkitPage({super.key});
 
-  /// Presents the toolkit as a full-screen route pushed above tracking.
-  static Future<void> open(BuildContext context) {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const SafetyToolkitPage(),
-      ),
-    );
-  }
+  // Phase 6: the old `static Future<void> open(...)` raw Navigator.push is
+  // deleted. Entry now goes through RouteNames.safetyToolkit's GoRoute so
+  // deep links, guards and web URL sync work; tracking pushes the LIVE
+  // RideBloc through `extra` (the route reuses it via BlocProvider.value).
 
   static void _requireActiveRide(BuildContext context) {
     final bloc = context.read<RideBloc>();
