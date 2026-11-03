@@ -1,85 +1,50 @@
-# NIDAW - AI-Native Mobility Super-App
+# NIDAW
 
-NIDAW seamlessly integrates transportation, accommodation, nourishment, logistics, and business services into a single self-optimizing ecosystem.
+NIDAW is a multi-product mobility and services platform repository. The current repository is organized as a Go backend modular monolith, Flutter consumer and driver applications, and a React/TypeScript administration console.
 
-## 🚀 Features
+## Products
 
-- **Nidus**: On-demand ride-hailing with AI-powered matching
-- **Haven**: Hotel and accommodation booking
-- **Vorax**: Food delivery with real-time tracking
-- **Logix**: Freight and logistics management
-- **Corpus**: Corporate travel management
+- **Nidus** — ride-hailing. The most developed product surface in this repository.
+- **Haven** — accommodation discovery and booking module.
+- **Vorax** — restaurant discovery, menus and food-order module.
+- **Logix** — freight/logistics domain code; its HTTP product surface is not currently mounted in the API server.
+- **Corpus** — corporate booking and approval workflow module.
 
-## 🏗️ Architecture
+Product code maturity differs. See [product documentation](docs/products/README.md) for implemented repository evidence and limitations.
 
-- **Backend**: Go modular monolith with CQRS + Event Sourcing
-- **Frontend**: Flutter super-app with BLoC pattern
-- **Database**: PostgreSQL + TimescaleDB + Redis
-- **Messaging**: Apache Kafka event mesh
-- **AI/ML**: Feast feature store + MLflow + TorchServe
+## Repository entry points
 
-## 📋 Prerequisites
+| Component | Location | Technology |
+|---|---|---|
+| API | `services/api` | Go, Chi, PostgreSQL, Redis/Kafka integrations |
+| Consumer app | `apps/consumer_app` | Flutter/Dart |
+| Driver app | `apps/driver_app` | Flutter/Dart |
+| Admin console | `apps/admin_console` | React, TypeScript, Vite |
+| Database migrations | `data/migrations` | PostgreSQL SQL |
+| Docker environment | `platform/docker/compose` | Docker Compose |
+| Gateway | `platform/gateway` | Kong configuration |
+| Infrastructure | `infrastructure` | Terraform |
 
-- Go 1.21+
-- Flutter 3.16+
-- Docker & Docker Compose
-- PostgreSQL 15+
-- Redis 7+
-- Apache Kafka 3.5+
+## Local development
 
-## 🚀 Quick Start
-
-### 1. Clone the repository
+Requirements: Docker with Compose v2, Go toolchain compatible with `services/api/go.mod`, Flutter/Dart for mobile applications, and Node.js/npm for the admin console.
 
 ```bash
-git clone https://github.com/your-org/nidaw.git
-cd nidaw
+cp env.example .env
+# Set local DB_PASSWORD to nidaw_dev and set MINIO_USER/MINIO_PASSWORD.
+docker compose -f platform/docker/compose/base.yaml -f platform/docker/compose/dev.yaml up -d
+```
 
-## 2. Setup environment
+Apply database migrations before seeding or relying on the API. The current `scripts/setup.sh` invokes the seed script without first applying migrations, so it is not a reliable fresh-database bootstrap. Follow [Getting started](docs/development/getting-started.md) for the safe manual order.
 
-cp services/api/.env.example services/api/.env
-# Edit services/api/.env with your configuration
+## Documentation
 
-## 3. Start infrastructure
+Start at [docs/README.md](docs/README.md). Operational deployment is deliberately fail-closed: `scripts/deploy.sh` currently reports a production deployment blocker and does not deploy or mutate infrastructure. See [deployment runbook](docs/operations/deployment-runbook.md).
 
-make dev
+## Validation
 
-## 4. Run backend
+The repository's declared test target is `make test`. Run individual toolchain checks from the relevant application directory; consult [development guide](docs/development/development-guide.md). A successful local build or test run is not a production-readiness certification.
 
-cd services/api
-go run cmd/server/main.go
+## License and support
 
-## 5. Run frontend
-
-cd apps/consumer_app
-flutter pub get
-flutter run
-
-📚 Documentation
-Architecture
-API Documentation
-Development Guide
-Deployment Guide
-
-🧪 Testing
-
-# Backend tests
-cd services/api
-go test ./...
-
-# Frontend tests
-cd apps/consumer_app
-flutter test
-
-
-📦 Deployment
-See Deployment Guide for production deployment instructions.
-🤝 Contributing
-Please read CONTRIBUTING.md for details on our code of conduct.
-📄 License
-Proprietary - All rights reserved.
-📞 Support
-Email: support@nidaw.com
-Discord: discord.gg/nidaw
-Documentation: docs.nidaw.com
-
+See [LICENSE](LICENSE). Do not rely on placeholder contact details or external support URLs unless independently confirmed for the deployment.
