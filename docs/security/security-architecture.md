@@ -8,6 +8,15 @@ NIDAW includes mobile/web clients, Kong gateway configuration, a Go API, Postgre
 
 The API composition root initializes the shared authentication service using configured JWT settings. Protected product routes must validate identity and ownership. Administrative ledger endpoints require the relevant administrative role in their handlers. Keep access tokens short-lived, protect refresh tokens, rotate signing secrets and revoke sessions where supported.
 
+### Durable device sessions
+
+Every successful credential issuance (login, registration, OTP verification) creates a durable device-session row in `auth_device_sessions` (migration `033_device_sessions.sql`). The server stores only a SHA-256 hash of the presented refresh credential — never the raw token — alongside a rotation family ID, device label, and first/last-seen timestamps.
+
+- **Rotation**: each refresh consumes the presented credential and issues a child credential within the same family. Consumed hashes are recorded so a replayed (already-spent) credential is detectable.
+- **Reuse detection**: presenting a spent or superseded refresh credential revokes the entire family and fails with `REFRESH_TOKEN_REUSED`, forcing re-authentication on that device. This is the primary account-takeover signal for stolen refresh tokens.
+- **Expiry policy**: sessions expire after an idle window (`SESSION_IDLE_TTL`, default 30 days) or an absolute cap (`REFRESH_TOKEN_TTL`, applied to the family regardless of activity). Access tokens remain short-lived; persistent login never means an indefinitely valid bearer token.
+- **Management**: authenticated clients can list active sessions (`GET /api/v1/auth/sessions`), revoke one device (`DELETE /api/v1/auth/sessions/{id}`), or sign out everywhere (`POST /api/v1/auth/sessions/revoke-all`). Logout sends the stored refresh token so the server revokes exactly that device's family; without a token it falls back to revoking all sessions for the user. Redis blacklists the revoked credentials' JTIs until natural expiry.
+
 ## Secrets
 
 - Never commit `.env`, credentials, provider keys, private keys or production certificates.

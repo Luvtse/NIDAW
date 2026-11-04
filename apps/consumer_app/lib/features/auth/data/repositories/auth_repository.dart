@@ -455,9 +455,17 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     try {
-      // Try to call logout endpoint (best effort)
+      // Try to call logout endpoint (best effort). Send the stored refresh
+      // token so the server revokes this device's exact session family
+      // instead of falling back to revoke-all-for-user.
       try {
-        await _apiClient.post('/api/v1/auth/logout');
+        final refreshToken = await _tokenStorage.getRefreshToken();
+        await _apiClient.post(
+          '/api/v1/auth/logout',
+          data: (refreshToken != null && refreshToken.isNotEmpty)
+              ? {'refresh_token': refreshToken}
+              : null,
+        );
       } catch (_) {
         // Best effort: local state is cleared in the finally block anyway.
       }
