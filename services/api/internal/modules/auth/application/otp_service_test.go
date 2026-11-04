@@ -210,8 +210,12 @@ func TestSMSFailureRollsBackState(t *testing.T) {
 		t.Fatalf("err = %v, want ErrSMSDelivery", err)
 	}
 	// Challenge and cooldown must have been rolled back...
-	if mr.Exists("auth:otp:login:rider:" + testPhone) {
+	chalKey := "auth:otp:login:rider:" + testPhone
+	if mr.Exists(chalKey) {
 		t.Fatal("challenge left dangling after SMS failure")
+	}
+	if mr.Exists(chalKey + ":cooldown") {
+		t.Fatal("cooldown gate left held after SMS failure")
 	}
 	// ...and quota not consumed: five more successes must still be possible
 	// (cooldown key was deleted too, so no FastForward needed).

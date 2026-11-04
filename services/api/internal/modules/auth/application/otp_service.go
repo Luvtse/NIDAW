@@ -189,21 +189,41 @@ func NormalizePhone(raw string) (string, bool) {
 		if !allDigits(rest) {
 			return "", false
 		}
-		// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
-		// zero between the country code and the subscriber number. No valid
-		// ITU country code starts with 0, so when digits[0] is '0' the country
-		// code is the one-to-three digits immediately after it; strip the zero
-		// only if that prefix is a recognised country code and the remainder
-		// still parses as CC + >=7 subscriber digits.
+		// Legacy trunk artifact: "+0CCNXX..." (e.g. +2510911... stored as
+		// "+02510911..." by clients that prepend the international dialling
+		// prefix). No valid ITU country code starts with 0, so a leading zero
+		// marks the artifact; strip it only when the remainder still parses
+		// as a recognised country code plus a valid subscriber number.
 		digits := rest
 		if len(digits) >= 9 && digits[0] == '0' {
-			stripped := digits[1:]
-			for ccLen := 1; ccLen <= 3 && ccLen < len(stripped); ccLen++ {
-				if _, ok := knownCountryCode(stripped[:ccLen]); !ok {
+			candidate := digits[1:]
+			for ccLen := 1; ccLen <= 3 && ccLen < len(candidate); ccLen++ {
+				if _, ok := knownCountryCode(candidate[:ccLen]); !ok {
 					continue
 				}
-				if len(stripped) >= ccLen+7 {
-					digits = stripped
+				if len(candidate) >= ccLen+7 {
+					digits = candidate
+				}
+				break
+			}
+		} else if len(digits) >= 12 {
+			// Legacy trunk artifact: "+CC0NXX..." (e.g. +2510911...) — a single
+			// zero between the country code and the subscriber number. No valid
+			// NIDAW-market subscriber number begins with 0, so when the digits
+			// following a recognised country code start with exactly one zero,
+			// drop it.
+			for ccLen := 1; ccLen <= 3; ccLen++ {
+				if ccLen >= len(digits) {
+					break
+				}
+				if _, ok := knownCountryCode(digits[:ccLen]); !ok {
+					continue
+				}
+				if digits[ccLen] == '0' && (ccLen+1 >= len(digits) || digits[ccLen+1] != '0') {
+					candidate := digits[:ccLen] + digits[ccLen+1:]
+					if len(candidate) >= ccLen+7 {
+						digits = candidate
+					}
 				}
 				break
 			}
