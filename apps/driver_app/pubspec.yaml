@@ -52,6 +52,18 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
+  # Native biometric security (Phase 6)
+  # local_auth talks to the platform Keystore / StrongBox (Android) and the
+  # Secure Enclave (iOS); NIDAW never reads, stores, or uploads biometric
+  # templates. flutter_secure_storage holds only a non-sensitive owner marker
+  # for the device-local gate, and crypto provides the SHA-256 digest used in
+  # that marker. The gate is an application-security layer only — it never
+  # replaces server-side authentication, authorization, or professional
+  # verification.
+  local_auth: ^2.1.7
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+
   # Image handling
   image_picker: ^1.0.4
 

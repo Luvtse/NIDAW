@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/network/location_service.dart';
+import '../../../security/domain/services/driver_biometric_security_service.dart';
 import '../../domain/entities/driver_stats.dart';
 import '../../data/repositories/driver_home_repository.dart';
 import '../../domain/usecases/get_driver_stats_usecase.dart';
