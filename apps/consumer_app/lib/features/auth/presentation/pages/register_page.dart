@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
+import '../widgets/phone_otp_card.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -26,6 +27,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _obscurePassword = true;
   bool _acceptTerms = false;
+
+  /// Email/password sign-up is the legacy path; phone+OTP is primary.
+  bool _showLegacyForm = false;
 
   @override
   void dispose() {
@@ -61,35 +65,60 @@ class _RegisterPageState extends State<RegisterPage> {
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 16),
-                  _buildHeader(),
-                  const SizedBox(height: 32),
-                  _buildFullNameField(isLoading: isLoading),
-                  const SizedBox(height: 16),
-                  _buildEmailField(isLoading: isLoading),
-                  const SizedBox(height: 16),
-                  _buildPhoneField(isLoading: isLoading),
-                  const SizedBox(height: 16),
-                  _buildPasswordField(isLoading: isLoading),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                _buildHeader(),
+                const SizedBox(height: 24),
+
+                // Primary path: phone number + OTP. Name/email/password are
+                // optional and the legal agreements are accepted on the
+                // activation screen afterwards — no checkbox needed here.
+                const PhoneOtpCard(initialMode: 'register'),
+
+                const SizedBox(height: 16),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => setState(
+                        () => _showLegacyForm = !_showLegacyForm),
+                    icon: const Icon(Icons.edit_note, size: 18),
+                    label: Text(_showLegacyForm
+                        ? 'Hide email/password sign-up'
+                        : 'Sign up with email and password instead'),
+                  ),
+                ),
+                if (_showLegacyForm) ...[
                   const SizedBox(height: 8),
-                  _buildPasswordStrengthIndicator(),
-                  const SizedBox(height: 24),
-                  _buildTermsCheckbox(),
-                  const SizedBox(height: 24),
-                  _buildRegisterButton(isLoading: isLoading),
-                  const SizedBox(height: 16),
-                  _buildLoginLink(),
-                  if (state is AuthError) ...[
-                    const SizedBox(height: 24),
-                    _buildErrorMessage(state.message),
-                  ],
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildFullNameField(isLoading: isLoading),
+                        const SizedBox(height: 16),
+                        _buildEmailField(isLoading: isLoading),
+                        const SizedBox(height: 16),
+                        _buildPhoneField(isLoading: isLoading),
+                        const SizedBox(height: 16),
+                        _buildPasswordField(isLoading: isLoading),
+                        const SizedBox(height: 8),
+                        _buildPasswordStrengthIndicator(),
+                        const SizedBox(height: 24),
+                        _buildTermsCheckbox(),
+                        const SizedBox(height: 24),
+                        _buildRegisterButton(isLoading: isLoading),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
+                const SizedBox(height: 16),
+                _buildLoginLink(),
+                if (state is AuthError) ...[
+                  const SizedBox(height: 24),
+                  _buildErrorMessage(state.message),
+                ],
+              ],
             ),
           );
         },
