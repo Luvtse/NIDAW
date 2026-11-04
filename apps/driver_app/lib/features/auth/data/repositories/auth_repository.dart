@@ -339,7 +339,14 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     try {
-      await _apiClient.post('/api/v1/auth/logout');
+      // Send the stored refresh token so the server revokes this device's
+      // exact session family instead of falling back to revoke-all-for-user.
+      final authBox = await _getAuthBox();
+      final refreshToken = authBox.get('refresh_token');
+      await _apiClient.post(
+        '/api/v1/auth/logout',
+        data: refreshToken != null ? {'refresh_token': refreshToken} : null,
+      );
     } catch (e) {
       // Ignore logout errors
     } finally {
