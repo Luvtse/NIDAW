@@ -45,6 +45,7 @@ import '../../features/vorax/data/repositories/restaurant_repository.dart';
 import '../../features/vorax/presentation/bloc/restaurant_bloc.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart'
     show ProfileBloc, ProfileRepository, ProfileRepositoryImpl;
+import '../../features/security/domain/services/biometric_security_service.dart';
 import '../../features/wallet/data/repositories/wallet_repository.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -180,6 +181,15 @@ Future<void> configureDependencies() async {
 void _registerCoreServices() {
   // Connectivity
   getIt.registerLazySingleton<Connectivity>(() => Connectivity());
+
+  // Phase 6 (native biometric security): device-local fingerprint/face gate.
+  // Lazy singleton — no platform channel work happens until first resolution,
+  // so it never gates startup. The service stores only non-sensitive local
+  // preferences; biometric templates stay inside the platform Keystore /
+  // Secure Enclave and are never read or transmitted by NIDAW.
+  getIt.registerLazySingleton<BiometricSecurityService>(
+    () => const BiometricSecurityService(),
+  );
 
   // Geocoding substrate (§1.3): dedicated Dio instance (Nominatim/Photon are
   // external hosts — never reuse the authenticated API client), Hive-backed

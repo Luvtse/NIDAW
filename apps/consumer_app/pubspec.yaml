@@ -55,6 +55,15 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
+  # Phase 6 (native biometric security): device-native fingerprint/face gate.
+  # local_auth talks to the platform Keystore / Secure Enclave; NIDAW never
+  # reads, stores, or uploads biometric templates. flutter_secure_storage
+  # holds only the non-sensitive owner marker for the local gate preference,
+  # and crypto provides the SHA-256 digest used in that marker.
+  local_auth: ^2.1.7
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+
   # Connectivity
   connectivity_plus: ^5.0.2
 

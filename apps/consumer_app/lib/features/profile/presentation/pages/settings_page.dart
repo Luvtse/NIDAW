@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/di/injection.dart' show getIt;
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../security/domain/services/biometric_security_service.dart';
+import '../../../security/presentation/widgets/biometric_settings_tile.dart';
 import '../../../../l10n/l10n.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -123,6 +128,19 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // Privacy section
           _buildSectionTitle('Privacy & Security'),
+          // Phase 6 (native biometric security): local fingerprint/face gate.
+          // Enabling runs a native check first and persists only non-sensitive
+          // device-local preferences; it never replaces server authentication.
+          BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+              final userId = state is AuthAuthenticated ? state.user.id : null;
+              if (userId == null) return const SizedBox.shrink();
+              return BiometricSettingsTile(
+                service: getIt<BiometricSecurityService>(),
+                accountId: userId,
+              );
+            },
+          ),
           _buildSettingsTile(
             icon: Icons.privacy_tip,
             title: 'Privacy Settings',
