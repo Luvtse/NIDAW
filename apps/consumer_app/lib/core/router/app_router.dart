@@ -188,7 +188,10 @@ class AppRouter {
       GoRoute(
         path: '/onboarding',
         name: RouteNames.onboarding,
-        builder: (context, state) => const OnboardingConsentPage(),
+        builder: (context, state) => BlocProvider(
+          create: (_) => getIt<OnboardingBloc>(),
+          child: const OnboardingConsentPage(),
+        ),
       ),
 
       // ====================================================================

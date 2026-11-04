@@ -76,6 +76,18 @@ class OtpLoginRequested extends AuthEvent {
   List<Object?> get props => [phone, code];
 }
 
+/// The phone+OTP session was already opened by the OTP controller (tokens
+/// persisted); adopt its result into the global auth state without a second
+/// server verify — the code is single-use and would be rejected.
+class OtpLoginCompleted extends AuthEvent {
+  final AuthResult result;
+
+  const OtpLoginCompleted(this.result);
+
+  @override
+  List<Object?> get props => [result];
+}
+
 /// Complete phone-first registration: spend the otp/verify(register) ticket
 /// on register-phone (all profile fields optional).
 class PhoneRegistrationRequested extends AuthEvent {
@@ -98,6 +110,13 @@ class PhoneRegistrationRequested extends AuthEvent {
 /// Mark onboarding as complete (after legal consent)
 class OnboardingCompleted extends AuthEvent {
   const OnboardingCompleted();
+}
+
+/// Server-side activation already succeeded (via the OTP-bound consent
+/// ticket flow); sync the global authenticated state so the router gate
+/// opens. Carries no authority of its own — the backend remains the gate.
+class OnboardingActivated extends AuthEvent {
+  const OnboardingActivated();
 }
 
 /// Activate the account with the OTP-bound consent ticket and the accepted
@@ -231,9 +250,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<OtpLoginRequested>(_onOtpLoginRequested);
+    on<OtpLoginCompleted>(_onOtpLoginCompleted);
     on<PhoneRegistrationRequested>(_onPhoneRegistrationRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<OnboardingCompleted>(_onOnboardingCompleted);
+    on<OnboardingActivated>(_onOnboardingActivated);
     on<OnboardingActivationRequested>(_onOnboardingActivationRequested);
     on<TokenRefreshRequested>(_onTokenRefreshRequested);
     on<ProfileUpdated>(_onProfileUpdated);
@@ -431,6 +452,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onOtpLoginCompleted(
+    OtpLoginCompleted event,
+    Emitter<AuthState> emit,
+  ) async {
+    if (event.result.isFailure) {
+      emit(AuthError(
+        message: event.result.error ?? 'Sign-in failed',
+        errorCode: event.result.errorCode,
+      ));
+      return;
+    }
+    final user = event.result.user!;
+    final onboardingComplete = await _authRepository.isOnboardingComplete();
+    final expiresAt = await _authRepository.getTokenExpiration();
+    await onAuthenticated?.call();
+
+    emit(AuthAuthenticated(
+      user: user,
+      onboardingComplete: onboardingComplete,
+      tokenExpiresAt:
+          expiresAt ?? DateTime.now().add(const Duration(hours: 1)),
+    ));
+  }
+
   Future<void> _onPhoneRegistrationRequested(
     PhoneRegistrationRequested event,
     Emitter<AuthState> emit,
@@ -501,6 +546,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       debugPrint('Failed to mark onboarding complete: $e');
     }
+  }
+
+  Future<void> _onOnboardingActivated(
+    OnboardingActivated event,
+    Emitter<AuthState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! AuthAuthenticated) {
+      return;
+    }
+    // The consent page already received a server-verified complete status;
+    // this only mirrors it into the global session state for the router.
+    emit(currentState.copyWith(onboardingComplete: true));
   }
 
   Future<void> _onOnboardingActivationRequested(

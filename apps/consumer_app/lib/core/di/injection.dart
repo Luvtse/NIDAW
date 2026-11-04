@@ -29,6 +29,7 @@ import '../../features/auth/domain/usecases/register_usecase.dart'
     show RegisterUseCase;
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/legal_consent_bloc.dart';
+import '../../features/auth/presentation/bloc/onboarding_bloc.dart';
 import '../../features/nidus/data/repositories/chat_repository.dart';
 import '../../features/nidus/data/repositories/pre_selfie_repository.dart';
 import '../../features/nidus/data/repositories/phase2_money_repository.dart';
@@ -430,6 +431,11 @@ void _registerBlocs() {
   // Legal Consent BLoC (singleton - tracks consent across app)
   getIt.registerLazySingleton<LegalConsentBloc>(
     () => LegalConsentBloc(getIt<ApiClient>()),
+  );
+
+  // Onboarding BLoC (factory - fresh activation state per consent screen)
+  getIt.registerFactory<OnboardingBloc>(
+    () => OnboardingBloc(authRepository: getIt<AuthRepository>()),
   );
 
   // Ride BLoC (factory - new instance per ride screen)

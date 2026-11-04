@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
+import '../widgets/phone_otp_card.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +21,10 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordFocusNode = FocusNode();
 
   bool _obscurePassword = true;
+
+  /// Phone + OTP is the primary rider entry path; email/password stays
+  /// available for legacy accounts behind an explicit toggle.
+  bool _showLegacyEmailForm = false;
 
   @override
   void dispose() {
@@ -41,31 +46,47 @@ class _LoginPageState extends State<LoginPage> {
 
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 40),
-                    _buildHeader(),
-                    const SizedBox(height: 48),
-                    _buildEmailField(isLoading: isLoading),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 40),
+                  _buildHeader(),
+                  const SizedBox(height: 32),
+
+                  // Primary path: phone number + OTP (no password needed).
+                  const PhoneOtpCard(initialMode: 'login'),
+
+                  const SizedBox(height: 16),
+                  _buildDivider(),
+                  const SizedBox(height: 16),
+
+                  // Legacy email/password sign-in, collapsed by default.
+                  _buildLegacyToggle(),
+                  if (_showLegacyEmailForm) ...[
                     const SizedBox(height: 16),
-                    _buildPasswordField(isLoading: isLoading),
-                    const SizedBox(height: 12),
-                    _buildForgotPasswordLink(),
-                    const SizedBox(height: 32),
-                    _buildLoginButton(isLoading: isLoading),
-                    const SizedBox(height: 24),
-                    _buildDivider(),
-                    const SizedBox(height: 24),
-                    _buildRegisterLink(),
-                    if (state is AuthError) ...[
-                      const SizedBox(height: 24),
-                      _buildErrorMessage(state.message),
-                    ],
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildEmailField(isLoading: isLoading),
+                          const SizedBox(height: 16),
+                          _buildPasswordField(isLoading: isLoading),
+                          const SizedBox(height: 12),
+                          _buildForgotPasswordLink(),
+                          const SizedBox(height: 24),
+                          _buildLoginButton(isLoading: isLoading),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
+                  const SizedBox(height: 24),
+                  _buildRegisterLink(),
+                  if (state is AuthError) ...[
+                    const SizedBox(height: 24),
+                    _buildErrorMessage(state.message),
+                  ],
+                ],
               ),
             );
           },
@@ -228,6 +249,21 @@ class _LoginPageState extends State<LoginPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildLegacyToggle() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: () =>
+            setState(() => _showLegacyEmailForm = !_showLegacyEmailForm),
+        icon: const Icon(Icons.alternate_email, size: 18),
+        label: Text(
+          _showLegacyEmailForm
+              ? 'Hide email/password sign-in'
+              : 'Use email and password instead',
+        ),
       ),
     );
   }
