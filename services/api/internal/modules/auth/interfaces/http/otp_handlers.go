@@ -329,7 +329,7 @@ func (h *AuthHandler) RegisterPhoneHandler(w http.ResponseWriter, r *http.Reques
 	// Legacy email/password account holding this phone: link verification
 	// forward instead of erroring — the INSERT above would have conflicted on
 	// UNIQUE(phone), so reaching here means the row was truly new.
-	user := &authUser{ID: userID, Phone: phone, Role: role, FullName: fullName, Status: "active", CreatedVia: "phone_otp", PhoneVerified: true, PhoneVerifiedAtSet: true, CreatedAt: now}
+	user := &authUser{ID: userID, Phone: phone, Role: role, FullName: fullName, Status: "active", CreatedVia: "phone_otp", PhoneVerified: true, PhoneVerifiedAtSet: true, OnboardingComplete: false, CreatedAt: now}
 	h.issueAuthResponse(w, ctx, user, http.StatusCreated)
 }
 
@@ -349,6 +349,7 @@ type authUser struct {
 	PhoneVerifiedAtSet bool
 	EmailVerified      bool
 	ProfileImageURL    *string
+	OnboardingComplete bool
 	CreatedAt          time.Time
 }
 
@@ -359,10 +360,12 @@ func (h *AuthHandler) lookupUserByPhone(ctx context.Context, phone string) (*aut
 	err := h.db.QueryRow(ctx, `
 		SELECT id, COALESCE(email, ''), COALESCE(full_name, ''), phone, role, status,
 		       email_verified, profile_image_url, created_at,
-		       COALESCE(created_via, 'email_password'), phone_verified_at
+		       COALESCE(created_via, 'email_password'), phone_verified_at,
+		       onboarding_complete
 		FROM users WHERE phone = $1
 	`, phone).Scan(&u.ID, &email, &fullName, &u.Phone, &u.Role, &u.Status,
-		&u.EmailVerified, &u.ProfileImageURL, &u.CreatedAt, &createdVia, &phoneVerifiedAt)
+		&u.EmailVerified, &u.ProfileImageURL, &u.CreatedAt, &createdVia, &phoneVerifiedAt,
+		&u.OnboardingComplete)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, nil
 	}
