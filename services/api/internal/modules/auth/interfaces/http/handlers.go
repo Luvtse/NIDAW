@@ -34,6 +34,15 @@ type AuthHandler struct {
 	otpCfg         authapp.OTPConfig
 	activation     *authapp.ActivationService
 	consentService *legalsvc.ConsentService
+	sessions       *auth.SessionStore
+}
+
+// WithSessions equips the handler with the durable device-session store
+// (Phase 5). A nil store disables session persistence and the /auth/sessions
+// endpoints answer 503, matching the WithOTP/WithOnboarding chaining style.
+func (h *AuthHandler) WithSessions(s *auth.SessionStore) *AuthHandler {
+	h.sessions = s
+	return h
 }
 
 // NewAuthHandler creates a new auth handler
@@ -152,6 +161,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "TOKEN_GENERATION_FAILED", "failed to generate tokens")
 		return
 	}
+	h.recordIssuedSession(ctx, userID, tokenPair.RefreshToken, r)
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
@@ -271,13 +281,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Refresh handles POST /api/v1/auth/refresh
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := withRequest(r)
 
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 		return
 	}
+
+	// Phase 5 lineage captured from the durable session store; consumed below
+	// when the rotated child row is inserted.
+	var sessionLineage *auth.ConsumeResult
 
 	// Validate refresh token
 	claims, err := h.authService.ValidateRefreshToken(req.RefreshToken)
@@ -301,6 +315,35 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 				zap.String("jti", claims.ID))
 			writeError(w, http.StatusUnauthorized, "REFRESH_TOKEN_REUSED", "token reuse detected; please log in again")
 			return
+		}
+	}
+
+	// Phase 5: durable device-session check (reuse of a rotated/revoked/expired
+	// refresh credential revokes the whole family server-side, in addition to
+	// the Redis JTI state).
+	if h.sessions != nil {
+		consume, cerr := h.sessions.ConsumeRefresh(ctx, req.RefreshToken)
+		if cerr != nil {
+			h.logger.Error("session store: consume failed", zap.Error(cerr))
+			writeError(w, http.StatusInternalServerError, "SESSION_ERROR", "session validation failed")
+			return
+		}
+		if consume != nil && consume.Reuse {
+			if consume.FamilyID != uuid.Nil {
+				_, _ = h.sessions.RevokeFamily(ctx, consume.FamilyID, "reuse_detected")
+			}
+			ttl := time.Until(claims.ExpiresAt.Time)
+			if store != nil {
+				_ = store.RevokeUserFamily(ctx, claims.UserID.String(), ttl)
+			}
+			h.logger.Warn("device session reuse detected; family revoked",
+				zap.String("user_id", claims.UserID.String()),
+				zap.String("jti", claims.ID))
+			writeError(w, http.StatusUnauthorized, "REFRESH_TOKEN_REUSED", "token reuse detected; please log in again")
+			return
+		}
+		if consume != nil {
+			sessionLineage = consume
 		}
 	}
 
@@ -338,6 +381,25 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			if err := store.SetUserFamily(ctx, claims.UserID.String(), newClaims.ID, familyTTL); err != nil {
 				h.logger.Warn("failed to set user family", zap.Error(err))
 			}
+		}
+	}
+
+	// Phase 5: insert the rotated child session row in the same family so the
+	// durable record follows the rotation chain (reuse of the parent already
+	// revoked the family above).
+	if h.sessions != nil {
+		familyID := uuid.New()
+		var from uuid.UUID
+		if sessionLineage != nil {
+			if sessionLineage.FamilyID != uuid.Nil {
+				familyID = sessionLineage.FamilyID
+			}
+			from = sessionLineage.RotateFrom
+		}
+		deviceName, platform := deviceHints(r)
+		if _, serr := h.sessions.CreateSession(ctx, claims.UserID, familyID, from,
+			tokenPair.RefreshToken, deviceName, platform, time.Now().Add(h.sessions.AbsoluteTTL())); serr != nil {
+			h.logger.Warn("failed to persist rotated device session", zap.Error(serr))
 		}
 	}
 
@@ -435,6 +497,21 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 			// No token supplied: kill the family keyed by the authenticated user.
 			if err := store.RevokeUserFamily(ctx, uid.String(), 30*24*time.Hour); err != nil {
 				h.logger.Warn("logout: failed to revoke user family", zap.Error(err))
+			}
+		}
+	}
+
+	// Phase 5: mirror the revocation into the durable device-session record.
+	if h.sessions != nil {
+		if req.RefreshToken != "" {
+			if consume, cerr := h.sessions.ConsumeRefresh(ctx, req.RefreshToken); cerr == nil && consume != nil && consume.FamilyID != uuid.Nil {
+				if _, err := h.sessions.RevokeFamily(ctx, consume.FamilyID, "logout"); err != nil {
+					h.logger.Warn("logout: failed to revoke device session family", zap.Error(err))
+				}
+			}
+		} else if uid, ok := auth.GetUserIDFromContext(ctx); ok {
+			if _, err := h.sessions.RevokeAllForUser(ctx, uid, "logout"); err != nil {
+				h.logger.Warn("logout: failed to revoke device sessions", zap.Error(err))
 			}
 		}
 	}

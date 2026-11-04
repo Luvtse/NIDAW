@@ -36,7 +36,7 @@ const verificationTicketTTL = 10 * time.Minute
 
 // OTPRequestHandler handles POST /api/v1/auth/otp/request.
 func (h *AuthHandler) OTPRequestHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := withRequest(r)
 
 	if h.otpService == nil || !h.otpService.Available() {
 		writeError(w, http.StatusServiceUnavailable, "OTP_UNAVAILABLE", "phone verification is temporarily unavailable")
@@ -109,7 +109,7 @@ func (h *AuthHandler) OTPRequestHandler(w http.ResponseWriter, r *http.Request) 
 // register-phone. The response shape never reveals which branch was taken
 // beyond what the caller already knows from its requested operation.
 func (h *AuthHandler) OTPVerifyHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := withRequest(r)
 
 	if h.otpService == nil || !h.otpService.Available() {
 		writeError(w, http.StatusServiceUnavailable, "OTP_UNAVAILABLE", "phone verification is temporarily unavailable")
@@ -226,7 +226,7 @@ func (h *AuthHandler) OTPVerifyHandler(w http.ResponseWriter, r *http.Request) {
 // drivers get a pending-onboarding profile — OTP proves identity, never grants
 // professional approval.
 func (h *AuthHandler) RegisterPhoneHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := withRequest(r)
 
 	var req struct {
 		VerificationTicket string  `json:"verification_ticket"`
@@ -388,8 +388,8 @@ func (h *AuthHandler) markPhoneVerified(ctx context.Context, userID uuid.UUID) e
 	return err
 }
 
-// issueAuthResponse mints a token pair + records the persistent session
-// (device_sessions table lands in Phase 5; Redis family tracking reused now).
+// issueAuthResponse mints a token pair + records the persistent device session
+// (Phase 5) and registers the Redis rotation family head.
 func (h *AuthHandler) issueAuthResponse(w http.ResponseWriter, ctx context.Context, u *authUser, status int) {
 	tokenPair, err := h.authService.GenerateTokenPair(u.ID, u.Email, u.Role, "")
 	if err != nil {
@@ -402,6 +402,7 @@ func (h *AuthHandler) issueAuthResponse(w http.ResponseWriter, ctx context.Conte
 			_ = store.SetUserFamily(ctx, u.ID.String(), claims.ID, ttl)
 		}
 	}
+	h.recordIssuedSession(ctx, u.ID, tokenPair.RefreshToken, rFromCtx(ctx))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(AuthResponse{
