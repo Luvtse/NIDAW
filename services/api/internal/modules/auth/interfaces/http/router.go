@@ -81,6 +81,27 @@ func newRouter(
 	sessions *auth.SessionStore,
 	sessionIdleTTL time.Duration,
 ) http.Handler {
+	h, _ := buildAuthRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent, sessions, sessionIdleTTL)
+	return h
+}
+
+// buildAuthRouter is the shared construction path: it returns both the mounted
+// handler and the concrete *AuthHandler so composition (cmd/server/main.go)
+// can borrow narrow capabilities — e.g. ConsumeSubstituteTicket for the Nidus
+// substitute-acceptance flow (Phase 7) — without duplicating Redis key
+// knowledge in another module.
+func buildAuthRouter(
+	db *database.Postgres,
+	authService *auth.Service,
+	logger *zap.Logger,
+	otpSender authapp.SMSSender,
+	rdb *redis.Client,
+	otpCfg authapp.OTPConfig,
+	activation *authapp.ActivationService,
+	consent *legalsvc.ConsentService,
+	sessions *auth.SessionStore,
+	sessionIdleTTL time.Duration,
+) (http.Handler, *AuthHandler) {
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -147,5 +168,24 @@ func newRouter(
 		_, _ = w.Write([]byte(`{"status":"healthy","service":"auth"}`))
 	})
 
-	return r
+	return r, handler
+}
+
+// NewRouterWithHandler is NewRouterWithSessions plus the constructed
+// *AuthHandler. Composition uses it to hand narrow capabilities (e.g.
+// ConsumeSubstituteTicket for the Phase 7 substitute-acceptance flow) to
+// other in-process modules without re-implementing their storage contracts.
+func NewRouterWithHandler(
+	db *database.Postgres,
+	authService *auth.Service,
+	logger *zap.Logger,
+	otpSender authapp.SMSSender,
+	rdb *redis.Client,
+	otpCfg authapp.OTPConfig,
+	activation *authapp.ActivationService,
+	consent *legalsvc.ConsentService,
+	sessions *auth.SessionStore,
+	sessionIdleTTL time.Duration,
+) (http.Handler, *AuthHandler) {
+	return buildAuthRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent, sessions, sessionIdleTTL)
 }

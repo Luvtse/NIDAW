@@ -110,9 +110,9 @@ var substituteTransitions = map[SubstituteStatus][]SubstituteStatus{
 		SubstituteStatusExpired,                    // invite window lapsed
 	},
 	SubstituteStatusPendingPrimaryConfirmation: {
-		SubstituteStatusActive,    // primary confirmed + gating passed
-		SubstituteStatusRevoked,   // primary declined (never reopens the invite)
-		SubstituteStatusExpired,   // validity window lapsed pre-activation
+		SubstituteStatusActive,  // primary confirmed + gating passed
+		SubstituteStatusRevoked, // primary declined (never reopens the invite)
+		SubstituteStatusExpired, // validity window lapsed pre-activation
 	},
 	SubstituteStatusActive: {
 		SubstituteStatusSuspended, // temporary freeze (document lapse, safety hold)
@@ -211,8 +211,8 @@ func HasPermission(granted []SubstitutePermission, p SubstitutePermission) bool 
 // permissions, mutual confirmations, and validity windows. Field names mirror
 // the 034 table columns.
 type SubstituteRelationship struct {
-	ID            uuid.UUID
-	PrimaryDriver uuid.UUID // drivers.id
+	ID             uuid.UUID
+	PrimaryDriver  uuid.UUID // drivers.id
 	SubstituteUser uuid.UUID // users.id — the substitute acts under THIS account
 
 	VehicleLabel *string // NULL => "no specific vehicle"
