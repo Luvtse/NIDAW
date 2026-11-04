@@ -33,9 +33,13 @@ import (
 type OTPOperation string
 
 const (
-	OTPOpLogin            OTPOperation = "login"
-	OTPOpRegister         OTPOperation = "register"
-	OTPOpRecovery         OTPOperation = "recovery"
+	OTPOpLogin    OTPOperation = "login"
+	OTPOpRegister OTPOperation = "register"
+	OTPOpRecovery OTPOperation = "recovery"
+	// OTPOpSubstituteInvite binds a challenge to the phone-ownership proof a
+	// substitute must present while accepting a driver-substitute invitation
+	// (Phase 7). The operation is validated and rate-limited like any other;
+	// only the Nidus substitute flow consumes its verification ticket.
 	OTPOpSubstituteInvite OTPOperation = "substitute_invite"
 )
 

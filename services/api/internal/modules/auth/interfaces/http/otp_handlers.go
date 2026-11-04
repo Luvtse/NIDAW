@@ -68,9 +68,13 @@ func (h *AuthHandler) OTPRequestHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	op := authapp.OTPOperation(strings.ToLower(strings.TrimSpace(req.Operation)))
 	switch op {
-	case authapp.OTPOpLogin, authapp.OTPOpRegister, authapp.OTPOpRecovery:
+	case authapp.OTPOpLogin, authapp.OTPOpRegister, authapp.OTPOpRecovery, authapp.OTPOpSubstituteInvite:
 	default:
-		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "operation must be login, register, or recovery")
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "operation must be login, register, recovery, or substitute_invite")
+		return
+	}
+	if op == authapp.OTPOpSubstituteInvite && acct != authapp.AccountDriver {
+		writeError(w, http.StatusBadRequest, "INVALID_ACCOUNT_TYPE", "substitute_invite requires account_type driver")
 		return
 	}
 
@@ -147,9 +151,13 @@ func (h *AuthHandler) OTPVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	op := authapp.OTPOperation(strings.ToLower(strings.TrimSpace(req.Operation)))
 	switch op {
-	case authapp.OTPOpLogin, authapp.OTPOpRegister, authapp.OTPOpRecovery:
+	case authapp.OTPOpLogin, authapp.OTPOpRegister, authapp.OTPOpRecovery, authapp.OTPOpSubstituteInvite:
 	default:
-		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "operation must be login, register, or recovery")
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "operation must be login, register, recovery, or substitute_invite")
+		return
+	}
+	if op == authapp.OTPOpSubstituteInvite && acct != authapp.AccountDriver {
+		writeError(w, http.StatusBadRequest, "INVALID_ACCOUNT_TYPE", "substitute_invite requires account_type driver")
 		return
 	}
 
@@ -207,6 +215,33 @@ func (h *AuthHandler) OTPVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		ticket, err := h.createVerificationTicket(ctx, phone, string(acct))
 		if err != nil {
 			h.logger.Error("failed to store verification ticket", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "VERIFY_FAILED", "verification failed")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"verified":            true,
+			"verification_ticket": ticket,
+			"ticket_expires_in":   int64(verificationTicketTTL.Seconds()),
+		})
+	case authapp.OTPOpSubstituteInvite:
+		// Phase 7: the substitute proves possession of their own phone number.
+		// The ticket is bound to (phone, driver) exactly like a registration
+		// ticket but lives in its own namespace, so it can never be spent on
+		// register-phone and vice versa. It carries no session: accepting an
+		// invitation still requires the substitute's own login credentials.
+		if !found {
+			writeError(w, http.StatusUnauthorized, "OTP_VERIFIED_NO_ACCOUNT", "this phone has no NIDAW account yet; create one before accepting an invitation")
+			return
+		}
+		if user.Status != "active" {
+			writeError(w, http.StatusForbidden, "ACCOUNT_NOT_ACTIVE", "this account is not active")
+			return
+		}
+		ticket, err := h.createOperationTicket(ctx, phone, string(acct), "substitute_invite")
+		if err != nil {
+			h.logger.Error("failed to store substitute verification ticket", zap.Error(err))
 			writeError(w, http.StatusInternalServerError, "VERIFY_FAILED", "verification failed")
 			return
 		}
@@ -429,11 +464,20 @@ func (h *AuthHandler) issueAuthResponse(w http.ResponseWriter, ctx context.Conte
 // creation). The raw ticket is random; only its HMAC is stored, and the
 // returned value embeds the secret so possession proves verification.
 func (h *AuthHandler) createVerificationTicket(ctx context.Context, phone, acctType string) (string, error) {
+	return h.createOperationTicket(ctx, phone, acctType, "register")
+}
+
+// createOperationTicket stores a single-use TTL-bound proof for an explicit
+// operation namespace ("register" | "substitute_invite"). Namespaces keep the
+// substitute-acceptance ticket from being spendable on account creation and
+// vice versa; the bound phone + account type travel with the ticket so the
+// consuming side can re-check identity without trusting the client.
+func (h *AuthHandler) createOperationTicket(ctx context.Context, phone, acctType, op string) (string, error) {
 	if h.redis == nil {
 		return "", errors.New("redis unavailable")
 	}
 	secret := uuid.New().String()
-	key := "auth:otp:ticket:" + secret
+	key := "auth:otp:ticket:" + op + ":" + secret
 	payload := phone + "|" + acctType
 	if err := h.redis.Set(ctx, key, payload, verificationTicketTTL).Err(); err != nil {
 		return "", err
@@ -441,13 +485,23 @@ func (h *AuthHandler) createVerificationTicket(ctx context.Context, phone, acctT
 	return secret, nil
 }
 
-// consumeVerificationTicket atomically deletes the ticket (single-use) and
+// ConsumeSubstituteTicket atomically deletes a substitute_invite verification
+// ticket (single-use) and returns the phone number it was bound to. Exported
+// for the Nidus module's substitute-acceptance flow (Phase 7), which runs in
+// this same process; the ticket namespace means no other flow can mint or
+// spend this value.
+func (h *AuthHandler) ConsumeSubstituteTicket(ctx context.Context, ticket string) (phone string, ok bool) {
+	phone, _, ok = h.consumeOperationTicket(ctx, ticket, "substitute_invite")
+	return phone, ok
+}
+
+// consumeOperationTicket atomically deletes the ticket (single-use) and
 // returns the bound phone + account type.
-func (h *AuthHandler) consumeVerificationTicket(ctx context.Context, ticket string) (phone, acctType string, ok bool) {
+func (h *AuthHandler) consumeOperationTicket(ctx context.Context, ticket, op string) (phone, acctType string, ok bool) {
 	if h.redis == nil {
 		return "", "", false
 	}
-	key := "auth:otp:ticket:" + strings.TrimSpace(ticket)
+	key := "auth:otp:ticket:" + op + ":" + strings.TrimSpace(ticket)
 	val, err := h.redis.GetDel(ctx, key).Result()
 	if err != nil {
 		return "", "", false
@@ -457,6 +511,10 @@ func (h *AuthHandler) consumeVerificationTicket(ctx context.Context, ticket stri
 		return "", "", false
 	}
 	return parts[0], parts[1], true
+}
+
+func (h *AuthHandler) consumeVerificationTicket(ctx context.Context, ticket string) (phone, acctType string, ok bool) {
+	return h.consumeOperationTicket(ctx, ticket, "register")
 }
 
 func (h *AuthHandler) otpResendCooldown() time.Duration {
