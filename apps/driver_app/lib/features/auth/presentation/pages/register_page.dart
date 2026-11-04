@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
+import '../widgets/phone_otp_card.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,6 +22,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _obscurePassword = true;
   bool _acceptTerms = false;
+  bool _showLegacyForm = false;
 
   @override
   void dispose() {
@@ -61,10 +63,9 @@ class _RegisterPageState extends State<RegisterPage> {
         builder: (context, state) {
           final isLoading = state is AuthLoading;
 
-          return SingleChildScrollView(
+          if (!_showLegacyForm) {
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -85,6 +86,62 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 8),
                   Text(
                     'Earn money on your own schedule',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  const PhoneOtpCard(initialMode: 'register'),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: () =>
+                          setState(() => _showLegacyForm = !_showLegacyForm),
+                      child: const Text('Use email instead (existing accounts)'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Already have an account?'),
+                      TextButton(
+                        onPressed: () => context.go('/login'),
+                        child: const Text('Sign In'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.directions_car,
+                    size: 80,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Create Account with Email',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Phone verification is handled after sign-in',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -223,6 +280,15 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Back to the phone-first path.
+                  Center(
+                    child: TextButton(
+                      onPressed: () =>
+                          setState(() => _showLegacyForm = !_showLegacyForm),
+                      child: const Text('Continue with phone instead'),
+                    ),
+                  ),
 
                   // Login Link
                   Row(
