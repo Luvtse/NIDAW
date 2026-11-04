@@ -217,13 +217,17 @@ func TestSMSFailureRollsBackState(t *testing.T) {
 	if mr.Exists(chalKey + ":cooldown") {
 		t.Fatal("cooldown gate left held after SMS failure")
 	}
-	// ...and quota not consumed: five more successes must still be possible
-	// (cooldown key was deleted too, so no FastForward needed).
+	// ...and quota not consumed: five more successes must still be possible.
+	// The failed attempt's cooldown gate was rolled back, but the successful
+	// sends themselves take the resend gate again, so let it expire between
+	// iterations instead of disabling the production cooldown semantics.
 	sender.fail = false
+	mr.FastForward(2 * time.Second)
 	for i := 0; i < 5; i++ {
 		if _, err := svc.Request(ctx, testPhone, AccountRider, OTPOpLogin, "10.0.0.5"); err != nil {
 			t.Fatalf("post-failure request %d: %v", i, err)
 		}
+		mr.FastForward(2 * time.Second)
 	}
 }
 
