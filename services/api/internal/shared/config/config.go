@@ -109,6 +109,7 @@ type AuthConfig struct {
 	BcryptCost       int
 	MaxLoginAttempts int
 	LockoutDuration  time.Duration
+	SessionIdleTTL   time.Duration
 }
 
 // PaymentsConfig holds payment gateway settings.
@@ -394,6 +395,7 @@ func (c *Config) loadAuth() error {
 		BcryptCost:       getIntEnvOrDefault("BCRYPT_COST", 12),
 		MaxLoginAttempts: getIntEnvOrDefault("MAX_LOGIN_ATTEMPTS", 5),
 		LockoutDuration:  getDurationEnvOrDefault("LOCKOUT_DURATION", 15*time.Minute),
+		SessionIdleTTL:   getDurationEnvOrDefault("SESSION_IDLE_TTL", 30*24*time.Hour),
 	}
 	return nil
 }

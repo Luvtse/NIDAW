@@ -31,7 +31,7 @@ func NewRouter(
 	rdb *redis.Client,
 	otpCfg authapp.OTPConfig,
 ) http.Handler {
-	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, nil, nil)
+	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, nil, nil, nil, 0)
 }
 
 // NewRouterWithOnboarding is NewRouter plus the rider-activation wiring
@@ -47,7 +47,26 @@ func NewRouterWithOnboarding(
 	activation *authapp.ActivationService,
 	consent *legalsvc.ConsentService,
 ) http.Handler {
-	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent)
+	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent, nil, 0)
+}
+
+// NewRouterWithSessions is NewRouterWithOnboarding plus the durable
+// device-session store (Phase 5). A nil store disables session persistence and
+// the /auth/sessions endpoints answer 503. idleTTL mirrors SESSION_IDLE_TTL for
+// policy reporting; absolute expiry comes from the store configuration.
+func NewRouterWithSessions(
+	db *database.Postgres,
+	authService *auth.Service,
+	logger *zap.Logger,
+	otpSender authapp.SMSSender,
+	rdb *redis.Client,
+	otpCfg authapp.OTPConfig,
+	activation *authapp.ActivationService,
+	consent *legalsvc.ConsentService,
+	sessions *auth.SessionStore,
+	sessionIdleTTL time.Duration,
+) http.Handler {
+	return newRouter(db, authService, logger, otpSender, rdb, otpCfg, activation, consent, sessions, sessionIdleTTL)
 }
 
 func newRouter(
@@ -59,6 +78,8 @@ func newRouter(
 	otpCfg authapp.OTPConfig,
 	activation *authapp.ActivationService,
 	consent *legalsvc.ConsentService,
+	sessions *auth.SessionStore,
+	sessionIdleTTL time.Duration,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -110,6 +131,12 @@ func newRouter(
 		r.Get("/api/v1/auth/onboarding-status", handler.OnboardingStatusHandler)
 		r.With(onboardingLimiter).Post("/api/v1/auth/onboarding/consent-ticket", handler.ConsentTicketHandler)
 		r.With(onboardingLimiter).Post("/api/v1/auth/onboarding/complete", handler.CompleteOnboardingHandler)
+
+		// Device sessions (Phase 5): list signed-in devices, revoke one
+		// (lost-device flow), or revoke all (logout everywhere).
+		r.Get("/api/v1/auth/sessions", handler.ListSessionsHandler)
+		r.Delete("/api/v1/auth/sessions/{id}", handler.RevokeSessionHandler)
+		r.Post("/api/v1/auth/sessions/revoke-all", handler.RevokeAllSessionsHandler)
 	})
 
 	// ========================================================================
