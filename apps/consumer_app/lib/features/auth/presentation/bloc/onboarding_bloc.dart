@@ -186,7 +186,6 @@ class OnboardingBloc extends ChangeNotifier {
 
   /// Set after otp/request(register) succeeds for this account's phone.
   bool _otpSent = false;
-  int _resendAfterSeconds = 0;
   DateTime? _resendAvailableAt;
 
   OnboardingStatus? get status => _status;
@@ -195,6 +194,14 @@ class OnboardingBloc extends ChangeNotifier {
   String? get error => _error;
   String? get errorCode => _errorCode;
   bool get otpSent => _otpSent;
+
+  /// Seconds the server asked us to wait before a resend is allowed
+  /// (0 when no request has been made yet).
+  int get resendAfterSeconds {
+    if (_resendAvailableAt == null) return 0;
+    final remaining = _resendAvailableAt!.difference(DateTime.now()).inSeconds;
+    return remaining > 0 ? remaining : 0;
+  }
 
   /// Seconds left before a resend is allowed (0 when available).
   int get resendCountdownSeconds {
@@ -242,14 +249,14 @@ class OnboardingBloc extends ChangeNotifier {
       if (result.errorCode == 'OTP_COOLDOWN') {
         final match = _secondsInMessage.firstMatch(result.error!);
         final seconds = int.tryParse(match?.group(1) ?? '') ?? 30;
-        _resendAfterSeconds = seconds;
+
         _resendAvailableAt = DateTime.now().add(Duration(seconds: seconds));
         _notify();
       }
       return false;
     }
     _otpSent = true;
-    _resendAfterSeconds = result.resendAfterSeconds;
+
     _resendAvailableAt =
         DateTime.now().add(Duration(seconds: result.resendAfterSeconds));
     _notify();

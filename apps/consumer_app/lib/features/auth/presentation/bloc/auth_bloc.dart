@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/auth_repository.dart';
-import '../../domain/entities/onboarding_status.dart';
 import '../../domain/entities/user.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/usecases/login_usecase.dart';
