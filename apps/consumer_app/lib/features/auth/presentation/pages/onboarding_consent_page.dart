@@ -16,7 +16,11 @@ import '../bloc/onboarding_bloc.dart';
 /// Activation requires a phone OTP bound to operation=register plus a
 /// single-use consent ticket; optional profile fields never gate entry.
 class OnboardingConsentPage extends StatefulWidget {
-  const OnboardingConsentPage({super.key});
+  const OnboardingConsentPage({super.key, this.bloc});
+
+  /// Route-scoped activation driver. When omitted, the widget falls back to
+  /// an [OnboardingBloc] provided by an ancestor (tests embed it directly).
+  final OnboardingBloc? bloc;
 
   @override
   State<OnboardingConsentPage> createState() => _OnboardingConsentPageState();
@@ -25,6 +29,9 @@ class OnboardingConsentPage extends StatefulWidget {
 class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
+
+  late final OnboardingBloc _bloc;
+  late final bool _ownsBloc;
 
   /// Local checkbox state keyed by document_type, seeded from the server
   /// checklist (pre-checked where accepted at the current version).
@@ -36,11 +43,13 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
   @override
   void initState() {
     super.initState();
+    _bloc = widget.bloc ?? context.read<OnboardingBloc>();
+    _ownsBloc = widget.bloc != null;
     // Load the activation checklist and prefill the account's phone when
     // one already exists on the session user.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bloc = context.read<OnboardingBloc>();
+      final bloc = _bloc;
       final auth = context.read<AuthBloc>().state;
       if (auth is AuthAuthenticated && auth.user.phone.isNotEmpty) {
         _phoneController.text = auth.user.phone;
@@ -57,6 +66,7 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
     _ticker?.cancel();
     _phoneController.dispose();
     _codeController.dispose();
+    if (_ownsBloc) _bloc.dispose();
     super.dispose();
   }
 
@@ -68,7 +78,7 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
 
   void _seedCheckboxes() {
     if (_seeded) return;
-    final status = context.read<OnboardingBloc>().status;
+    final status = _bloc.status;
     if (status == null) return;
     _seeded = true;
     for (final agreement in status.agreements) {
@@ -83,9 +93,9 @@ class _OnboardingConsentPageState extends State<OnboardingConsentPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: ListenableBuilder(
-          listenable: context.watch<OnboardingBloc>(),
+          listenable: _bloc,
           builder: (context, _) {
-            final bloc = context.read<OnboardingBloc>();
+            final bloc = _bloc;
             _seedCheckboxes();
             if (bloc.isLoading && bloc.status == null) {
               return const Center(child: CircularProgressIndicator());

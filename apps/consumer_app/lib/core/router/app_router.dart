@@ -7,6 +7,7 @@ import '../di/injection.dart' show getIt;
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/onboarding_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/onboarding_consent_page.dart';
@@ -188,9 +189,11 @@ class AppRouter {
       GoRoute(
         path: '/onboarding',
         name: RouteNames.onboarding,
-        builder: (context, state) => BlocProvider(
-          create: (_) => getIt<OnboardingBloc>(),
-          child: const OnboardingConsentPage(),
+        // OnboardingBloc is a ChangeNotifier driver (not a Bloc), so the
+        // page owns its lifecycle: the route builds it and disposes it via
+        // OnboardingConsentPage.dispose().
+        builder: (context, state) => OnboardingConsentPage(
+          bloc: getIt<OnboardingBloc>(),
         ),
       ),
 
