@@ -34,6 +34,8 @@ import '../../features/profile/data/repositories/driver_profile_repository.dart'
 import '../../features/documents/data/repositories/document_repository.dart';
 import '../../features/profile/presentation/bloc/driver_profile_bloc.dart';
 
+import '../../features/security/domain/services/driver_biometric_security_service.dart';
+
 final getIt = GetIt.instance;
 
 /// ============================================================================
@@ -108,6 +110,17 @@ void registerCoreDependencies(DriverStartupStateNotifier startupState) {
 
   getIt.registerLazySingleton<DocumentRepository>(
     () => DocumentRepositoryImpl(apiClient: getIt<ApiClient>()),
+  );
+
+  // Phase 6 (native biometric security): device-local fingerprint/face gate.
+  // Lazy singleton — no platform-channel work happens until first resolution,
+  // so it never gates startup. The service stores only non-sensitive local
+  // preferences in the 'driver_settings' box; biometric templates stay inside
+  // the platform Keystore / Secure Enclave and are never read or transmitted
+  // by NIDAW. Passing the gate grants nothing server-side: Go Online remains
+  // authorized exclusively by session token + professional approval.
+  getIt.registerLazySingleton<DriverBiometricSecurityService>(
+    () => const DriverBiometricSecurityService(),
   );
 
   // Use Cases

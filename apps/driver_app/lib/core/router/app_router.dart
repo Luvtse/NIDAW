@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../di/injection.dart' show getIt;
 import '../startup/driver_startup_coordinator.dart'
     show hasDriverStartupCoordinator;
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -24,6 +25,9 @@ import '../../features/documents/presentation/pages/documents_page.dart';
 import '../../features/profile/presentation/pages/driver_profile_page.dart';
 import '../../features/profile/presentation/pages/vehicle_info_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
+
+import '../../features/security/domain/services/driver_biometric_security_service.dart';
+import '../../features/security/presentation/pages/driver_biometric_unlock_page.dart';
 
 /// Bridges [AuthBloc] state changes to a [Listenable] for GoRouter's
 /// `refreshListenable`.
@@ -133,11 +137,26 @@ class AppRouter {
           path: '/settings',
           builder: (context, state) => const SettingsPage(),
         ),
+
+        // SECURITY (Phase 6 — local biometric gate): full-screen route shown
+        // at cold start when the driver enabled biometric unlock on this
+        // device. Unlocking only gates entry to the already-restored local
+        // session; server authorization is unchanged and still flows
+        // exclusively through session tokens + professional approval.
+        GoRoute(
+          path: '/$_biometricUnlockPath',
+          builder: (context, state) =>
+              const DriverBiometricUnlockPage(),
+        ),
       ],
     );
   }
 
-  String? _globalRedirect(BuildContext context, GoRouterState state) {
+  /// Path of the local biometric unlock screen (see the route above).
+  static const String _biometricUnlockPath = 'security/biometric-unlock';
+
+  Future<String?> _globalRedirect(
+      BuildContext context, GoRouterState state) async {
     final authState = _authBloc.state;
     final isAuthenticated = authState is AuthAuthenticated;
     final isOnboardingComplete = authState is AuthAuthenticated && 
@@ -147,6 +166,28 @@ class AppRouter {
                        state.matchedLocation == '/register' ||
                        state.matchedLocation == '/splash';
 
+    // Phase 6 (native biometric security): when the driver enabled the local
+    // biometric gate on this device and a persisted session exists, cold
+    // starts land on the unlock screen instead of hydrating straight into
+    // the app. This is a LOCAL application gate only — tokens stay untouched
+    // and every backend operation (including Go Online) still requires
+    // server-side authentication AND professional approval. Fail-open by
+    // construction: an unreadable preference or a device that lost its
+    // enrollment simply resumes the normal flow rather than locking anyone
+    // out of their own account.
+    if (isAuthenticated && state.matchedLocation != '/$_biometricUnlockPath') {
+      try {
+        final service = getIt<DriverBiometricSecurityService>();
+        final accountId = (authState as AuthAuthenticated).driver.id;
+        if (service.isAppGateEnabled() &&
+            await service.isAppGateActive() &&
+            await service.ownedBy(accountId)) {
+          return '/$_biometricUnlockPath';
+        }
+      } catch (_) {
+        // Never brick navigation on a local-security read error.
+      }
+    }
     if (!isAuthenticated && !isAuthRoute) {
       return '/login';
     }
