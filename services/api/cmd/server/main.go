@@ -218,13 +218,23 @@ func main() {
 	// (Phase 3), so it is constructed before the auth mount.
 	consentService := legalsvc.NewConsentService(db)
 
+	// Durable device sessions (Auth Phase 5): refresh credentials are hashed in
+	// auth_device_sessions with rotation lineage, idle/absolute expiry, and
+	// reuse-triggered family revocation. Absolute cap tracks REFRESH_TOKEN_TTL.
+	sessionStore := auth.NewSessionStore(db, auth.SessionStoreConfig{
+		IdleTTL:     cfg.Auth.SessionIdleTTL,
+		AbsoluteTTL: cfg.Auth.RefreshTokenTTL,
+	})
+
 	// Mount module routers
-	r.Mount("/", authhttp.NewRouterWithOnboarding(
+	r.Mount("/", authhttp.NewRouterWithSessions(
 		db, authService, logger, otpSender, redisCache.RawClient(), otpCfg,
 		authapp.NewActivationService(db).WithTx(authapp.NewPostgresTxBeginner(
 			func(ctx context.Context) (authapp.RawTx, error) { return db.Begin(ctx) },
 		)),
 		consentService,
+		sessionStore,
+		cfg.Auth.SessionIdleTTL,
 	))
 
 	// Legal/consent module (Phase B/B2: admin-gated document management)

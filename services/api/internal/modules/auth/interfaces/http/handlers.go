@@ -35,13 +35,20 @@ type AuthHandler struct {
 	activation     *authapp.ActivationService
 	consentService *legalsvc.ConsentService
 	sessions       *auth.SessionStore
+	sessionIdleTTL time.Duration
 }
 
 // WithSessions equips the handler with the durable device-session store
 // (Phase 5). A nil store disables session persistence and the /auth/sessions
 // endpoints answer 503, matching the WithOTP/WithOnboarding chaining style.
-func (h *AuthHandler) WithSessions(s *auth.SessionStore) *AuthHandler {
+// idleTTL is the policy window reported by the session-listing endpoint; a
+// non-positive value falls back to the store default mirror (30 days).
+func (h *AuthHandler) WithSessions(s *auth.SessionStore, idleTTL time.Duration) *AuthHandler {
 	h.sessions = s
+	if idleTTL <= 0 {
+		idleTTL = 30 * 24 * time.Hour
+	}
+	h.sessionIdleTTL = idleTTL
 	return h
 }
 
@@ -258,6 +265,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "TOKEN_GENERATION_FAILED", "failed to generate tokens")
 		return
 	}
+
+	// Phase 5: persist the durable device-session row for the issued refresh
+	// credential (best-effort, mirrors the Login/OTP issuance paths).
+	h.recordIssuedSession(ctx, userID, tokenPair.RefreshToken, r)
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
