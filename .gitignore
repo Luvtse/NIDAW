@@ -1,9 +1,9 @@
-.dart_tool/
-build/
 .flutter-plugins
 .flutter-plugins-dependencies
-android/local.properties
-**/GeneratedPluginRegistrant.java
-ios/Runner/GeneratedPluginRegistrant.h
-ios/Runner/GeneratedPluginRegistrant.m
-pubspec.lock
+.packages
+.pub-cache/
+.pub/
+build/
+*.dart_tool/
+apps/consumer_app/ios/Flutter/Generated.xcconfig
+apps/consumer_app/ios/Flutter/flutter_export_environment.sh

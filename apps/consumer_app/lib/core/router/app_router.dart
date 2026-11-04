@@ -42,11 +42,10 @@ import '../../features/nidus/data/repositories/ride_repository.dart'
     show Ride, RideRepository;
 import '../../features/nidus/presentation/pages/chat_page.dart';
 import '../../features/nidus/presentation/pages/receipt_detail_page.dart';
+
 import '../../l10n/l10n.dart';
-import '../config/feature_flag_service.dart';
 import '../flags/ar_navigation_gate.dart';
 import '../startup/app_startup_coordinator.dart' show hasStartupCoordinator;
-import '../constants/app_constants.dart';
 
 /// Phase 6 (nav consistency): the AR gate + per-install rollout id now live
 /// in core/flags/ar_navigation_gate.dart as the single source of truth,
