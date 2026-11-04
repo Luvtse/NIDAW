@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -91,14 +92,15 @@ type AuthResponse struct {
 
 // UserResponse contains user information
 type UserResponse struct {
-	ID              uuid.UUID `json:"id"`
-	Email           string    `json:"email"`
-	FullName        string    `json:"full_name"`
-	Phone           string    `json:"phone"`
-	Role            string    `json:"role"`
-	EmailVerified   bool      `json:"email_verified"`
-	ProfileImageURL *string   `json:"profile_image_url,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID                 uuid.UUID `json:"id"`
+	Email              string    `json:"email"`
+	FullName           string    `json:"full_name"`
+	Phone              string    `json:"phone"`
+	Role               string    `json:"role"`
+	EmailVerified      bool      `json:"email_verified"`
+	ProfileImageURL    *string   `json:"profile_image_url,omitempty"`
+	OnboardingComplete bool      `json:"onboarding_complete"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // ============================================================================
@@ -160,13 +162,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		ExpiresIn:    tokenPair.ExpiresIn,
 		TokenType:    tokenPair.TokenType,
 		User: UserResponse{
-			ID:            userID,
-			Email:         email,
-			FullName:      fullName,
-			Phone:         phone,
-			Role:          role,
-			EmailVerified: emailVerified,
-			CreatedAt:     time.Now(),
+			ID:                 userID,
+			Email:              email,
+			FullName:           fullName,
+			Phone:              phone,
+			Role:               role,
+			EmailVerified:      emailVerified,
+			OnboardingComplete: h.userOnboardingComplete(ctx, userID),
+			CreatedAt:          time.Now(),
 		},
 	})
 }
@@ -472,6 +475,18 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 			"message": message,
 		},
 	})
+}
+
+// userOnboardingComplete reads the durable activation flag for a user; any
+// lookup failure yields false so clients fall back to the authoritative
+// GET /api/v1/auth/onboarding-status instead of skipping consent.
+func (h *AuthHandler) userOnboardingComplete(ctx context.Context, userID uuid.UUID) bool {
+	var done bool
+	err := h.db.QueryRow(ctx, `SELECT onboarding_complete FROM users WHERE id = $1`, userID).Scan(&done)
+	if err != nil {
+		return false
+	}
+	return done
 }
 
 func isDuplicateKeyError(err error) bool {
