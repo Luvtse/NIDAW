@@ -208,11 +208,12 @@ func (s *SessionStore) ListActive(ctx context.Context, userID uuid.UUID, current
 	}
 	rows, err := s.db.Query(ctx, `
 		SELECT id, family_id, COALESCE(device_name, ''), COALESCE(platform, ''),
-		       created_at, last_used_at, expires_at
+		       created_at, last_used_at, expires_at,
+		       (refresh_token_hash = $2) AS is_current
 		FROM auth_device_sessions
 		WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
 		ORDER BY created_at DESC`,
-		userID)
+		userID, currentHash)
 	if err != nil {
 		return nil, err
 	}
@@ -222,10 +223,9 @@ func (s *SessionStore) ListActive(ctx context.Context, userID uuid.UUID, current
 	for rows.Next() {
 		var d DeviceSession
 		if err := rows.Scan(&d.ID, &d.FamilyID, &d.DeviceName, &d.Platform,
-			&d.CreatedAt, &d.LastUsedAt, &d.ExpiresAt); err != nil {
+			&d.CreatedAt, &d.LastUsedAt, &d.ExpiresAt, &d.Current); err != nil {
 			return nil, err
 		}
-		d.Current = currentHash != "" && d.matches(currentHash)
 		out = append(out, d)
 	}
 	return out, rows.Err()
@@ -238,7 +238,7 @@ func (s *SessionStore) RevokeAllForUser(ctx context.Context, userID uuid.UUID, r
 	}
 	tag, err := s.db.Exec(ctx, `
 		UPDATE auth_device_sessions
-		SET revoked_at = now(), revoke_reason = $3
+		SET revoked_at = now(), revoke_reason = $2
 		WHERE user_id = $1 AND revoked_at IS NULL`,
 		userID, reason)
 	if err != nil {

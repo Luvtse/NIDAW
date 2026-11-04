@@ -76,7 +76,7 @@ func newRouter(
 	// Initialize handler
 	handler := NewAuthHandler(db, authService, logger).WithOTP(
 		authapp.NewOTPService(rdb, otpSender, otpCfg), rdb, otpCfg,
-	).WithOnboarding(activation, consent)
+	).WithOnboarding(activation, consent).WithSessions(sessions, sessionIdleTTL)
 
 	// ========================================================================
 	// PUBLIC ROUTES (no auth required)
