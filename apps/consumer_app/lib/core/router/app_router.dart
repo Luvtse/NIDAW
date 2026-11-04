@@ -35,6 +35,8 @@ import '../../features/vorax/presentation/pages/order_history_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/profile/presentation/pages/consent_management_page.dart';
+import '../../features/security/domain/services/biometric_security_service.dart';
+import '../../features/security/presentation/pages/biometric_unlock_page.dart';
 import '../../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../../features/wallet/presentation/pages/wallet_page.dart';
 import '../../features/nidus/presentation/pages/ar_navigation_page.dart';
@@ -83,6 +85,7 @@ class RouteNames {
   static const String profile = 'profile';
   static const String settings = 'settings';
   static const String consentManagement = 'consentManagement';
+  static const String biometricUnlock = 'biometricUnlock';
   static const String legalDocument = 'legalDocument';
   static const String wallet = 'wallet';
   static const String notificationInbox = 'notificationInbox';
@@ -125,6 +128,26 @@ class AppRouter {
   // GLOBAL REDIRECT (Auth Guard)
   // ============================================================================
 
+  /// Path segment of the local biometric unlock screen (see _buildRoutes).
+  static const String _biometricUnlockPathSegment = 'security/biometric-unlock';
+
+  bool _biometricGatePending() {
+    try {
+      final service = getIt<BiometricSecurityService>();
+      if (!service.isEnabled()) return false;
+      final accountId = _authBloc.currentUser?.id;
+      if (accountId == null) return false;
+      final box = Hive.box('settings');
+      final capabilityOk = box.get('biometric_capability_ok') == true;
+      if (!capabilityOk) return false;
+      return box.get(BiometricSecurityService.settingsBoxKey)?['owner_id'] ==
+          accountId;
+    } catch (_) {
+      // Never brick navigation on a local-security read error.
+      return false;
+    }
+  }
+
   String? _globalRedirect(BuildContext context, GoRouterState state) {
     final authState = _authBloc.state;
     final isAuthenticated = authState is AuthAuthenticated;
@@ -134,6 +157,30 @@ class AppRouter {
     final isAuthRoute = state.matchedLocation == '/login' ||
                        state.matchedLocation == '/register' ||
                        state.matchedLocation == '/splash';
+
+    // Phase 6 (native biometric security): when the rider enabled the local
+    // biometric gate on this device and a persisted session exists, cold
+    // starts land on the unlock screen instead of hydrating straight into
+    // the app. This is a LOCAL application gate only — tokens stay untouched
+    // and every backend operation still requires server-side authorization.
+    // Fail-open by construction: an unreadable preference or a device that
+    // lost its enrollment simply resumes the normal flow rather than
+    // locking anyone out of their own account.
+    if (isAuthenticated &&
+        state.matchedLocation != '/${_biometricUnlockPathSegment}') {
+      try {
+        final service = getIt<BiometricSecurityService>();
+        final accountId = _authBloc.currentUser?.id;
+        if (service.isEnabled() &&
+            accountId != null &&
+            await service.isGateActive() &&
+            await service.ownedBy(accountId)) {
+          return '/${_biometricUnlockPathSegment}';
+        }
+      } catch (_) {
+        // Never brick navigation on a local-security read error.
+      }
+    }
 
     // Public routes that don't require auth
     final publicRoutes = ['/login', '/register', '/splash', '/legal/'];
