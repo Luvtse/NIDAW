@@ -48,6 +48,49 @@ class LogoutRequested extends AuthEvent {
   const LogoutRequested();
 }
 
+/// Phone+OTP sign-in for an existing driver: verify a code sent with
+/// operation=login and open the session.
+class OtpLoginRequested extends AuthEvent {
+  final String phone;
+  final String code;
+
+  const OtpLoginRequested({required this.phone, required this.code});
+
+  @override
+  List<Object?> get props => [phone, code];
+}
+
+/// The phone+OTP session was already opened by the OTP controller (tokens
+/// persisted); adopt its result into the global auth state without a second
+/// server verify — the code is single-use and would be rejected.
+class OtpLoginCompleted extends AuthEvent {
+  final Driver driver;
+
+  const OtpLoginCompleted(this.driver);
+
+  @override
+  List<Object?> get props => [driver];
+}
+
+/// Complete phone-first driver registration: spend the
+/// otp/verify(register) ticket on register-phone (profile fields optional).
+class PhoneRegistrationRequested extends AuthEvent {
+  final String verificationTicket;
+  final String? fullName;
+  final String? email;
+  final String? password;
+
+  const PhoneRegistrationRequested({
+    required this.verificationTicket,
+    this.fullName,
+    this.email,
+    this.password,
+  });
+
+  @override
+  List<Object?> get props => [verificationTicket, fullName, email, password];
+}
+
 // States
 abstract class AuthState extends Equatable {
   const AuthState();
@@ -111,6 +154,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<LogoutRequested>(_onLogoutRequested);
+    on<OtpLoginRequested>(_onOtpLoginRequested);
+    on<OtpLoginCompleted>(_onOtpLoginCompleted);
+    on<PhoneRegistrationRequested>(_onPhoneRegistrationRequested);
   }
 
     /// Phase 5 (§4.3): every successful authentication notifies the startup
@@ -193,6 +239,88 @@ Future<void> _onCheckAuthStatus(
 
       await _webSocketClient.connect();
       _notifyStartupAuthenticated();
+      emit(AuthAuthenticated(
+        driver: driver,
+        onboardingComplete: false,
+      ));
+    } catch (e) {
+      emit(AuthError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onOtpLoginRequested(
+    OtpLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    try {
+      final result = await _authRepository.verifyOtp(
+        phone: event.phone,
+        code: event.code,
+        operation: 'login',
+      );
+
+      if (result.isFailure) {
+        emit(AuthError(message: result.error ?? 'Verification failed'));
+        return;
+      }
+
+      // Server returned a registration ticket instead of a session: the
+      // number is not registered yet. The UI must route to account creation.
+      if (result.driver == null) {
+        emit(const AuthError(
+          message:
+              'This phone is not registered yet. Create an account first.',
+        ));
+        return;
+      }
+
+      final driver = result.driver!;
+      await _webSocketClient.connect();
+      _notifyStartupAuthenticated();
+
+      emit(AuthAuthenticated(
+        driver: driver,
+        onboardingComplete: driver.isVerified,
+      ));
+    } catch (e) {
+      emit(AuthError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onOtpLoginCompleted(
+    OtpLoginCompleted event,
+    Emitter<AuthState> emit,
+  ) async {
+    final driver = event.driver;
+    await _webSocketClient.connect();
+    _notifyStartupAuthenticated();
+
+    emit(AuthAuthenticated(
+      driver: driver,
+      onboardingComplete: driver.isVerified,
+    ));
+  }
+
+  Future<void> _onPhoneRegistrationRequested(
+    PhoneRegistrationRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    try {
+      final driver = await _authRepository.registerPhone(
+        verificationTicket: event.verificationTicket,
+        fullName: event.fullName,
+        email: event.email,
+        password: event.password,
+      );
+
+      await _webSocketClient.connect();
+      _notifyStartupAuthenticated();
+      // New drivers land on the professional-onboarding screen: OTP proves
+      // phone possession only — it never grants approval.
       emit(AuthAuthenticated(
         driver: driver,
         onboardingComplete: false,
