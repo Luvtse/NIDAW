@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 
 import '../di/injection.dart' show getIt;
+import 'package:hive/hive.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -131,24 +132,7 @@ class AppRouter {
   /// Path segment of the local biometric unlock screen (see _buildRoutes).
   static const String _biometricUnlockPathSegment = 'security/biometric-unlock';
 
-  bool _biometricGatePending() {
-    try {
-      final service = getIt<BiometricSecurityService>();
-      if (!service.isEnabled()) return false;
-      final accountId = _authBloc.currentUser?.id;
-      if (accountId == null) return false;
-      final box = Hive.box('settings');
-      final capabilityOk = box.get('biometric_capability_ok') == true;
-      if (!capabilityOk) return false;
-      return box.get(BiometricSecurityService.settingsBoxKey)?['owner_id'] ==
-          accountId;
-    } catch (_) {
-      // Never brick navigation on a local-security read error.
-      return false;
-    }
-  }
-
-  String? _globalRedirect(BuildContext context, GoRouterState state) {
+  Future<String?> _globalRedirect(BuildContext context, GoRouterState state) async {
     final authState = _authBloc.state;
     final isAuthenticated = authState is AuthAuthenticated;
     final isOnboardingComplete = authState is AuthAuthenticated && 
@@ -167,7 +151,7 @@ class AppRouter {
     // lost its enrollment simply resumes the normal flow rather than
     // locking anyone out of their own account.
     if (isAuthenticated &&
-        state.matchedLocation != '/${_biometricUnlockPathSegment}') {
+        state.matchedLocation != '/$_biometricUnlockPathSegment') {
       try {
         final service = getIt<BiometricSecurityService>();
         final accountId = _authBloc.currentUser?.id;
@@ -175,7 +159,7 @@ class AppRouter {
             accountId != null &&
             await service.isGateActive() &&
             await service.ownedBy(accountId)) {
-          return '/${_biometricUnlockPathSegment}';
+          return '/$_biometricUnlockPathSegment';
         }
       } catch (_) {
         // Never brick navigation on a local-security read error.
@@ -256,6 +240,19 @@ class AppRouter {
             documentTitle: _getDocumentTitle(docType),
           );
         },
+      ),
+
+      // ====================================================================
+      // SECURITY (Phase 6 — local biometric gate)
+      // Full-screen route (outside the shell): shown at cold start when the
+      // rider enabled biometric unlock on this device. Unlocking only gates
+      // entry to the already-restored local session; server authorization is
+      // unchanged and still flows exclusively through session tokens.
+      // ====================================================================
+      GoRoute(
+        path: '/$_biometricUnlockPathSegment',
+        name: RouteNames.biometricUnlock,
+        builder: (context, state) => const BiometricUnlockPage(),
       ),
 
       // ====================================================================
